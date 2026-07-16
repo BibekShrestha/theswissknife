@@ -576,11 +576,28 @@ select:focus {
   background: color-mix(in srgb, var(--err) 14%, transparent);
 }
 
+/* Width comes solely from the inline flexBasis — no grow, or the two
+   growing panes would split leftover space and the divider would move
+   at half the pointer speed. */
+.input-pane {
+  flex: 0 0 auto;
+}
+
 .divider {
   width: 7px;
   cursor: col-resize;
   flex: 0 0 auto;
   position: relative;
+  touch-action: none;
+}
+
+body.dragging {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.dragging .divider::after {
+  background: var(--accent);
 }
 
 .divider::after {
@@ -738,8 +755,9 @@ select:focus {
     gap: 8px;
   }
 
-  .pane {
-    flex-basis: auto !important;
+  .pane,
+  .input-pane {
+    flex: 1 1 auto !important;
     min-height: 220px;
   }
 

@@ -152,11 +152,15 @@ export default function App() {
     const main = mainRef.current
     if (!main) return
     const rect = main.getBoundingClientRect()
+    const half = (e.currentTarget as HTMLElement).offsetWidth / 2
+    document.body.classList.add('dragging')
     const move = (ev: PointerEvent) => {
-      const pct = ((ev.clientX - rect.left) / rect.width) * 100
+      // position the divider's center under the cursor
+      const pct = ((ev.clientX - rect.left - half) / rect.width) * 100
       setSplitPct(Math.min(78, Math.max(22, pct)))
     }
     const up = () => {
+      document.body.classList.remove('dragging')
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
@@ -249,7 +253,7 @@ export default function App() {
       <OptionsPanel options={options} onChange={setOptions} />
 
       <main className="panes" ref={mainRef}>
-        <section className="pane" style={{ flexBasis: `${splitPct}%` }}>
+        <section className="pane input-pane" style={{ flexBasis: `${splitPct}%` }}>
           <div className="pane-head">
             <span className="pane-title">
               {inputLabel}
