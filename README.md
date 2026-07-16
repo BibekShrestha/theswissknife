@@ -1,5 +1,7 @@
 # jq playground
 
+**Live: <https://bibekshrestha.github.io/jq-playground/>**
+
 A web frontend for [jq](https://jqlang.org) with full feature support — the **real jq 1.8.2
 binary compiled to WebAssembly** runs entirely in your browser. No backend, no data leaves
 your machine.
