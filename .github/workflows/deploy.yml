@@ -24,6 +24,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test
       - run: npm run build
         env:
           # Project sites live under /<repo>/; user/org sites (<user>.github.io) live at /.

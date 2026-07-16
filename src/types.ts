@@ -27,6 +27,7 @@ export interface JqOptions {
   asciiOutput: boolean // -a
   // behavior
   exitStatus: boolean // -e
+  timeoutSec: number // watchdog for runaway filters (not a jq flag)
   // arguments
   namedArgs: NamedArg[]
   positionalArgs: PositionalArg[]
@@ -45,6 +46,7 @@ export const defaultOptions: JqOptions = {
   sortKeys: false,
   asciiOutput: false,
   exitStatus: false,
+  timeoutSec: 15,
   namedArgs: [],
   positionalArgs: [],
   extraFlags: '',

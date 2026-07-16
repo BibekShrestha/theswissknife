@@ -11,6 +11,14 @@ export interface Invocation {
 // query and /dev/stdin after the flags, and --args would swallow both.
 const POS_VAR = '__jqplay_positional'
 
+// A single argv token of ~1 MB crashes the wasm jq (emscripten stack limit,
+// verified empirically: 1000 KB works, 1024 KB aborts). Stay well clear.
+const MAX_ARG_BYTES = 512 * 1024
+
+const byteLength = (s: string) => new TextEncoder().encode(s).length
+
+const kb = (n: number) => `${Math.round(n / 1024)} KB`
+
 /** Shell-like tokenizer for the free-form extra flags field. */
 export function tokenizeFlags(line: string): string[] | { error: string } {
   const out: string[] = []
@@ -78,6 +86,17 @@ function coreFlags(o: JqOptions): string[] {
 
 /** Build the (query, flags) pair actually sent to the wasm jq. */
 export function buildInvocation(filter: string, o: JqOptions): Invocation {
+  for (const a of o.namedArgs) {
+    const name = a.name.trim()
+    if (name && byteLength(a.value) > MAX_ARG_BYTES) {
+      return {
+        query: filter,
+        flags: [],
+        error: `$${name} is ${kb(byteLength(a.value))} — variable values over ${kb(MAX_ARG_BYTES)} crash the WebAssembly jq. Put large data in the input pane instead.`,
+      }
+    }
+  }
+
   const flags = coreFlags(o)
   let query = filter
 
@@ -94,7 +113,15 @@ export function buildInvocation(filter: string, o: JqOptions): Invocation {
         values.push(p.value)
       }
     }
-    flags.push('--argjson', POS_VAR, JSON.stringify(values))
+    const blob = JSON.stringify(values)
+    if (byteLength(blob) > MAX_ARG_BYTES) {
+      return {
+        query,
+        flags,
+        error: `Positional arguments total ${kb(byteLength(blob))} — over ${kb(MAX_ARG_BYTES)} they crash the WebAssembly jq. Put large data in the input pane instead.`,
+      }
+    }
+    flags.push('--argjson', POS_VAR, blob)
     // Rebind $ARGS so $ARGS.positional behaves exactly like --args would.
     // Kept on one line so the user's filter line numbers are preserved.
     query = `($ARGS | .positional = $${POS_VAR} | .named |= del(.${POS_VAR})) as $ARGS | (${filter}\n)`
@@ -102,6 +129,15 @@ export function buildInvocation(filter: string, o: JqOptions): Invocation {
 
   const extra = tokenizeFlags(o.extraFlags)
   if ('error' in extra) return { query, flags, error: extra.error }
+  for (const tok of extra) {
+    if (byteLength(tok) > MAX_ARG_BYTES) {
+      return {
+        query,
+        flags,
+        error: `An extra-flags token is ${kb(byteLength(tok))} — over ${kb(MAX_ARG_BYTES)} it crashes the WebAssembly jq. Put large data in the input pane instead.`,
+      }
+    }
+  }
   flags.push(...extra)
 
   return { query, flags }

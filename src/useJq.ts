@@ -7,13 +7,11 @@ export interface RunPayload {
   flags: string[]
 }
 
-const TIMEOUT_MS = 15_000
-
 /**
  * Manages the jq worker: serial execution, latest-wins queueing, and a
  * hard kill (terminate + respawn) for runaway filters.
  */
-export function useJq(onResult: (r: RunResult) => void) {
+export function useJq(onResult: (r: RunResult) => void, timeoutSec = 15) {
   const [ready, setReady] = useState(false)
   const [version, setVersion] = useState<string | null>(null)
   const [fatal, setFatal] = useState<string | null>(null)
@@ -26,6 +24,8 @@ export function useJq(onResult: (r: RunResult) => void) {
   const timerRef = useRef<number | undefined>(undefined)
   const onResultRef = useRef(onResult)
   onResultRef.current = onResult
+  const timeoutRef = useRef(timeoutSec)
+  timeoutRef.current = timeoutSec
 
   const pump = useCallback(() => {
     const q = queuedRef.current
@@ -44,7 +44,7 @@ export function useJq(onResult: (r: RunResult) => void) {
     const id = ++idRef.current
     w.postMessage({ type: 'run', id, ...p })
     clearTimeout(timerRef.current)
-    timerRef.current = window.setTimeout(() => kill('timeout'), TIMEOUT_MS)
+    timerRef.current = window.setTimeout(() => kill('timeout'), timeoutRef.current * 1000)
   }
 
   const spawn = useCallback(() => {
@@ -81,10 +81,10 @@ export function useJq(onResult: (r: RunResult) => void) {
       stdout: '',
       stderr:
         reason === 'timeout'
-          ? `jq did not finish within ${TIMEOUT_MS / 1000}s and was terminated (infinite loop?)`
+          ? `jq did not finish within ${timeoutRef.current}s and was terminated (infinite loop?). The timeout is adjustable under More options.`
           : 'Run stopped.',
       exitCode: -1,
-      ms: reason === 'timeout' ? TIMEOUT_MS : 0,
+      ms: reason === 'timeout' ? timeoutRef.current * 1000 : 0,
       killed: reason,
     })
     spawn()

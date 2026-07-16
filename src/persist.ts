@@ -10,8 +10,7 @@ export interface AppState {
 
 const STORAGE_KEY = 'jqplay.state.v1'
 
-function b64urlEncode(s: string): string {
-  const bytes = new TextEncoder().encode(s)
+function b64urlFromBytes(bytes: Uint8Array): string {
   let bin = ''
   const CHUNK = 0x8000
   for (let i = 0; i < bytes.length; i += CHUNK) {
@@ -20,15 +19,25 @@ function b64urlEncode(s: string): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function b64urlDecode(s: string): string {
+function bytesFromB64url(s: string): Uint8Array {
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/')
   const bin = atob(b64)
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return new TextDecoder().decode(bytes)
+  return bytes
 }
 
-function normalize(raw: Partial<AppState> | null | undefined): AppState | null {
+async function gzip(text: string): Promise<Uint8Array> {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))
+  return new Uint8Array(await new Response(stream).arrayBuffer())
+}
+
+async function gunzip(bytes: Uint8Array): Promise<string> {
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'))
+  return new Response(stream).text()
+}
+
+export function normalize(raw: Partial<AppState> | null | undefined): AppState | null {
   if (!raw || typeof raw.filter !== 'string' || typeof raw.input !== 'string') return null
   return {
     filter: raw.filter,
@@ -38,23 +47,30 @@ function normalize(raw: Partial<AppState> | null | undefined): AppState | null {
   }
 }
 
-export function encodeShareUrl(state: AppState): string {
-  const payload = b64urlEncode(JSON.stringify(state))
-  return `${location.origin}${location.pathname}#s=${payload}`
+/** Gzipped base64url payload for a share link (the part after `#z=`). */
+export async function encodeSharePayload(state: AppState): Promise<string> {
+  return b64urlFromBytes(await gzip(JSON.stringify(state)))
+}
+
+/** Decode a share fragment: `#z=` (gzipped, current) or `#s=` (legacy plain). */
+export async function decodeShareHash(hash: string): Promise<AppState | null> {
+  try {
+    const z = hash.match(/^#z=(.+)$/)
+    if (z) return normalize(JSON.parse(await gunzip(bytesFromB64url(z[1]))))
+    const s = hash.match(/^#s=(.+)$/)
+    if (s) return normalize(JSON.parse(new TextDecoder().decode(bytesFromB64url(s[1]))))
+  } catch {
+    // malformed/corrupt fragment
+  }
+  return null
+}
+
+export async function encodeShareUrl(state: AppState): Promise<string> {
+  return `${location.origin}${location.pathname}#z=${await encodeSharePayload(state)}`
 }
 
 export function loadInitialState(): AppState {
-  // 1. shared link
-  const m = location.hash.match(/^#s=(.+)$/)
-  if (m) {
-    try {
-      const st = normalize(JSON.parse(b64urlDecode(m[1])))
-      if (st) return st
-    } catch {
-      // fall through
-    }
-  }
-  // 2. previous session
+  // previous session (share links are decoded async in App)
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
@@ -64,7 +80,6 @@ export function loadInitialState(): AppState {
   } catch {
     // fall through
   }
-  // 3. default example
   return {
     filter: DEFAULT_EXAMPLE.filter,
     input: DEFAULT_EXAMPLE.input,

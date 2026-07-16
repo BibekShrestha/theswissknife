@@ -35,11 +35,19 @@ self.onmessage = async (e: MessageEvent) => {
         ms: performance.now() - t0,
       })
     } catch (err) {
+      // A crashed instance is permanently broken (every later run throws
+      // "memory access out of bounds") — drop it so the next run reloads
+      // the wasm from HTTP cache.
+      jqPromise = null
+      const raw = err instanceof Error ? err.message : String(err)
+      const memoryCrash = /memory access|aborted|unreachable|stack overflow/i.test(raw)
       post({
         type: 'result',
         id: msg.id,
         stdout: '',
-        stderr: err instanceof Error ? err.message : String(err),
+        stderr: memoryCrash
+          ? `The jq engine crashed (${raw}) and was reloaded. This can happen when a single argument nears 1 MB — put large data in the input pane instead.`
+          : raw,
         exitCode: -1,
         ms: 0,
       })

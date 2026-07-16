@@ -555,6 +555,22 @@ select:focus {
   padding: 8px 2px;
 }
 
+.stale-banner {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border: 1px dashed var(--warn);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  white-space: normal;
+}
+
+.stdout.stale {
+  opacity: 0.55;
+}
+
 .exit-chip {
   border-radius: 999px;
   padding: 1px 8px;

@@ -4,7 +4,7 @@ import { CheatsheetDrawer } from './components/CheatsheetDrawer'
 import { examples } from './examples'
 import { buildCliCommand, buildInvocation } from './flags'
 import { highlightJson } from './highlight'
-import { encodeShareUrl, loadInitialState, saveState } from './persist'
+import { decodeShareHash, encodeShareUrl, loadInitialState, saveState } from './persist'
 import { defaultOptions, type JqOptions, type RunResult } from './types'
 import { useJq } from './useJq'
 
@@ -16,12 +16,19 @@ function exitLabel(code: number): { text: string; cls: string } {
   return { text: code < 0 ? 'killed' : `exit ${code}`, cls: 'err' }
 }
 
+// Exit 0 is success; 1 and 4 are -e's semantic codes (null/false or no
+// output) — the run itself evaluated fine, so its output is current.
+const isSuccess = (r: RunResult) => r.exitCode === 0 || r.exitCode === 1 || r.exitCode === 4
+
 export default function App() {
   const [filter, setFilter] = useState(initial.filter)
   const [input, setInput] = useState(initial.input)
   const [options, setOptions] = useState<JqOptions>(initial.options)
   const [autoRun, setAutoRun] = useState(initial.autoRun)
-  const [result, setResult] = useState<RunResult | null>(null)
+  // `current` is the latest run (may be a failure); `lastGood` is the most
+  // recent successful run, preserved so mid-edit errors don't eat the output.
+  const [current, setCurrent] = useState<RunResult | null>(null)
+  const [lastGood, setLastGood] = useState<RunResult | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [splitPct, setSplitPct] = useState(46)
@@ -36,12 +43,30 @@ export default function App() {
   const fileRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<number | undefined>(undefined)
 
-  const jq = useJq(setResult)
+  const handleResult = useCallback((r: RunResult) => {
+    setCurrent(r)
+    if (isSuccess(r)) setLastGood(r)
+  }, [])
+
+  const jq = useJq(handleResult, options.timeoutSec)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('jqplay.theme', theme)
   }, [theme])
+
+  // shared link (#z= gzipped, #s= legacy) — decoded async, wins over storage
+  useEffect(() => {
+    const hash = location.hash
+    if (!hash) return
+    void decodeShareHash(hash).then((st) => {
+      if (!st) return
+      setFilter(st.filter)
+      setInput(st.input)
+      setOptions(st.options)
+      setAutoRun(st.autoRun)
+    })
+  }, [])
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
@@ -53,11 +78,11 @@ export default function App() {
   const execute = useCallback(() => {
     const inv = buildInvocation(filter, options)
     if (inv.error) {
-      setResult({ stdout: '', stderr: inv.error, exitCode: -2, ms: 0 })
+      handleResult({ stdout: '', stderr: inv.error, exitCode: -2, ms: 0 })
       return
     }
     jq.run({ input, query: inv.query, flags: inv.flags })
-  }, [filter, input, options, jq.run]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filter, input, options, handleResult, jq.run]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!autoRun) return
@@ -95,8 +120,8 @@ export default function App() {
     [showToast],
   )
 
-  const share = useCallback(() => {
-    const url = encodeShareUrl({ filter, input, options, autoRun })
+  const share = useCallback(async () => {
+    const url = await encodeShareUrl({ filter, input, options, autoRun })
     if (url.length > 30_000) {
       showToast('State too large to share via URL — trim the input')
       return
@@ -170,14 +195,20 @@ export default function App() {
 
   // ---- derived -----------------------------------------------------------
   const inputBytes = useMemo(() => new TextEncoder().encode(input).length, [input])
-  const outputNodes = useMemo(() => {
-    if (!result?.stdout) return null
-    const text = result.stdout.replace(/\0/g, '␀')
-    return options.outputMode === 'json' ? highlightJson(text) : text
-  }, [result?.stdout, options.outputMode])
 
-  const compileError = result != null && result.exitCode === 3
-  const exit = result ? exitLabel(result.exitCode) : null
+  // What the output pane shows: the current run if it succeeded, else the
+  // preserved last successful output (marked stale) with the error alongside.
+  const display = current && isSuccess(current) ? current : lastGood
+  const isStale = current != null && !isSuccess(current) && lastGood != null
+
+  const outputNodes = useMemo(() => {
+    if (!display?.stdout) return null
+    const text = display.stdout.replace(/\0/g, '␀')
+    return options.outputMode === 'json' ? highlightJson(text) : text
+  }, [display?.stdout, options.outputMode])
+
+  const compileError = current != null && current.exitCode === 3
+  const exit = current ? exitLabel(current.exitCode) : null
   const inputLabel = options.rawInput ? 'Input · raw text (-R)' : 'Input · JSON'
 
   return (
@@ -297,21 +328,22 @@ export default function App() {
         <section className="pane">
           <div className="pane-head">
             <span className="pane-title">Output</span>
-            {result && (
+            {current && (
               <span className="pane-meta">
                 <span className={`exit-chip ${exit!.cls}`}>{exit!.text}</span>
-                {result.ms > 0 && <span>{result.ms < 1 ? '<1' : Math.round(result.ms)} ms</span>}
-                <span>{result.stdout.length.toLocaleString()} B</span>
+                {isStale && <span className="exit-chip warn">stale</span>}
+                {current.ms > 0 && <span>{current.ms < 1 ? '<1' : Math.round(current.ms)} ms</span>}
+                <span>{(display?.stdout.length ?? 0).toLocaleString()} B</span>
               </span>
             )}
             <div className="pane-actions">
-              <button onClick={() => void copy(result?.stdout ?? '', 'Output')} disabled={!result?.stdout}>
+              <button onClick={() => void copy(display?.stdout ?? '', 'Output')} disabled={!display?.stdout}>
                 Copy
               </button>
               <button
-                disabled={!result?.stdout}
+                disabled={!display?.stdout}
                 onClick={() => {
-                  const blob = new Blob([result?.stdout ?? ''], { type: 'application/json' })
+                  const blob = new Blob([display?.stdout ?? ''], { type: 'application/json' })
                   const a = document.createElement('a')
                   a.href = URL.createObjectURL(blob)
                   a.download = 'output.json'
@@ -327,15 +359,22 @@ export default function App() {
           <div className="io-area output" tabIndex={0}>
             {jq.fatal ? (
               <div className="stderr-block">Failed to load jq wasm: {jq.fatal}</div>
-            ) : !jq.ready && !result ? (
+            ) : !jq.ready && !current ? (
               <div className="empty-note">loading jq…</div>
             ) : (
               <>
-                {result?.stderr && <div className={`stderr-block${result.exitCode !== 0 ? ' err' : ''}`}>{result.stderr}</div>}
-                {result?.stdout ? (
-                  <pre className="stdout">{outputNodes}</pre>
+                {current?.stderr && (
+                  <div className={`stderr-block${current.exitCode !== 0 ? ' err' : ''}`}>{current.stderr}</div>
+                )}
+                {isStale && (
+                  <div className="stale-banner">
+                    Showing the last successful output — the current filter didn't produce a result.
+                  </div>
+                )}
+                {display?.stdout ? (
+                  <pre className={`stdout${isStale ? ' stale' : ''}`}>{outputNodes}</pre>
                 ) : (
-                  result && !result.stderr && <div className="empty-note">— no output —</div>
+                  current && !current.stderr && <div className="empty-note">— no output —</div>
                 )}
               </>
             )}

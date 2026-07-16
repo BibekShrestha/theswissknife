@@ -50,7 +50,8 @@ export function OptionsPanel({ options, onChange }: Props) {
     options.stream ||
     options.asciiOutput ||
     options.exitStatus ||
-    options.indent !== 2
+    options.indent !== 2 ||
+    options.timeoutSec !== 15
 
   return (
     <div className="options">
@@ -104,6 +105,14 @@ export function OptionsPanel({ options, onChange }: Props) {
                 <option value="4">4 spaces</option>
                 <option value="8">8 spaces</option>
                 <option value="tab">tabs</option>
+              </select>
+            </label>
+            <label className="indent-select" title="Kill runs that exceed this time (protects against infinite loops)">
+              timeout
+              <select value={String(options.timeoutSec)} onChange={(e) => set('timeoutSec', Number(e.target.value))}>
+                <option value="5">5 s</option>
+                <option value="15">15 s</option>
+                <option value="60">60 s</option>
               </select>
             </label>
           </div>
