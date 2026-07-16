@@ -29,7 +29,7 @@ jobs:
         env:
           # Project sites live under /<repo>/; user/org sites (<user>.github.io) live at /.
           BASE_PATH: ${{ endsWith(github.event.repository.name, '.github.io') && '/' || format('/{0}/', github.event.repository.name) }}
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
