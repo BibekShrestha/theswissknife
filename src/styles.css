@@ -193,8 +193,104 @@ select:focus {
   min-height: 40px;
 }
 
-.filter-row.has-error .filter-input {
+.filter-row.has-error .filter-input,
+.filter-row.has-error .filter-editor .cm-editor {
   border-color: var(--err);
+}
+
+/* ---- CodeMirror filter editor ---- */
+.filter-editor {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-editor .cm-editor {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 40vh;
+  font-size: 14px;
+}
+
+.filter-editor .cm-editor.cm-focused {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.filter-editor .cm-scroller {
+  font-family: var(--font-mono);
+  line-height: 1.45;
+  overflow: auto;
+}
+
+.filter-editor .cm-content {
+  padding: 9px 0;
+  caret-color: var(--text);
+}
+
+.filter-editor .cm-line {
+  padding: 0 12px;
+}
+
+.filter-editor .cm-placeholder {
+  color: var(--muted);
+}
+
+.filter-editor .cm-cursor {
+  border-left-color: var(--text);
+}
+
+.filter-editor .cm-selectionBackground,
+.filter-editor .cm-editor.cm-focused .cm-selectionBackground {
+  background: var(--accent-dim);
+}
+
+.filter-editor .cm-matchingBracket {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  outline: none;
+}
+
+.cm-tooltip {
+  background: var(--panel-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  max-height: 260px;
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--chip-on-bg);
+  color: var(--text);
+}
+
+.cm-tooltip .cm-completionDetail {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 11px;
+}
+
+.cm-tooltip.cm-completionInfo {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--text);
+  padding: 8px 10px;
+  max-width: 320px;
+}
+
+.cm-completionIcon {
+  color: var(--muted);
+}
+
+.cm-lintRange-error {
+  text-decoration: underline wavy var(--err) 1px;
+  background: none;
 }
 
 .run-controls {

@@ -32,6 +32,11 @@ npm run preview  # serve the production build
   mid-edit), the last successful output stays visible, dimmed and marked *stale*, with the
   error shown persistently alongside.
 - Auto-run as you type (toggleable), ⌘⏎ / Ctrl+⏎ to run manually.
+- **Smart filter editor** (CodeMirror, lazy-loaded) — jq syntax highlighting, bracket
+  matching, and autocomplete: builtins pulled from the engine itself, `$variables` in
+  scope, `@formats`, cheatsheet snippets, and **field names mined from your actual
+  input** (`.repos[].` suggests the keys that exist there). Compile errors are
+  underlined at the exact spot jq reports.
 - Syntax-highlighted output, stderr panel, exit-code + timing badges.
 - 12 loadable examples and a click-to-insert jq reference drawer.
 - Share button — filter + input + options, gzip-compressed into the URL fragment.

@@ -19,6 +19,17 @@ const byteLength = (s: string) => new TextEncoder().encode(s).length
 
 const kb = (n: number) => `${Math.round(n / 1024)} KB`
 
+// Line-1 prefix used when positional args are emulated (see buildInvocation).
+const POS_PREFIX = `($ARGS | .positional = $${POS_VAR} | .named |= del(.${POS_VAR})) as $ARGS | (`
+
+/**
+ * How many characters the $ARGS wrapper shifts line-1 columns by in jq's
+ * compile errors. 0 when no wrapper is applied.
+ */
+export function wrapperColumnOffset(o: JqOptions): number {
+  return o.positionalArgs.length > 0 ? POS_PREFIX.length : 0
+}
+
 /** Shell-like tokenizer for the free-form extra flags field. */
 export function tokenizeFlags(line: string): string[] | { error: string } {
   const out: string[] = []
@@ -124,7 +135,7 @@ export function buildInvocation(filter: string, o: JqOptions): Invocation {
     flags.push('--argjson', POS_VAR, blob)
     // Rebind $ARGS so $ARGS.positional behaves exactly like --args would.
     // Kept on one line so the user's filter line numbers are preserved.
-    query = `($ARGS | .positional = $${POS_VAR} | .named |= del(.${POS_VAR})) as $ARGS | (${filter}\n)`
+    query = `${POS_PREFIX}${filter}\n)`
   }
 
   const extra = tokenizeFlags(o.extraFlags)

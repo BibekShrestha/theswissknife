@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OptionsPanel } from './components/OptionsPanel'
 import { CheatsheetDrawer } from './components/CheatsheetDrawer'
 import { examples } from './examples'
-import { buildCliCommand, buildInvocation } from './flags'
+import { buildCliCommand, buildInvocation, wrapperColumnOffset } from './flags'
+import type { ErrorPos, FilterEditorHandle } from './editor/FilterEditor'
+
+// Lazy chunk: CodeMirror (+ the jq tooling worker) stays out of the main
+// bundle; a plain textarea covers the instant before the chunk arrives.
+const FilterEditor = lazy(() => import('./editor/FilterEditor'))
+
+const FILTER_PLACEHOLDER = '. (jq filter — try .foo, map(select(…)), group_by(…))'
 import { highlightJson } from './highlight'
 import { decodeShareHash, encodeShareUrl, loadInitialState, saveState } from './persist'
 import { defaultOptions, type JqOptions, type RunResult } from './types'
@@ -39,6 +46,7 @@ export default function App() {
   })
 
   const filterRef = useRef<HTMLTextAreaElement>(null)
+  const editorRef = useRef<FilterEditorHandle>(null)
   const mainRef = useRef<HTMLElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -132,9 +140,14 @@ export default function App() {
 
   // ---- filter helpers ---------------------------------------------------
   const insertIntoFilter = useCallback((code: string) => {
+    if (editorRef.current) {
+      editorRef.current.insert(code)
+      return
+    }
+    // textarea fallback (editor chunk not loaded yet)
     const el = filterRef.current
     setFilter((prev) => {
-      if (!el) return code
+      if (!el) return prev + code
       const start = el.selectionStart ?? prev.length
       const end = el.selectionEnd ?? prev.length
       const next = prev.slice(0, start) + code + prev.slice(end)
@@ -211,6 +224,28 @@ export default function App() {
   const exit = current ? exitLabel(current.exitCode) : null
   const inputLabel = options.rawInput ? 'Input · raw text (-R)' : 'Input · JSON'
 
+  const errorPos = useMemo<ErrorPos | null>(() => {
+    if (!current || current.exitCode !== 3) return null
+    const m = /line (\d+), column (\d+)/.exec(current.stderr)
+    if (!m) return null
+    const line = Number(m[1])
+    // Errors on the $ARGS wrapper's synthetic trailing line would map to
+    // nothing in the user's filter — show them only in the error strip.
+    if (line > filter.split('\n').length) return null
+    const column = line === 1 ? Math.max(1, Number(m[2]) - wrapperColumnOffset(options)) : Number(m[2])
+    return { line, column }
+  }, [current, options, filter])
+
+  const indexInput = useMemo(
+    () => ({ input, rawInput: options.rawInput, slurp: options.slurp, nullInput: options.nullInput }),
+    [input, options.rawInput, options.slurp, options.nullInput],
+  )
+
+  const argNames = useMemo(
+    () => options.namedArgs.map((a) => a.name.trim()).filter(Boolean),
+    [options.namedArgs],
+  )
+
   return (
     <div className="app">
       <header className="topbar">
@@ -255,15 +290,29 @@ export default function App() {
       </header>
 
       <section className={`filter-row${compileError ? ' has-error' : ''}`}>
-        <textarea
-          ref={filterRef}
-          className="filter-input"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder=". (jq filter — try .foo, map(select(…)), group_by(…))"
-          spellCheck={false}
-          rows={Math.min(8, Math.max(1, filter.split('\n').length))}
-        />
+        <Suspense
+          fallback={
+            <textarea
+              ref={filterRef}
+              className="filter-input"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder={FILTER_PLACEHOLDER}
+              spellCheck={false}
+              rows={Math.min(8, Math.max(1, filter.split('\n').length))}
+            />
+          }
+        >
+          <FilterEditor
+            ref={editorRef}
+            value={filter}
+            onChange={setFilter}
+            placeholder={FILTER_PLACEHOLDER}
+            indexInput={indexInput}
+            argNames={argNames}
+            errorPos={errorPos}
+          />
+        </Suspense>
         <div className="run-controls">
           <label className="autorun" title="Re-run automatically as you type">
             <input type="checkbox" checked={autoRun} onChange={(e) => setAutoRun(e.target.checked)} />
