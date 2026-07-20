@@ -1,5 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from '../../shell/router'
+import { useTheme } from '../../shell/theme'
 import { OptionsPanel } from './components/OptionsPanel'
+import './jq.css'
 import { CheatsheetDrawer } from './components/CheatsheetDrawer'
 import { examples } from './examples'
 import { buildCliCommand, buildInvocation, wrapperColumnOffset } from './flags'
@@ -39,11 +42,7 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [splitPct, setSplitPct] = useState(46)
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    const stored = localStorage.getItem('jqplay.theme')
-    if (stored === 'dark' || stored === 'light') return stored
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-  })
+  const [theme, toggleTheme] = useTheme()
 
   const filterRef = useRef<HTMLTextAreaElement>(null)
   const editorRef = useRef<FilterEditorHandle>(null)
@@ -57,11 +56,6 @@ export default function App() {
   }, [])
 
   const jq = useJq(handleResult, options.timeoutSec)
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    localStorage.setItem('jqplay.theme', theme)
-  }, [theme])
 
   // shared link (#z= gzipped, #s= legacy) — decoded async, wins over storage
   useEffect(() => {
@@ -249,6 +243,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
+        <Link to="/" className="home-link" title="All tools — The Swiss Knife">
+          ✚
+        </Link>
         <div className="brand">
           <span className="brand-jq">jq</span> playground
         </div>
@@ -280,11 +277,7 @@ export default function App() {
         <button onClick={share} title="Copy a link that restores this exact session">
           Share
         </button>
-        <button
-          className="icon-btn theme-btn"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title="Toggle theme"
-        >
+        <button className="icon-btn theme-btn" onClick={toggleTheme} title="Toggle theme">
           {theme === 'dark' ? '☀' : '☾'}
         </button>
       </header>
