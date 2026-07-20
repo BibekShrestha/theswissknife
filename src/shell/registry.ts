@@ -26,8 +26,8 @@ export const tools: ToolMeta[] = [
   },
   {
     slug: 'jwt',
-    name: 'JWT decoder',
-    tagline: 'Decode, verify and sign JSON Web Tokens — keys never leave your machine',
+    name: 'JWT decode & generate',
+    tagline: 'Decode, verify, generate and sign JSON Web Tokens — keys never leave your machine',
     icon: '🔏',
     load: () => import('../tools/jwt'),
   },

@@ -102,6 +102,43 @@ export interface KeyMaterial {
   secretIsB64: boolean
 }
 
+function pemFromDer(der: Uint8Array, label: string): string {
+  let bin = ''
+  for (const b of der) bin += String.fromCharCode(b)
+  const b64 = btoa(bin).replace(/(.{64})/g, '$1\n').trimEnd()
+  return `-----BEGIN ${label}-----\n${b64}\n-----END ${label}-----`
+}
+
+export type GeneratedKey =
+  | { kind: 'secret'; secret: string }
+  | { kind: 'pair'; privatePem: string; publicPem: string }
+
+/** One-click key material for the generator: random HS secret or a real keypair. */
+export async function generateKeyMaterial(alg: Alg): Promise<GeneratedKey> {
+  assertSecureContext()
+  if (isHmac(alg)) {
+    const bytes = crypto.getRandomValues(new Uint8Array(Number(alg.slice(2)) / 8))
+    return { kind: 'secret', secret: b64urlEncodeBytes(bytes) }
+  }
+  const bits = alg.slice(2)
+  const params: RsaHashedKeyGenParams | EcKeyGenParams | { name: string } = alg.startsWith('ES')
+    ? { name: 'ECDSA', namedCurve: CURVE[bits] }
+    : alg === 'EdDSA'
+      ? { name: 'Ed25519' }
+      : {
+          name: alg.startsWith('PS') ? 'RSA-PSS' : 'RSASSA-PKCS1-v1_5',
+          hash: HASH[bits],
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+        }
+  const pair = (await crypto.subtle.generateKey(params, true, ['sign', 'verify'])) as CryptoKeyPair
+  return {
+    kind: 'pair',
+    privatePem: pemFromDer(new Uint8Array(await crypto.subtle.exportKey('pkcs8', pair.privateKey)), 'PRIVATE KEY'),
+    publicPem: pemFromDer(new Uint8Array(await crypto.subtle.exportKey('spki', pair.publicKey)), 'PUBLIC KEY'),
+  }
+}
+
 export type VerifyResult = { state: 'valid' } | { state: 'invalid' } | { state: 'error'; message: string }
 
 export async function verifyJws(

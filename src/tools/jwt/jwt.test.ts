@@ -6,7 +6,7 @@ import {
   describeTimeClaims,
   parseJwt,
 } from './jwt'
-import { signJws, verifyJws } from './crypto'
+import { generateKeyMaterial, signJws, verifyJws, type Alg } from './crypto'
 
 const SAMPLE =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
@@ -122,4 +122,37 @@ describe('sign + verify round-trips (WebCrypto)', () => {
     const r = await verifyJws('RS256', 'a.b', 'c', { text: 'garbage', secretIsB64: false })
     expect(r.state).toBe('error')
   })
+})
+
+describe('generateKeyMaterial (generator mode)', () => {
+  const header = (alg: string) => JSON.stringify({ alg, typ: 'JWT' })
+  const payload = JSON.stringify({ sub: 'gen', iat: 1516239022 })
+
+  it('HS256 yields a base64url secret of the hash width that round-trips', async () => {
+    const key = await generateKeyMaterial('HS256')
+    if (key.kind !== 'secret') throw new Error('expected secret')
+    expect(key.secret).toMatch(/^[A-Za-z0-9_-]+$/)
+    const material = { text: key.secret, secretIsB64: true }
+    const token = await signJws('HS256', header('HS256'), payload, material)
+    const p = parseJwt(token)
+    if ('error' in p) throw new Error(p.error)
+    expect(await verifyJws('HS256', p.signingInput, p.signatureB64, material)).toEqual({ state: 'valid' })
+  })
+
+  it.each(['RS256', 'PS256', 'ES256', 'EdDSA'] as Alg[])(
+    '%s generates a PEM pair that signs and verifies',
+    async (alg) => {
+      const key = await generateKeyMaterial(alg)
+      if (key.kind !== 'pair') throw new Error('expected pair')
+      expect(key.privatePem).toContain('BEGIN PRIVATE KEY')
+      expect(key.publicPem).toContain('BEGIN PUBLIC KEY')
+      const token = await signJws(alg, header(alg), payload, { text: key.privatePem, secretIsB64: false })
+      const p = parseJwt(token)
+      if ('error' in p) throw new Error(p.error)
+      expect(
+        await verifyJws(alg, p.signingInput, p.signatureB64, { text: key.publicPem, secretIsB64: false }),
+      ).toEqual({ state: 'valid' })
+    },
+    20_000,
+  )
 })

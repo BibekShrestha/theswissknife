@@ -4,12 +4,20 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   max-width: 1500px;
   margin: 0 auto;
   padding: 10px 14px 16px;
 }
 
+/* segment tone colors, shared by token text, card dots and legends */
+.jwt-app {
+  --seg-h: var(--tok-num);
+  --seg-p: var(--tok-key);
+  --seg-s: var(--warn);
+}
+
+/* ---- top bar ---- */
 .jwt-top {
   display: flex;
   align-items: center;
@@ -20,12 +28,35 @@
 .jwt-brand {
   font-size: 17px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .jwt-brand-mark {
   color: var(--accent);
   font-family: var(--font-mono);
   font-weight: 700;
+}
+
+.jwt-tabs {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.jwt-tabs button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  padding: 4px 14px;
+}
+
+.jwt-tabs button.on {
+  background: var(--chip-on-bg);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .jwt-privacy {
@@ -36,82 +67,154 @@
   padding: 2px 10px;
 }
 
+.jwt-hidden {
+  display: none;
+}
+
+/* ---- layout: two aligned, equal-height columns ---- */
 .jwt-panes {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  gap: 12px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
 }
 
-.jwt-pane {
+.jwt-col {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  min-width: 0;
 }
 
-.jwt-pane-head {
+/* ---- card system ---- */
+.jwt-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.jwt-card.fill {
+  flex: 1;
+  min-height: 220px;
+}
+
+.jwt-card-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  min-height: 36px;
 }
 
-.jwt-pane-title {
+.jwt-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: 0 0 auto;
+}
+
+.tone-h .jwt-card-dot { background: var(--seg-h); }
+.tone-p .jwt-card-dot { background: var(--seg-p); }
+.tone-s .jwt-card-dot { background: var(--seg-s); }
+
+.jwt-card-title {
   font-size: 12px;
   font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.3px;
 }
 
-.jwt-actions {
+.tone-h .jwt-card-title { color: var(--seg-h); }
+.tone-p .jwt-card-title { color: var(--seg-p); }
+.tone-s .jwt-card-title { color: var(--seg-s); }
+
+.jwt-card-actions {
   margin-left: auto;
   display: flex;
   gap: 5px;
 }
 
-.jwt-token-input {
-  width: 100%;
-  min-height: 130px;
-  resize: vertical;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
+.jwt-card-actions button {
+  font-size: 11.5px;
+  padding: 2.5px 9px;
+}
+
+/* ---- token: colored, editable in place ---- */
+.jwt-token-wrap {
+  position: relative;
+  display: grid;
+  flex: 1;
+  min-height: 140px;
+}
+
+.jwt-token-color,
+.jwt-token-edit {
+  grid-area: 1 / 1;
+  margin: 0;
+  padding: 12px;
   font-family: var(--font-mono);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
+  white-space: pre-wrap;
   word-break: break-all;
 }
 
-.jwt-token-colored {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.5;
-  word-break: break-all;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
+.jwt-token-color {
+  pointer-events: none;
 }
 
-.jwt-seg-h {
-  color: var(--tok-num);
-  font-weight: 600;
+.jwt-token-edit {
+  resize: none;
+  border: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  overflow: auto;
 }
 
-.jwt-seg-p {
-  color: var(--tok-key);
-  font-weight: 600;
-}
-
-.jwt-seg-s {
-  color: var(--warn);
-  font-weight: 600;
-}
-
-.jwt-dot {
+.jwt-token-edit::placeholder {
   color: var(--muted);
 }
 
+.jwt-token-edit:focus {
+  outline: none;
+}
+
+.jwt-token-out {
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.jwt-seg-h { color: var(--seg-h); font-weight: 600; }
+.jwt-seg-p { color: var(--seg-p); font-weight: 600; }
+.jwt-seg-s { color: var(--seg-s); font-weight: 600; }
+
+.jwt-tok-dot {
+  color: var(--muted);
+}
+
+.jwt-legend {
+  margin-top: auto;
+  display: flex;
+  gap: 14px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  background: var(--panel-2);
+}
+
 .jwt-error {
+  margin: 10px 12px;
   background: var(--err-bg);
   color: var(--err);
   border: 1px solid var(--err);
@@ -120,26 +223,13 @@
   font-size: 12.5px;
 }
 
-.jwt-block {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
+.jwt-empty {
+  padding: 14px 12px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
-.jwt-block-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: lowercase;
-}
-
-/* colored JSON under a transparent editable textarea */
+/* ---- JSON editors (colored pre under transparent textarea) ---- */
 .jwt-json-wrap {
   position: relative;
   display: grid;
@@ -155,7 +245,6 @@
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  min-height: 76px;
 }
 
 .jwt-json-color {
@@ -175,23 +264,16 @@
   outline: none;
 }
 
-.tok-key {
-  color: var(--tok-key);
+.jwt-card:focus-within {
+  border-color: var(--accent);
 }
 
-.tok-str {
-  color: var(--tok-str);
-}
+.tok-key { color: var(--tok-key); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-lit { color: var(--tok-lit); font-weight: 600; }
 
-.tok-num {
-  color: var(--tok-num);
-}
-
-.tok-lit {
-  color: var(--tok-lit);
-  font-weight: 600;
-}
-
+/* ---- claims table ---- */
 .jwt-claims {
   width: 100%;
   border-collapse: collapse;
@@ -213,47 +295,59 @@
   color: var(--err);
 }
 
-.jwt-sig-controls {
+/* ---- aligned form rows (signature / signing key) ---- */
+.jwt-form {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 10px;
-  padding: 10px 12px;
-  flex-wrap: wrap;
+  padding: 12px;
 }
 
-.jwt-alg {
-  display: inline-flex;
+.jwt-form-row {
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.jwt-form-label {
+  flex: 0 0 44px;
   font-size: 12px;
   color: var(--muted);
+  text-align: right;
 }
 
-.jwt-secret {
+.jwt-form-row select {
+  min-width: 96px;
+}
+
+.jwt-form-row input.mono {
   flex: 1;
-  min-width: 160px;
+  min-width: 120px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 5px 9px;
 }
 
-.jwt-b64 {
+.jwt-check {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
-  padding-top: 6px;
 }
 
 .jwt-keys {
-  flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   min-width: 0;
+}
+
+.jwt-keys.single {
+  grid-template-columns: 1fr;
 }
 
 .jwt-keys textarea {
@@ -267,6 +361,73 @@
   line-height: 1.45;
 }
 
+.jwt-hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ---- generator: quick-claim chips ---- */
+.jwt-chiprow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.jwt-chiprow-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.jwt-chiprow button {
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.jwt-expgroup {
+  display: inline-flex;
+  align-items: center;
+}
+
+.jwt-expgroup button {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+
+.jwt-expgroup select {
+  font-size: 11.5px;
+  padding: 3px 6px;
+  border-radius: 0 999px 999px 0;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.jwt-pubkey {
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  min-height: 130px;
+  resize: vertical;
+  font-size: 11.5px;
+  line-height: 1.45;
+  width: 100%;
+}
+
+.jwt-pubkey:focus {
+  outline: none;
+}
+
+/* ---- badges & toast ---- */
 .sig-badge {
   font-size: 12px;
   font-weight: 600;
@@ -299,13 +460,6 @@
   font-weight: 400;
 }
 
-.jwt-sig-hint {
-  margin: 0;
-  padding: 0 12px 10px;
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
 .jwt-toast {
   position: fixed;
   bottom: 22px;
@@ -320,6 +474,7 @@
   z-index: 60;
 }
 
+/* ---- narrow screens ---- */
 @media (max-width: 900px) {
   .jwt-panes {
     grid-template-columns: 1fr;
@@ -327,5 +482,9 @@
 
   .jwt-keys {
     grid-template-columns: 1fr;
+  }
+
+  .jwt-card.fill {
+    min-height: 160px;
   }
 }
