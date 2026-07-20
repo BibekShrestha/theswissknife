@@ -28,6 +28,12 @@ interface AlgSpec {
   signParams: AlgorithmIdentifier | RsaPssParams | EcdsaParams
 }
 
+function assertSecureContext() {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error('WebCrypto needs a secure context — open this page over https://')
+  }
+}
+
 function spec(alg: Alg): AlgSpec {
   const bits = alg.slice(2)
   if (alg.startsWith('HS')) {
@@ -105,6 +111,7 @@ export async function verifyJws(
   key: KeyMaterial,
 ): Promise<VerifyResult> {
   try {
+    assertSecureContext()
     const cryptoKey = isHmac(alg)
       ? await importHmacKey(key.text, key.secretIsB64, alg, 'verify')
       : await importPemOrJwk(key.text, alg, 'verify')
@@ -126,6 +133,7 @@ export async function signJws(
   payloadJson: string,
   key: KeyMaterial,
 ): Promise<string> {
+  assertSecureContext()
   const cryptoKey = isHmac(alg)
     ? await importHmacKey(key.text, key.secretIsB64, alg, 'sign')
     : await importPemOrJwk(key.text, alg, 'sign')
