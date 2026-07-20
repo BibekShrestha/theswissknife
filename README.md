@@ -1,67 +1,59 @@
-# jq playground
+# The Swiss Knife
 
-**Live: <https://bibekshrestha.github.io/jq-playground/>**
+**Live: <https://theswissknife.com>** *(GitHub Pages: <https://bibekshrestha.github.io/theswissknife/>)*
 
-A web frontend for [jq](https://jqlang.org) with full feature support — the **real jq 1.8.2
-binary compiled to WebAssembly** runs entirely in your browser. No backend, no data leaves
-your machine.
+Sharp little developer tools, each at its own path, all running **entirely in your
+browser** — nothing you paste ever leaves your machine.
 
-## Run it
+| Tool | Path | What it does |
+|---|---|---|
+| jq playground | [/jq](https://theswissknife.com/jq) | Real jq 1.8.2 (WebAssembly) with every CLI flag, input-aware autocomplete, examples, shareable links |
+| JWT decoder | [/jwt](https://theswissknife.com/jwt) | Decode, verify and sign JWTs (HS/RS/PS/ES/EdDSA) via WebCrypto |
+
+## Develop
 
 ```sh
 npm install
-npm run dev      # dev server
+npm run dev      # dev server (deep links like /jq work)
 npm test         # unit + integration tests (runs the real wasm jq)
-npm run build    # production build → dist/
-npm run preview  # serve the production build
+npm run build    # production build → dist/ (+ 404.html SPA fallback)
 ```
 
-## Features
+Architecture and the **rules for adding a tool** live in [CLAUDE.md](CLAUDE.md) —
+short version: one folder under `src/tools/<slug>/`, one entry in
+`src/shell/registry.ts`, and the tool becomes a lazy chunk loaded only when its
+route opens.
 
-- **Real jq, all of it** — every builtin, regex, streaming, dates, `input`/`inputs`,
-  multi-document input, `$ENV`, exit codes, stderr. It's the actual jq binary
-  ([jq-wasm](https://www.npmjs.com/package/jq-wasm)), not a reimplementation.
-- **Full flag surface** — toggles for `-n -R -s -r -j -c -S -a -e --tab --indent --seq --stream`,
-  named `--arg` / `--argjson` variables, positional `$ARGS.positional` values, plus a free-form
-  extra-flags field for anything else (e.g. `--raw-output0`).
-- **Safe to experiment** — jq runs in a Web Worker with a configurable watchdog (5/15/60s);
-  infinite loops get terminated and the worker respawns. A Stop button appears while a run
-  is in flight. Oversized argument values (which crash the wasm) are caught with a helpful
-  error, and a crashed engine reloads automatically.
-- **Errors don't eat your output** — when the current filter fails (as it constantly does
-  mid-edit), the last successful output stays visible, dimmed and marked *stale*, with the
-  error shown persistently alongside.
-- Auto-run as you type (toggleable), ⌘⏎ / Ctrl+⏎ to run manually.
-- **Smart filter editor** (CodeMirror, lazy-loaded) — jq syntax highlighting, bracket
-  matching, and autocomplete: builtins pulled from the engine itself, `$variables` in
-  scope, `@formats`, cheatsheet snippets, and **field names mined from your actual
-  input** (`.repos[].` suggests the keys that exist there). Compile errors are
-  underlined at the exact spot jq reports.
-- Syntax-highlighted output, stderr panel, exit-code + timing badges.
-- 12 loadable examples and a click-to-insert jq reference drawer.
-- Share button — filter + input + options, gzip-compressed into the URL fragment.
-- Copy command — emits the equivalent `jq …` shell command with correct quoting.
-- Input tools: format / minify / open local file / copy / clear; output copy / download.
-- Dark & light themes; state persists in localStorage.
+## Deployment
 
-## Implementation notes
+Every push to `main` runs the test suite and deploys to GitHub Pages
+(`.github/workflows/deploy.yml`). PRs run the same checks via `ci.yml`.
 
-- `src/jq.worker.ts` runs jq off the main thread; `src/useJq.ts` manages the worker with
-  latest-wins queueing and terminate-and-respawn on timeout/stop.
-- **Positional args are emulated.** The wasm wrapper's argv is `[...flags, query, /dev/stdin]`,
-  so real `--args`/`--jsonargs` would swallow the query and stdin. Instead the app passes the
-  values via `--argjson` and rebinds `$ARGS` around the user's filter
-  (`($ARGS | .positional = $v | …) as $ARGS | (filter)`) — behaviour matches the CLI exactly.
-  The "Copy command" feature emits real `--args`/`--jsonargs` for terminal use.
-- File-based flags (`--slurpfile`, `--rawfile`, `-f`, `-L` modules) have no filesystem in the
-  browser; use `--argjson`/`--arg` variables instead.
+### Custom domain runbook (theswissknife.com)
+
+One-time DNS setup at the domain registrar:
+
+1. Apex `theswissknife.com` → **A records**: `185.199.108.153`, `185.199.109.153`,
+   `185.199.110.153`, `185.199.111.153` (optionally AAAA `2606:50c0:8000::153`
+   … `:8003::153`).
+2. Optional `www` → **CNAME** `bibekshrestha.github.io`.
+3. Then: set the custom domain on the repo (Settings → Pages, or
+   `gh api repos/BibekShrestha/theswissknife/pages -X PUT -f cname=theswissknife.com`),
+   switch `BASE_PATH` to `/` in `deploy.yml`, redeploy, and enable
+   **Enforce HTTPS** once the certificate is issued.
+
+## jq engine notes
+
+- The wasm jq is the real binary — feature parity is exact. `--args`/`--jsonargs`
+  can't be used in-engine (the wrapper's argv appends the query and `/dev/stdin`),
+  so positional args are emulated by rebinding `$ARGS`; "Copy command" emits the
+  real flags for terminal use.
+- A single argv token near 1 MB crashes the wasm and poisons the instance; the app
+  guards values at 512 KB and auto-reloads the engine after any crash. Big data
+  belongs in the input pane (stdin).
 - `leaf_paths` was removed in jq 1.8 — use `paths(scalars)`.
-- A single argv token near 1 MB crashes the wasm (emscripten stack limit), and a crashed
-  instance stays broken. The app guards values at 512 KB and reloads the engine after any
-  crash. Large data belongs in the input pane (stdin), which has no such limit.
-- Tests (`src/*.test.ts`) gate the Pages deploy; the integration suite runs every example
-  and cheatsheet snippet through the actual wasm jq so engine upgrades can't silently
-  break them.
+- The integration tests run every example and cheatsheet snippet through the real
+  engine so a jq upgrade can't silently break them.
 
 ## License
 
