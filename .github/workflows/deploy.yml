@@ -27,8 +27,8 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          # Project sites live under /<repo>/; user/org sites (<user>.github.io) live at /.
-          BASE_PATH: ${{ endsWith(github.event.repository.name, '.github.io') && '/' || format('/{0}/', github.event.repository.name) }}
+          # Served at the custom domain root (theswissknife.com).
+          BASE_PATH: /
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
