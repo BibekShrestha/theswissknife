@@ -24,4 +24,11 @@ export const tools: ToolMeta[] = [
     icon: '{ }',
     load: () => import('../tools/jq'),
   },
+  {
+    slug: 'jwt',
+    name: 'JWT decoder',
+    tagline: 'Decode, verify and sign JSON Web Tokens — keys never leave your machine',
+    icon: '🔏',
+    load: () => import('../tools/jwt'),
+  },
 ]

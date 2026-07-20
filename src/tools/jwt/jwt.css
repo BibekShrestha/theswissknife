@@ -1,0 +1,331 @@
+/* JWT tool styles — loaded with the jwt chunk only. */
+
+.jwt-app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 10px 14px 16px;
+}
+
+.jwt-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.jwt-brand {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.jwt-brand-mark {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.jwt-privacy {
+  font-size: 11.5px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.jwt-panes {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.jwt-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.jwt-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.jwt-pane-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.jwt-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 5px;
+}
+
+.jwt-token-input {
+  width: 100%;
+  min-height: 130px;
+  resize: vertical;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.jwt-token-colored {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  word-break: break-all;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.jwt-seg-h {
+  color: var(--tok-num);
+  font-weight: 600;
+}
+
+.jwt-seg-p {
+  color: var(--tok-key);
+  font-weight: 600;
+}
+
+.jwt-seg-s {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.jwt-dot {
+  color: var(--muted);
+}
+
+.jwt-error {
+  background: var(--err-bg);
+  color: var(--err);
+  border: 1px solid var(--err);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
+.jwt-block {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.jwt-block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+/* colored JSON under a transparent editable textarea */
+.jwt-json-wrap {
+  position: relative;
+  display: grid;
+}
+
+.jwt-json-color,
+.jwt-json-edit {
+  grid-area: 1 / 1;
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 76px;
+}
+
+.jwt-json-color {
+  pointer-events: none;
+}
+
+.jwt-json-edit {
+  resize: none;
+  border: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  overflow: hidden;
+}
+
+.jwt-json-edit:focus {
+  outline: none;
+}
+
+.tok-key {
+  color: var(--tok-key);
+}
+
+.tok-str {
+  color: var(--tok-str);
+}
+
+.tok-num {
+  color: var(--tok-num);
+}
+
+.tok-lit {
+  color: var(--tok-lit);
+  font-weight: 600;
+}
+
+.jwt-claims {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
+.jwt-claims td {
+  padding: 5px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.jwt-claims tr:first-child td {
+  border-top: none;
+}
+
+.jwt-claims tr.problem td {
+  color: var(--err);
+}
+
+.jwt-sig-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  flex-wrap: wrap;
+}
+
+.jwt-alg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.jwt-secret {
+  flex: 1;
+  min-width: 160px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+}
+
+.jwt-b64 {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  padding-top: 6px;
+}
+
+.jwt-keys {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+
+.jwt-keys textarea {
+  min-height: 110px;
+  resize: vertical;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.sig-badge {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 1px 9px;
+  text-transform: none;
+}
+
+.sig-badge.ok {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+
+.sig-badge.err {
+  color: var(--err);
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+}
+
+.sig-badge.warn {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sig-badge.muted {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.jwt-sig-hint {
+  margin: 0;
+  padding: 0 12px 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.jwt-toast {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  padding: 8px 18px;
+  font-size: 13px;
+  z-index: 60;
+}
+
+@media (max-width: 900px) {
+  .jwt-panes {
+    grid-template-columns: 1fr;
+  }
+
+  .jwt-keys {
+    grid-template-columns: 1fr;
+  }
+}
