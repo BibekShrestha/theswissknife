@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from '../../shell/router'
+import { Link, navigate, usePath } from '../../shell/router'
+import { tools } from '../../shell/registry'
 import { useTheme } from '../../shell/theme'
 import { OptionsPanel } from './components/OptionsPanel'
 import './jq.css'
@@ -73,7 +74,7 @@ export default function App() {
   const showToast = useCallback((msg: string) => {
     setToast(msg)
     clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 2400)
+    toastTimer.current = window.setTimeout(() => setToast(null), 4000)
   }, [])
 
   // ---- running ----------------------------------------------------------
@@ -244,7 +245,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <Link to="/" className="home-link" title="All tools — The Swiss Knife">
-          ✚
+          <span className="material-symbols-outlined">home</span>
         </Link>
         <div className="brand">
           <span className="brand-jq">jq</span> playground
@@ -252,6 +253,11 @@ export default function App() {
         <span className="badge" title="Real jq compiled to WebAssembly, running locally in your browser">
           {jq.fatal ? 'wasm failed' : jq.version ? `${jq.version} · wasm` : 'loading wasm…'}
         </span>
+        <select className="tool-switcher" value={usePath()} onChange={(e) => navigate(`/${e.target.value}`)} aria-label="Switch tool">
+          {tools.filter((t) => t.slug !== 'jq').map((t) => (
+            <option key={t.slug} value={t.slug}>{t.name}</option>
+          ))}
+        </select>
         <div className="spacer" />
         <select
           className="examples-select"
@@ -270,15 +276,15 @@ export default function App() {
             </option>
           ))}
         </select>
-        <button onClick={() => setDrawerOpen(true)}>Reference</button>
+        <button onClick={() => setDrawerOpen(true)}><span className="material-symbols-outlined">menu_book</span> Reference</button>
         <button onClick={() => void copy(buildCliCommand(filter, options), 'Command')} title="Copy the equivalent terminal command">
-          Copy command
+          <span className="material-symbols-outlined">content_copy</span>
         </button>
         <button onClick={share} title="Copy a link that restores this exact session">
-          Share
+          <span className="material-symbols-outlined">share</span>
         </button>
-        <button className="icon-btn theme-btn" onClick={toggleTheme} title="Toggle theme">
-          {theme === 'dark' ? '☀' : '☾'}
+        <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
+          <span className="material-symbols-outlined">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
         </button>
       </header>
 
@@ -313,11 +319,11 @@ export default function App() {
           </label>
           {jq.running ? (
             <button className="run-btn stop" onClick={jq.stop}>
-              Stop
+              <span className="material-symbols-outlined">stop</span> Stop
             </button>
           ) : (
             <button className="run-btn" onClick={execute} title="Run (⌘⏎ / Ctrl+⏎)">
-              Run ⏎
+              <span className="material-symbols-outlined">play_arrow</span> Run
             </button>
           )}
         </div>
@@ -325,7 +331,7 @@ export default function App() {
 
       <OptionsPanel options={options} onChange={setOptions} />
 
-      <main className="panes" ref={mainRef}>
+      <main id="main-content" className="panes" ref={mainRef}>
         <section className="pane input-pane" style={{ flexBasis: `${splitPct}%` }}>
           <div className="pane-head">
             <span className="pane-title">
@@ -338,13 +344,13 @@ export default function App() {
                 Format
               </button>
               <button onClick={() => formatInput(0)} title="Minify (single JSON doc)">
-                Minify
+                <span className="material-symbols-outlined">compress</span>
               </button>
               <button onClick={() => fileRef.current?.click()} title="Load a local file">
-                Open…
+                <span className="material-symbols-outlined">folder_open</span>
               </button>
-              <button onClick={() => void copy(input, 'Input')}>Copy</button>
-              <button onClick={() => setInput('')}>Clear</button>
+              <button onClick={() => void copy(input, 'Input')} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
+              <button onClick={() => setInput('')} aria-label="Clear"><span className="material-symbols-outlined">close</span></button>
               <input
                 ref={fileRef}
                 type="file"
@@ -379,8 +385,8 @@ export default function App() {
               </span>
             )}
             <div className="pane-actions">
-              <button onClick={() => void copy(display?.stdout ?? '', 'Output')} disabled={!display?.stdout}>
-                Copy
+              <button onClick={() => void copy(display?.stdout ?? '', 'Output')} disabled={!display?.stdout} aria-label="Copy">
+                <span className="material-symbols-outlined">content_copy</span>
               </button>
               <button
                 disabled={!display?.stdout}

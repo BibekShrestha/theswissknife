@@ -1,12 +1,12 @@
 {
-  "name": "jq-playground",
+  "name": "the-swiss-knife",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && cp dist/index.html dist/404.html",
+    "build": "tsc && vite build && cp dist/index.html dist/404.html && node scripts/check-bundle.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },

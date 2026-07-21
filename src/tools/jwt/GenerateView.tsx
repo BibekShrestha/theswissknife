@@ -131,7 +131,7 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
   const nowSec = () => Math.floor(Date.now() / 1000)
 
   return (
-    <main className="jwt-panes">
+    <main id="main-content" className="jwt-panes">
       <div className="jwt-col">
         <Card tone="p" title="claims (payload)">
           <JsonEditor value={payloadJson} onChange={setPayloadJson} minRows={7} ariaLabel="Payload JSON" />
@@ -214,7 +214,7 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
         <Card
           title="generated token"
           fill
-          actions={<button onClick={() => void onCopy(token, 'Token')} disabled={!token}>Copy</button>}
+          actions={<button onClick={() => void onCopy(token, 'Token')} disabled={!token} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>}
         >
           {token ? (
             <>
@@ -250,7 +250,7 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
         {publicPem && (
           <Card
             title="public key (share this to verify)"
-            actions={<button onClick={() => void onCopy(publicPem, 'Public key')}>Copy</button>}
+            actions={<button onClick={() => void onCopy(publicPem, 'Public key')} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>}
           >
             <textarea className="jwt-pubkey mono" value={publicPem} readOnly spellCheck={false} aria-label="Generated public key" />
           </Card>

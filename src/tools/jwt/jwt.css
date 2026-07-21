@@ -65,6 +65,9 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 2px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .jwt-hidden {
@@ -434,6 +437,9 @@
   border-radius: 999px;
   padding: 1px 9px;
   text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .sig-badge.ok {

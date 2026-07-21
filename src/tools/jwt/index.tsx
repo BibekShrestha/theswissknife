@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
-import { Link } from '../../shell/router'
+import { Link, navigate, usePath } from '../../shell/router'
+import { tools } from '../../shell/registry'
 import { useTheme } from '../../shell/theme'
 import DecodeView, { type DecodeViewHandle } from './DecodeView'
 import GenerateView from './GenerateView'
@@ -17,7 +18,7 @@ export default function JwtTool() {
   const showToast = useCallback((msg: string) => {
     setToast(msg)
     clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 2200)
+    toastTimer.current = window.setTimeout(() => setToast(null), 4000)
   }, [])
 
   const copy = useCallback(
@@ -36,7 +37,7 @@ export default function JwtTool() {
     <div className="jwt-app">
       <header className="jwt-top">
         <Link to="/" className="home-link" title="All tools — The Swiss Knife">
-          ✚
+          <span className="material-symbols-outlined">home</span>
         </Link>
         <div className="jwt-brand">
           <span className="jwt-brand-mark">JWT</span> {mode === 'decode' ? 'decoder' : 'generator'}
@@ -49,15 +50,20 @@ export default function JwtTool() {
             Generate
           </button>
         </div>
-        <span className="jwt-privacy">🔒 runs locally — tokens & keys never leave your browser</span>
+        <span className="jwt-privacy"><span className="material-symbols-outlined" aria-hidden>lock</span> runs locally — tokens & keys never leave your browser</span>
+        <select className="tool-switcher" value={usePath()} onChange={(e) => navigate(`/${e.target.value}`)} aria-label="Switch tool">
+          {tools.filter((t) => t.slug !== 'jwt').map((t) => (
+            <option key={t.slug} value={t.slug}>{t.name}</option>
+          ))}
+        </select>
         <div className="spacer" />
         {mode === 'decode' && (
           <button onClick={() => decodeRef.current?.loadSample()} title="Load the jwt.io sample token">
             Sample
           </button>
         )}
-        <button className="icon-btn theme-btn" onClick={toggleTheme} title="Toggle theme">
-          {theme === 'dark' ? '☀' : '☾'}
+        <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
+          <span className="material-symbols-outlined">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
         </button>
       </header>
 

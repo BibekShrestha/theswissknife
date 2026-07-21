@@ -24,10 +24,10 @@ export function CheatsheetDrawer({ open, onClose, onInsert }: Props) {
         <div className="drawer-head">
           <strong>jq reference</strong>
           <a href="https://jqlang.org/manual/" target="_blank" rel="noreferrer">
-            full manual ↗
+            full manual <span className="material-symbols-outlined" aria-hidden>open_in_new</span>
           </a>
           <button className="icon-btn" onClick={onClose} title="Close">
-            ✕
+            <span className="material-symbols-outlined">close</span>
           </button>
         </div>
         <div className="drawer-body">

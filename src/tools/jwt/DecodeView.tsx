@@ -149,12 +149,12 @@ export default function DecodeView({
 
   const verifyBadge =
     verify.state === 'valid' ? (
-      <span className="sig-badge ok">✓ signature verified</span>
+      <span className="sig-badge ok"><span className="material-symbols-outlined" aria-hidden>check_circle</span> signature verified</span>
     ) : verify.state === 'invalid' ? (
-      <span className="sig-badge err">✗ invalid signature</span>
+      <span className="sig-badge err"><span className="material-symbols-outlined" aria-hidden>cancel</span> invalid signature</span>
     ) : verify.state === 'error' ? (
       <span className="sig-badge warn" title={verify.message}>
-        ⚠ {verify.message}
+        <span className="material-symbols-outlined" aria-hidden>warning</span> {verify.message}
       </span>
     ) : (
       <span className="sig-badge muted">
@@ -163,15 +163,15 @@ export default function DecodeView({
     )
 
   return (
-    <main className="jwt-panes">
+    <main id="main-content" className="jwt-panes">
       <div className="jwt-col">
         <Card
           title="encoded token"
           fill
           actions={
             <>
-              <button onClick={() => void onCopy(token, 'Token')}>Copy</button>
-              <button onClick={() => onTokenChange('')}>Clear</button>
+              <button onClick={() => void onCopy(token, 'Token')} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
+              <button onClick={() => onTokenChange('')} aria-label="Clear"><span className="material-symbols-outlined">close</span></button>
             </>
           }
         >

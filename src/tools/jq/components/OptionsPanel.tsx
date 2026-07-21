@@ -84,7 +84,8 @@ export function OptionsPanel({ options, onChange }: Props) {
         <Chip checked={options.sortKeys} flag="-S" label="sort keys" title="Sort object keys in output" onToggle={() => set('sortKeys', !options.sortKeys)} />
         <span className="sep" />
         <button className={`more-btn${extrasActive ? ' dot' : ''}`} onClick={() => setExpanded(!expanded)}>
-          {expanded ? 'Less ▴' : 'More ▾'}
+          <span className="material-symbols-outlined">{expanded ? 'expand_less' : 'expand_more'}</span>
+          {expanded ? 'Less' : 'More'}
         </button>
       </div>
 
@@ -136,12 +137,12 @@ export function OptionsPanel({ options, onChange }: Props) {
                   onChange={(e) => setNamedArg(i, { value: e.target.value })}
                 />
                 <button className="icon-btn" title="Remove" onClick={() => set('namedArgs', options.namedArgs.filter((_, j) => j !== i))}>
-                  ✕
+                  <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
             ))}
             <button className="add-btn" onClick={() => set('namedArgs', [...options.namedArgs, { kind: 'arg', name: '', value: '' }])}>
-              + Add variable
+              <span className="material-symbols-outlined">add</span> Add variable
             </button>
           </div>
 
@@ -162,12 +163,12 @@ export function OptionsPanel({ options, onChange }: Props) {
                   onChange={(e) => setPositional(i, { value: e.target.value })}
                 />
                 <button className="icon-btn" title="Remove" onClick={() => set('positionalArgs', options.positionalArgs.filter((_, j) => j !== i))}>
-                  ✕
+                  <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
             ))}
             <button className="add-btn" onClick={() => set('positionalArgs', [...options.positionalArgs, { kind: 'string', value: '' }])}>
-              + Add positional
+              <span className="material-symbols-outlined">add</span> Add positional
             </button>
           </div>
 
