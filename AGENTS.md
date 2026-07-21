@@ -25,18 +25,26 @@ src/
 ## Hard rules
 
 - **Never import from another tool's folder.** Tools may import ONLY from
-  their own folder and `src/shell/` (`router.ts`: `Link`/`navigate`/`usePath`;
-  `theme.ts`: `useTheme`). Small helpers (toast, JSON colorizer) are
-  intentionally duplicated per tool — that keeps each folder self-contained
-  so an agent can work on one tool with small context.
-- **Keep the shell tiny.** Don't grow it with tool-specific logic or a shared
-  component library.
+  their own folder and `src/shell/`. Available shell exports:
+  - `router.ts`: `Link`/`navigate`/`usePath`
+  - `theme.ts`: `useTheme`
+  - `ToolHeader.tsx`: Shared toolbar (home link, brand, tool-switcher, theme
+    toggle, tool-specific children via slots)
+  - `useToast.ts`: `{ toast, showToast }` — persistent toast state + 4s timer
+  - `useCopy.ts`: `useCopy(showToast)` — clipboard helper with toast feedback
+  - `ErrorBoundary.tsx`: Catches tool render errors (wraps every lazy tool)
+- **Keep the shell tiny.** New shared additions must be generic UI patterns
+  (toast, toolbar, copy) — never tool-specific logic.
 - **Everything runs client-side.** No network calls with user data, ever —
   the site's promise is "nothing you paste leaves your machine".
 - **Tools must stay lazy.** Nothing outside `shell/` may be imported by
   `main.tsx`/landing; check `npm run build` output — the main bundle is
   ~62KB gz (react + shell) and must not grow when you add a tool.
-- Tool UI headers start with the `✚` home `Link` (see existing tools).
+- **Sub-tools within a single tool must also be lazy** if there are many
+  (see PDF tool's 13 subtools — each is a `lazy()` chunk).
+- Tool UI headers use the `<ToolHeader>` shell component. Pass brand, optional
+  `localLabel`, optional `beforeSwitcher` (tabs, badges), and `children`
+  (action buttons after the spacer).
 - Use the CSS variables from `src/shell/theme.css` (both themes come free);
   prefix tool class names with the slug (`.jwt-…`) to avoid collisions.
 

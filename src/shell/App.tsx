@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type ComponentType, type LazyExoticComponent } from 'react'
 import { Landing } from './Landing'
 import { tools, type ToolMeta } from './registry'
-import { Link, navigate, usePath } from './router'
+import { ErrorBoundary } from './ErrorBoundary'
+import { emit, Link, navigate, usePath } from './router'
 
 const cache = new Map<string, LazyExoticComponent<ComponentType>>()
 
@@ -65,6 +66,12 @@ export default function App() {
   const [showShortcuts, setShowShortcuts] = useState(false)
 
   useEffect(() => {
+    const onPopState = () => emit()
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  useEffect(() => {
     document.title = tool ? `${tool.name} · The Swiss Knife` : path ? 'Not found · The Swiss Knife' : 'The Swiss Knife'
   }, [path, tool])
 
@@ -108,9 +115,11 @@ export default function App() {
   return (
     <>
       <a href="#main-content" className="skip-link">Skip to content</a>
-      <Suspense fallback={<div className="tool-loading" role="status">Loading {tool.name}…</div>}>
-        <Tool />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<div className="tool-loading" role="status">Loading {tool.name}…</div>}>
+          <Tool />
+        </Suspense>
+      </ErrorBoundary>
       {showShortcuts && <ShortcutOverlay onClose={() => setShowShortcuts(false)} />}
     </>
   )

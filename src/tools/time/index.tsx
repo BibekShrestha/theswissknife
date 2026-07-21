@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, navigate, usePath } from '../../shell/router'
-import { tools } from '../../shell/registry'
-import { useTheme } from '../../shell/theme'
+import { useEffect, useState } from 'react'
+import { ToolHeader } from '../../shell/ToolHeader'
+import { useCopy } from '../../shell/useCopy'
+import { useToast } from '../../shell/useToast'
 import {
   formatInZone,
   localInputValue,
@@ -21,7 +21,6 @@ const zones = (Intl as SupportedValues).supportedValuesOf?.('timeZone') ?? ['UTC
 
 export default function TimeTool() {
   const initialMs = Date.now()
-  const [theme, toggleTheme] = useTheme()
   const [unit, setUnit] = useState<TimeUnit>('auto')
   const [timestamp, setTimestamp] = useState(String(Math.floor(initialMs / 1000)))
   const [iso, setIso] = useState(new Date(initialMs).toISOString())
@@ -30,9 +29,9 @@ export default function TimeTool() {
   const [error, setError] = useState<string | null>(null)
   const [zone, setZone] = useState(localZone)
   const [now, setNow] = useState(initialMs)
-  const [toast, setToast] = useState('')
+  const { toast, showToast } = useToast()
+  const copy = useCopy(showToast)
   const [converterZones, setConverterZones] = useState<string[]>([localZone !== 'UTC' ? 'UTC' : 'America/New_York'].filter(Boolean))
-  const timer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000)
@@ -79,17 +78,6 @@ export default function TimeTool() {
     if (!parsed.error) sync(parsed.value!, 'timestamp')
   }
 
-  const notifyCopy = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setToast(`${label} copied`)
-    } catch {
-      setToast('Copy failed — clipboard unavailable')
-    }
-    clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setToast(''), 4000)
-  }
-
   const addZone = (item: string) => {
     if (!converterZones.includes(item)) setConverterZones([...converterZones, item])
   }
@@ -106,28 +94,19 @@ export default function TimeTool() {
 
   return (
     <div className="time-app">
-      <header className="time-top">
-        <Link to="/" className="home-link" title="All tools — The Swiss Knife"><span className="material-symbols-outlined">home</span></Link>
-        <div className="time-brand"><span>UTC</span> Unix time</div>
-        <span className="time-local">browser clock · {localZone}</span>
-        <select className="tool-switcher" value={usePath()} onChange={(e) => navigate(`/${e.target.value}`)} aria-label="Switch tool">
-          {tools.filter((t) => t.slug !== 'time').map((t) => (
-            <option key={t.slug} value={t.slug}>{t.name}</option>
-          ))}
-        </select>
-        <div className="spacer" />
+      <ToolHeader
+        brand={<><span>UTC</span> Unix time</>}
+        localLabel={`browser clock · ${localZone}`}
+      >
         <button onClick={useNow}>Use now</button>
-        <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-          <span className="material-symbols-outlined">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
-        </button>
-      </header>
+      </ToolHeader>
 
       <main id="main-content" className="time-main">
         <section className="time-now" aria-label="Current time">
           <span>Right now</span>
           <strong>{Math.floor(now / 1000)}</strong>
           <code>{new Date(now).toISOString()}</code>
-          <button className="time-now-copy" onClick={() => void notifyCopy(String(Math.floor(now / 1000)), 'Epoch')} aria-label="Copy epoch time"><span className="material-symbols-outlined">content_copy</span></button>
+          <button className="time-now-copy" onClick={() => void copy(String(Math.floor(now / 1000)), 'Epoch')} aria-label="Copy epoch time"><span className="material-symbols-outlined">content_copy</span></button>
         </section>
 
         <section className="time-inputs">
@@ -169,7 +148,7 @@ export default function TimeTool() {
             <article className="time-output" key={label}>
               <span>{label}</span>
               <code>{value}</code>
-              <button onClick={() => void notifyCopy(value, label)} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
+              <button onClick={() => void copy(value, label)} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
             </article>
           ))}
         </section>
@@ -202,7 +181,7 @@ export default function TimeTool() {
           </div>
         </section>
       </main>
-      <div className="time-status" role="status" aria-live="polite">{toast}</div>
+      <div className="shell-toast" role="status" aria-live="polite">{toast ?? ''}</div>
     </div>
   )
 }

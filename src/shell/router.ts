@@ -8,9 +8,7 @@ import { createElement, useSyncExternalStore, type MouseEvent, type ReactNode } 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '')
 
 const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((fn) => fn())
-
-window.addEventListener('popstate', emit)
+export const emit = () => listeners.forEach((fn) => fn())
 
 function subscribe(fn: () => void) {
   listeners.add(fn)

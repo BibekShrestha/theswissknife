@@ -10,8 +10,7 @@
 
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
+  min-height: 100%;
   background: var(--rgx-bg);
   color: var(--rgx-text);
 }
@@ -20,7 +19,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  min-height: 48px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--rgx-border);
   flex-shrink: 0;
 }

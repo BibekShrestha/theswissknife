@@ -22,6 +22,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
   flex-wrap: wrap;
 }
 

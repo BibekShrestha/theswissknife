@@ -13,7 +13,7 @@ export interface ToolMeta {
   tagline: string
   /** Short typographic mark shown on the landing card. */
   mark: string
-  category: 'data' | 'security' | 'text' | 'time'
+  category: 'data' | 'security' | 'text' | 'time' | 'pdf'
   load: () => Promise<{ default: ComponentType }>
 }
 
@@ -57,5 +57,13 @@ export const tools: ToolMeta[] = [
     mark: 'UTC',
     category: 'time',
     load: () => import('../tools/time'),
+  },
+  {
+    slug: 'pdf',
+    name: 'PDF Buddy',
+    tagline: 'Merge, split, convert, compress, watermark, protect, and unlock PDFs — all client-side',
+    mark: 'PDF',
+    category: 'pdf',
+    load: () => import('../tools/pdf'),
   },
 ]

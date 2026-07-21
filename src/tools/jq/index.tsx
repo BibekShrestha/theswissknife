@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, navigate, usePath } from '../../shell/router'
-import { tools } from '../../shell/registry'
-import { useTheme } from '../../shell/theme'
+import { ToolHeader } from '../../shell/ToolHeader'
+import { useCopy } from '../../shell/useCopy'
+import { useToast } from '../../shell/useToast'
 import { OptionsPanel } from './components/OptionsPanel'
 import './jq.css'
 import { CheatsheetDrawer } from './components/CheatsheetDrawer'
@@ -41,15 +41,14 @@ export default function App() {
   const [current, setCurrent] = useState<RunResult | null>(null)
   const [lastGood, setLastGood] = useState<RunResult | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
   const [splitPct, setSplitPct] = useState(46)
-  const [theme, toggleTheme] = useTheme()
+  const { toast, showToast } = useToast()
+  const copy = useCopy(showToast)
 
   const filterRef = useRef<HTMLTextAreaElement>(null)
   const editorRef = useRef<FilterEditorHandle>(null)
   const mainRef = useRef<HTMLElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const toastTimer = useRef<number | undefined>(undefined)
 
   const handleResult = useCallback((r: RunResult) => {
     setCurrent(r)
@@ -71,12 +70,6 @@ export default function App() {
     })
   }, [])
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg)
-    clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 4000)
-  }, [])
-
   // ---- running ----------------------------------------------------------
   const execute = useCallback(() => {
     const inv = buildInvocation(filter, options)
@@ -85,7 +78,7 @@ export default function App() {
       return
     }
     jq.run({ input, query: inv.query, flags: inv.flags })
-  }, [filter, input, options, handleResult, jq.run]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filter, input, options, handleResult, jq.run])
 
   useEffect(() => {
     if (!autoRun) return
@@ -109,19 +102,6 @@ export default function App() {
     const t = setTimeout(() => saveState({ filter, input, options, autoRun }), 500)
     return () => clearTimeout(t)
   }, [filter, input, options, autoRun])
-
-  // ---- clipboard helpers ------------------------------------------------
-  const copy = useCallback(
-    async (text: string, what: string) => {
-      try {
-        await navigator.clipboard.writeText(text)
-        showToast(`${what} copied`)
-      } catch {
-        showToast('Copy failed — clipboard unavailable')
-      }
-    },
-    [showToast],
-  )
 
   const share = useCallback(async () => {
     const url = await encodeShareUrl({ filter, input, options, autoRun })
@@ -243,22 +223,9 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <Link to="/" className="home-link" title="All tools — The Swiss Knife">
-          <span className="material-symbols-outlined">home</span>
-        </Link>
-        <div className="brand">
-          <span className="brand-jq">jq</span> playground
-        </div>
-        <span className="badge" title="Real jq compiled to WebAssembly, running locally in your browser">
-          {jq.fatal ? 'wasm failed' : jq.version ? `${jq.version} · wasm` : 'loading wasm…'}
-        </span>
-        <select className="tool-switcher" value={usePath()} onChange={(e) => navigate(`/${e.target.value}`)} aria-label="Switch tool">
-          {tools.filter((t) => t.slug !== 'jq').map((t) => (
-            <option key={t.slug} value={t.slug}>{t.name}</option>
-          ))}
-        </select>
-        <div className="spacer" />
+      <ToolHeader
+        brand={<><span className="brand-jq">jq</span> playground <span className="badge" title="Real jq compiled to WebAssembly, running locally in your browser">{jq.fatal ? 'wasm failed' : jq.version ? `${jq.version} · wasm` : 'loading wasm…'}</span></>}
+      >
         <select
           className="examples-select"
           value=""
@@ -283,10 +250,7 @@ export default function App() {
         <button onClick={share} title="Copy a link that restores this exact session">
           <span className="material-symbols-outlined">share</span>
         </button>
-        <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-          <span className="material-symbols-outlined">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
-        </button>
-      </header>
+      </ToolHeader>
 
       <section className={`filter-row${compileError ? ' has-error' : ''}`}>
         <Suspense
@@ -368,6 +332,7 @@ export default function App() {
             onChange={(e) => setInput(e.target.value)}
             placeholder={options.rawInput ? 'raw text, one line per input' : '{"paste": "JSON here"} — multiple documents allowed'}
             spellCheck={false}
+            rows={Math.min(40, Math.max(3, input.split('\n').length))}
           />
         </section>
 
@@ -432,7 +397,7 @@ export default function App() {
 
       <CheatsheetDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onInsert={insertIntoFilter} />
 
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="shell-toast">{toast}</div>}
     </div>
   )
 }

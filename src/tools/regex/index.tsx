@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, navigate, usePath } from '../../shell/router'
-import { tools } from '../../shell/registry'
-import { useTheme } from '../../shell/theme'
+import { ToolHeader } from '../../shell/ToolHeader'
+import { useCopy } from '../../shell/useCopy'
+import { useToast } from '../../shell/useToast'
 import { evaluateJavascript, MAX_MATCHES } from './javascript'
 import type { RegexEngine, RegexMode, RegexOperation, RegexResult } from './types'
 import './regex.css'
@@ -20,7 +20,6 @@ const emptyResult: RegexResult = {
 }
 
 export default function RegexTool() {
-  const [theme, toggleTheme] = useTheme()
   const [mode, setMode] = useState<RegexMode>('javascript')
   const [operation, setOperation] = useState<RegexOperation>('match')
   const [pattern, setPattern] = useState('(?<word>foo+)')
@@ -28,9 +27,8 @@ export default function RegexTool() {
   const [subject, setSubject] = useState(SAMPLE)
   const [replacement, setReplacement] = useState('[$<word>]')
   const [result, setResult] = useState<RegexResult>(emptyResult)
-  const [toast, setToast] = useState('')
-  const [visible, setVisible] = useState('')
-  const timer = useRef<number | undefined>(undefined)
+  const { toast, showToast } = useToast()
+  const copy = useCopy(showToast)
   const debounceRef = useRef<number | undefined>(undefined)
 
   const engines: RegexEngine[] = useMemo(() => {
@@ -73,42 +71,17 @@ export default function RegexTool() {
     setFlags((prev) => prev.includes(flag) ? prev.replace(flag, '') : prev + flag)
   }
 
-  const notify = (message: string) => {
-    setToast(message)
-    setVisible('visible')
-    clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setVisible(''), 4000)
-  }
-
-  const copy = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      notify(`${label} copied`)
-    } catch {
-      notify('Copy failed')
-    }
-  }
-
   const matchCount = result.matches.length
   const elapsedText = `${result.elapsedMs.toFixed(1)}ms`
 
   return (
     <div className="regex-app">
-      <header className="regex-top">
-        <Link to="/" className="home-link" title="All tools — The Swiss Knife"><span className="material-symbols-outlined">home</span></Link>
-        <div className="regex-brand"><span>.*</span> Regex lab</div>
-        <span className="regex-local">local matching</span>
-        <select className="tool-switcher" value={usePath()} onChange={(e) => navigate(`/${e.target.value}`)} aria-label="Switch tool">
-          {tools.filter((t) => t.slug !== 'regex').map((t) => (
-            <option key={t.slug} value={t.slug}>{t.name}</option>
-          ))}
-        </select>
-        <div className="spacer" />
+      <ToolHeader
+        brand={<><span>.*</span> Regex lab</>}
+        localLabel="local matching"
+      >
         <button onClick={() => { setSubject(SAMPLE); setPattern('(?<word>foo+)'); setFlags('giu'); setOperation('match'); setReplacement('[$<word>]') }}><span className="material-symbols-outlined">auto_fix_high</span></button>
-        <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-          <span className="material-symbols-outlined">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
-        </button>
-      </header>
+      </ToolHeader>
 
       <main id="main-content" className="regex-main">
         <section className="regex-controls" aria-label="Regex settings">
@@ -221,7 +194,7 @@ export default function RegexTool() {
           </div>
         </div>
       </main>
-      <div className={`regex-status ${visible}`} role="status" aria-live="polite">{toast}</div>
+      <div className="shell-toast" role="status" aria-live="polite">{toast ?? ''}</div>
     </div>
   )
 }

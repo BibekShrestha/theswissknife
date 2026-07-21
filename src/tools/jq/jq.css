@@ -2,13 +2,13 @@
    Base reset/theme variables live in src/shell/theme.css. */
 
 .app {
-  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 10px 14px 12px;
   gap: 8px;
   max-width: 1800px;
   margin: 0 auto;
+  padding: 0 14px 12px;
 }
 
 /* ---- top bar ---- */
@@ -16,6 +16,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  margin: 0 -14px;
+  padding: 0 14px;
+  flex-shrink: 0;
   flex-wrap: wrap;
 }
 
@@ -574,6 +579,13 @@
    at half the pointer speed. */
 .input-pane {
   flex: 0 0 auto;
+  overflow: auto;
+}
+
+.input-pane .io-area {
+  flex: none;
+  min-height: 80px;
+  resize: vertical;
 }
 
 .divider {
