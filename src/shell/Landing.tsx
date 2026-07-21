@@ -37,6 +37,14 @@ export function Landing() {
           </p>
         </section>
 
+        <section className="landing-features">
+          <p>The Swiss Knife is a collection of <strong>private, client-side developer tools</strong> —
+          a <a href="/jq">jq playground</a>, <a href="/jwt">JWT decoder and generator</a>,
+          <a href="/regex">regex tester with PCRE2</a>, <a href="/codec">codec studio for Base64 and URL encoding</a>,
+          and a <a href="/time">Unix time converter</a>. All tools run locally in your browser —
+          nothing you paste is ever sent to a server.</p>
+        </section>
+
         <section className="tool-index" aria-labelledby="tools-heading">
           <div className="tool-index-head">
             <h2 id="tools-heading">Tool index</h2>

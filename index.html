@@ -11,8 +11,74 @@
     <meta property="og:description" content="Dedicated, no-nonsense developer tools. 100% client-side — nothing you paste ever leaves your machine." />
     <meta property="og:url" content="https://theswissknife.com/" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The Swiss Knife — developer tools" />
+    <meta name="twitter:description" content="Run jq, decode JWT, test regex, encode/decode, convert time — all client-side, no uploads." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23da291c'/%3E%3Cpath d='M13 6h6v7h7v6h-7v7h-6v-7H6v-6h7z' fill='%23fff'/%3E%3C/svg%3E" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": "The Swiss Knife",
+      "url": "https://theswissknife.com/",
+      "description": "Developer tools that run entirely in your browser: jq playground, JWT decoder, regex lab, codec studio, and unix time converter.",
+      "about": {
+        "@type": "Thing",
+        "name": "Developer utilities"
+      },
+      "mainEntity": {
+        "@type": "ItemList",
+        "itemListElement": [
+          {
+            "@type": "WebApplication",
+            "position": 1,
+            "name": "jq playground",
+            "url": "https://theswissknife.com/jq",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Any",
+            "description": "Run real jq 1.8.2 on your JSON with full flag support, autocomplete, and a local Web Worker — no server round-trips."
+          },
+          {
+            "@type": "WebApplication",
+            "position": 2,
+            "name": "JWT decode & generate",
+            "url": "https://theswissknife.com/jwt",
+            "applicationCategory": "SecurityApplication",
+            "operatingSystem": "Any",
+            "description": "Decode, verify, generate and sign JSON Web Tokens using WebCrypto. Keys never leave your machine."
+          },
+          {
+            "@type": "WebApplication",
+            "position": 3,
+            "name": "Regex lab",
+            "url": "https://theswissknife.com/regex",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Any",
+            "description": "Match, replace and compare JavaScript with PCRE2 patterns in a guarded local worker."
+          },
+          {
+            "@type": "WebApplication",
+            "position": 4,
+            "name": "Codec studio",
+            "url": "https://theswissknife.com/codec",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Any",
+            "description": "Encode and decode Base64, URLs, HTML entities and UTF-8 hex instantly without uploads."
+          },
+          {
+            "@type": "WebApplication",
+            "position": 5,
+            "name": "Unix time converter",
+            "url": "https://theswissknife.com/time",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Any",
+            "description": "Convert Unix seconds, milliseconds, and nanoseconds into precise local, UTC and IANA timezone time."
+          }
+        ]
+      }
+    }
+    </script>
     <script>
       (() => {
         try {
