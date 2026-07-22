@@ -41,6 +41,7 @@ export default function App() {
   const [current, setCurrent] = useState<RunResult | null>(null)
   const [lastGood, setLastGood] = useState<RunResult | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [splitPct, setSplitPct] = useState(46)
   const { toast, showToast } = useToast()
   const copy = useCopy(showToast)
@@ -243,6 +244,9 @@ export default function App() {
             </option>
           ))}
         </select>
+        <button onClick={() => setSettingsOpen((v) => !v)} aria-label="Settings" title="Toggle settings panel" className={settingsOpen ? 'settings-on' : ''}>
+          <span className="material-symbols-outlined">{settingsOpen ? 'close' : 'tune'}</span>
+        </button>
         <button onClick={() => setDrawerOpen(true)}><span className="material-symbols-outlined">menu_book</span> Reference</button>
         <button onClick={() => void copy(buildCliCommand(filter, options), 'Command')} aria-label="Copy command" title="Copy the equivalent terminal command">
           <span className="material-symbols-outlined">content_copy</span>
@@ -293,7 +297,7 @@ export default function App() {
         </div>
       </section>
 
-      <OptionsPanel options={options} onChange={setOptions} />
+      {settingsOpen && <OptionsPanel options={options} onChange={setOptions} />}
 
       <main id="main-content" className="panes" ref={mainRef}>
         <section className="pane input-pane" style={{ flexBasis: `${splitPct}%` }}>
@@ -332,7 +336,6 @@ export default function App() {
             onChange={(e) => setInput(e.target.value)}
             placeholder={options.rawInput ? 'raw text, one line per input' : '{"paste": "JSON here"} — multiple documents allowed'}
             spellCheck={false}
-            rows={Math.min(40, Math.max(3, input.split('\n').length))}
           />
         </section>
 

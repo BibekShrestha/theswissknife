@@ -79,6 +79,10 @@ body {
   height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--bg);
   background-image:
@@ -155,6 +159,14 @@ code {
 
 .spacer {
   flex: 1;
+}
+
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  src: url(/MaterialSymbolsOutlined.woff2) format('woff2');
+  font-display: block;
 }
 
 .material-symbols-outlined {
@@ -464,27 +476,27 @@ code {
   width: 27px;
 }
 
-.landing-nav {
-  display: flex;
-  gap: 4px;
-  margin-left: 16px;
-}
-
-.landing-nav button {
+.landing-about-btn {
   all: unset;
   box-sizing: border-box;
   color: var(--muted);
-  font-size: 12.5px;
-  font-weight: 500;
-  padding: 6px 12px;
-  border-radius: 999px;
   cursor: pointer;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background-color 120ms, color 120ms;
 }
 
-.landing-nav button:hover {
+.landing-about-btn:hover {
   color: var(--text);
   background: var(--panel-2);
+}
+
+.landing-about-btn .material-symbols-outlined {
+  font-size: 20px;
 }
 
 .landing-local {
@@ -797,10 +809,6 @@ code {
 /* ---- responsive ---- */
 
 @media (max-width: 860px) {
-  .landing-nav {
-    display: none;
-  }
-
   .landing-gh-link .gh-text {
     display: none;
   }

@@ -25,11 +25,11 @@ export function Landing() {
           <span>The Swiss Knife</span>
         </Link>
 
-        <nav className="landing-nav" role="navigation" aria-label="About">
-          <button onClick={() => document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' })}>About</button>
-        </nav>
-
         <div className="spacer" />
+
+        <button className="landing-about-btn" onClick={() => document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' })} aria-label="About The Swiss Knife">
+          <span className="material-symbols-outlined" aria-hidden>info</span>
+        </button>
 
         <span className="landing-local">local by design</span>
 
@@ -49,7 +49,7 @@ export function Landing() {
 
       {menuOpen && (
         <div className="landing-mobile-nav">
-          <button onClick={() => { setMenuOpen(false); document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' }) }}>About</button>
+          <button onClick={() => { setMenuOpen(false); document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' }) }}><span className="material-symbols-outlined" aria-hidden>info</span> About</button>
           <a href="https://github.com/BibekShrestha/theswissknife" target="_blank" rel="noreferrer">GitHub</a>
         </div>
       )}
