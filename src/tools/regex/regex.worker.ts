@@ -1,19 +1,15 @@
-import type { CaptureSpan, MatchSpan, RegexRequest, RegexResult } from './types'
+/**
+ * Regex worker — runs user-supplied regex patterns off the main thread so
+ * ReDoS (catastrophic backtracking) cannot freeze the UI.  The caller sets a
+ * timeout; if the worker hasn't replied before the deadline we terminate it
+ * and report an error.
+ */
 
-export const MAX_MATCHES = 1_000
-export const REGEX_TIMEOUT_MS = 5_000
+import type { RegexRequest, RegexResult, MatchSpan, CaptureSpan } from './types'
+
+const MAX_MATCHES = 1_000
 
 type Indices = Array<[number, number] | undefined> & { groups?: Record<string, [number, number] | undefined> }
-
-/**
- * Heuristic detection of patterns likely to cause catastrophic backtracking.
- * This is not a comprehensive check but catches common ReDoS vectors.
- */
-const RE_DANGEROUS = /\(\?(?:[a-z]*!|=|:[^)]*\)(?:[+*])|>[^)]*\)(?:[+*]))|\+{2,}|\*{2,}|\([^)]*\)(?:[+*])\([^)]*\)(?:[+*])/i
-
-export function hasDangerousPattern(pattern: string): boolean {
-  return RE_DANGEROUS.test(pattern)
-}
 
 function supportedIndices(): boolean {
   try {
@@ -54,14 +50,7 @@ function advanceStringIndex(subject: string, index: number, unicode: boolean): n
   return second >= 0xdc00 && second <= 0xdfff ? index + 2 : index + 1
 }
 
-/**
- * Evaluate a regex request synchronously on the main thread.
- *
- * Note: Patterns with nested quantifiers (e.g. `(a+)+b`) can cause
- * catastrophic backtracking and freeze the tab. Use `hasDangerousPattern()`
- * to warn the user before calling this function with user-supplied patterns.
- */
-export function evaluateJavascript(request: RegexRequest): RegexResult {
+function evaluateJavascript(request: RegexRequest): RegexResult {
   const started = performance.now()
   const flags = request.flags.replace(/x/g, '')
   try {
@@ -95,4 +84,9 @@ export function evaluateJavascript(request: RegexRequest): RegexResult {
       error: error instanceof Error ? error.message : String(error), truncated: false,
     }
   }
+}
+
+self.onmessage = (e: MessageEvent<RegexRequest>) => {
+  const result = evaluateJavascript(e.data)
+  self.postMessage(result)
 }

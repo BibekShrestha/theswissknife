@@ -3,13 +3,17 @@ import { tools } from './registry'
 import { Link } from './router'
 import { useTheme } from './theme'
 
-const categories = ['all', 'data', 'security', 'text', 'time', 'pdf'] as const
+const categories: { id: string; name: string; description: string }[] = [
+  { id: 'data', name: 'Data', description: 'Query and transform structured data' },
+  { id: 'security', name: 'Security', description: 'Inspect and generate tokens & keys' },
+  { id: 'text', name: 'Text', description: 'Pattern matching, encoding and decoding' },
+  { id: 'time', name: 'Time', description: 'Convert and compare timestamps across zones' },
+  { id: 'pdf', name: 'PDF', description: 'Merge, split, convert and protect documents' },
+]
 
 export function Landing() {
   const [theme, toggleTheme] = useTheme()
-  const [activeCat, setActiveCat] = useState<string>('all')
   const [menuOpen, setMenuOpen] = useState(false)
-  const filtered = activeCat === 'all' ? tools : tools.filter((t) => t.category === activeCat)
 
   return (
     <div className="landing">
@@ -21,12 +25,7 @@ export function Landing() {
           <span>The Swiss Knife</span>
         </Link>
 
-        <nav className="landing-nav" role="navigation" aria-label="Tool categories">
-          {categories.filter(c => c !== 'all').map((cat) => (
-            <button key={cat} onClick={() => { setActiveCat(cat); setMenuOpen(false) }}>
-              {cat}
-            </button>
-          ))}
+        <nav className="landing-nav" role="navigation" aria-label="About">
           <button onClick={() => document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' })}>About</button>
         </nav>
 
@@ -50,11 +49,6 @@ export function Landing() {
 
       {menuOpen && (
         <div className="landing-mobile-nav">
-          {categories.filter(c => c !== 'all').map((cat) => (
-            <button key={cat} onClick={() => { setActiveCat(cat); setMenuOpen(false) }}>
-              {cat}
-            </button>
-          ))}
           <button onClick={() => { setMenuOpen(false); document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' }) }}>About</button>
           <a href="https://github.com/BibekShrestha/theswissknife" target="_blank" rel="noreferrer">GitHub</a>
         </div>
@@ -83,48 +77,32 @@ export function Landing() {
               Open source
             </span>
           </div>
-          <a href="#tool-index" className="landing-cta">
-            Browse tools
+          <a href="#tools" className="landing-cta">
+            Explore tools
             <span className="material-symbols-outlined" aria-hidden>arrow_downward</span>
           </a>
         </section>
 
-        <section className="tool-index" id="tool-index" aria-labelledby="tools-heading">
-          <div className="tool-index-head">
-            <div>
-              <h2 id="tools-heading">Tool index</h2>
-              <p>Six instruments for your daily workflow</p>
-            </div>
-            <span>{String(tools.length).padStart(2, '0')} instruments</span>
-          </div>
-          <div className="category-filter" role="group" aria-label="Filter by category">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                className={`category-pill${activeCat === cat ? ' on' : ''}`}
-                onClick={() => setActiveCat(cat)}
-                aria-pressed={activeCat === cat}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-          <div className="tool-grid">
-            {filtered.map((t) => (
-              <Link key={t.slug} to={`/${t.slug}`} className="tool-card">
-                <span className="tool-card-category">{t.category}</span>
-                <span className="tool-mark" aria-hidden>{t.mark}</span>
-                <span className="tool-name">{t.name}</span>
-                <span className="tool-tagline">{t.tagline}</span>
-                <span className="tool-card-foot">
-                  <span className="tool-path">/{t.slug}</span>
-                  <span className="tool-arrow" aria-hidden>
-                    <span className="material-symbols-outlined">arrow_outward</span>
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </div>
+        <section className="landing-tools" id="tools" aria-label="Tools">
+          {categories.map((cat) => {
+            const catTools = tools.filter((t) => t.category === cat.id)
+            if (catTools.length === 0) return null
+            return (
+              <div className="landing-tools-category" key={cat.id}>
+                <h3>{cat.name}</h3>
+                <p>{cat.description}</p>
+                <div className="landing-tools-grid">
+                  {catTools.map((t) => (
+                    <Link key={t.slug} to={`/${t.slug}`} className="landing-tool-card">
+                      <span className="landing-tool-card-mark" aria-hidden>{t.mark}</span>
+                      <h4>{t.name}</h4>
+                      <p>{t.tagline}</p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </section>
 
         <section className="landing-why" id="why">

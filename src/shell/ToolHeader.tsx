@@ -1,19 +1,17 @@
 import type { ReactNode } from 'react'
-import { tools } from './registry'
-import { Link, navigate, usePath } from './router'
+import { Link } from './router'
 import { useTheme } from './theme'
 
 interface ToolHeaderProps {
   brand: ReactNode
   localLabel?: string
-  /** Content rendered between the brand and the tool-switcher (e.g. tabs). */
+  /** Content rendered between the brand and the spacer (e.g. tabs). */
   beforeSwitcher?: ReactNode
   /** Content rendered after the spacer, before the theme toggle. */
   children?: ReactNode
 }
 
 export function ToolHeader({ brand, localLabel, beforeSwitcher, children }: ToolHeaderProps) {
-  const path = usePath()
   const [theme, toggleTheme] = useTheme()
 
   return (
@@ -24,11 +22,6 @@ export function ToolHeader({ brand, localLabel, beforeSwitcher, children }: Tool
       <div className="shell-brand">{brand}</div>
       {localLabel && <span className="shell-local-badge">{localLabel}</span>}
       {beforeSwitcher}
-      <select className="tool-switcher" value={path} onChange={(e) => navigate(`/${e.target.value}`)} aria-label="Switch tool">
-        {tools.filter((t) => t.slug !== path).map((t) => (
-          <option key={t.slug} value={t.slug}>{t.name}</option>
-        ))}
-      </select>
       <div className="spacer" />
       {children}
       <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>

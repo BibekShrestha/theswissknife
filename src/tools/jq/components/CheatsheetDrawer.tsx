@@ -26,7 +26,7 @@ export function CheatsheetDrawer({ open, onClose, onInsert }: Props) {
           <a href="https://jqlang.org/manual/" target="_blank" rel="noreferrer">
             full manual <span className="material-symbols-outlined" aria-hidden>open_in_new</span>
           </a>
-          <button className="icon-btn" onClick={onClose} title="Close">
+          <button className="icon-btn" onClick={onClose} aria-label="Close" title="Close">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>

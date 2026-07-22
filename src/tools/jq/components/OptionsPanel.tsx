@@ -136,7 +136,7 @@ export function OptionsPanel({ options, onChange }: Props) {
                   value={a.value}
                   onChange={(e) => setNamedArg(i, { value: e.target.value })}
                 />
-                <button className="icon-btn" title="Remove" onClick={() => set('namedArgs', options.namedArgs.filter((_, j) => j !== i))}>
+                <button className="icon-btn" aria-label="Remove" title="Remove" onClick={() => set('namedArgs', options.namedArgs.filter((_, j) => j !== i))}>
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
@@ -162,7 +162,7 @@ export function OptionsPanel({ options, onChange }: Props) {
                   value={p.value}
                   onChange={(e) => setPositional(i, { value: e.target.value })}
                 />
-                <button className="icon-btn" title="Remove" onClick={() => set('positionalArgs', options.positionalArgs.filter((_, j) => j !== i))}>
+                <button className="icon-btn" aria-label="Remove" title="Remove" onClick={() => set('positionalArgs', options.positionalArgs.filter((_, j) => j !== i))}>
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>

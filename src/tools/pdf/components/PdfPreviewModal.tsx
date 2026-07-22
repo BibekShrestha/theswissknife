@@ -53,13 +53,13 @@ export function PdfPreviewModal({ bytes, fileName, onClose }: PdfPreviewModalPro
         <div className="pdf-preview-head">
           <h3>{fileName}</h3>
           <div className="pdf-preview-controls">
-            <button onClick={() => setPageNum((p) => Math.max(1, p - 1))} disabled={pageNum <= 1}>
+            <button onClick={() => setPageNum((p) => Math.max(1, p - 1))} disabled={pageNum <= 1} aria-label="Previous page">
               <span className="material-symbols-outlined">chevron_left</span>
             </button>
             <span className="pdf-preview-page">
               {pageNum} / {totalPages || '?'}
             </span>
-            <button onClick={() => setPageNum((p) => Math.min(totalPages, p + 1))} disabled={pageNum >= totalPages}>
+            <button onClick={() => setPageNum((p) => Math.min(totalPages, p + 1))} disabled={pageNum >= totalPages} aria-label="Next page">
               <span className="material-symbols-outlined">chevron_right</span>
             </button>
             <button onClick={onClose} aria-label="Close preview">

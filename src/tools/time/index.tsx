@@ -95,7 +95,7 @@ export default function TimeTool() {
   return (
     <div className="time-app">
       <ToolHeader
-        brand={<><span>UTC</span> Unix time</>}
+        brand={<><span className="tool-mark-accent">UTC</span> Unix time</>}
         localLabel={`browser clock · ${localZone}`}
       >
         <button onClick={useNow}>Use now</button>
@@ -181,7 +181,7 @@ export default function TimeTool() {
           </div>
         </section>
       </main>
-      <div className="shell-toast" role="status" aria-live="polite">{toast ?? ''}</div>
+      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
     </div>
   )
 }

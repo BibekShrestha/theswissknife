@@ -1,5 +1,5 @@
 .pdf-app {
-  --pdf-bg: var(--surface);
+  --pdf-bg: var(--panel);
   --pdf-text: var(--text);
   --pdf-muted: var(--muted);
   --pdf-border: var(--border);
@@ -11,65 +11,13 @@
 
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  gap: 14px;
+  margin: 0 auto;
+  max-width: 1500px;
+  min-height: 100vh;
+  padding: 14px 18px 20px;
   background: var(--pdf-canvas);
   color: var(--pdf-text);
-}
-
-.pdf-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--pdf-border);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  background: var(--pdf-panel);
-}
-
-.pdf-brand {
-  font-weight: 600;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pdf-brand span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 4px;
-}
-
-.pdf-local {
-  font-size: 11px;
-  color: var(--pdf-muted);
-}
-
-.pdf-top .spacer {
-  flex: 1;
-}
-
-.pdf-top button {
-  padding: 4px 12px;
-  font-size: 12px;
-  border: 1px solid var(--pdf-border);
-  border-radius: var(--pdf-radius);
-  background: var(--pdf-bg);
-  color: var(--pdf-text);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.pdf-top button:focus-visible,
-.pdf-top select:focus-visible {
-  outline: 2px solid var(--pdf-accent);
-  outline-offset: 2px;
 }
 
 .pdf-main {
@@ -93,6 +41,7 @@
   background: var(--pdf-panel);
   overflow-y: auto;
   padding: 8px 0;
+  height: 100%;
 }
 
 .pdf-sidebar-group {
@@ -376,10 +325,10 @@
 
 /* ----- processed actions ----- */
 .pdf-processed {
-  border: 1px solid color-mix(in srgb, #059669 30%, var(--pdf-border));
+  border: 1px solid color-mix(in srgb, var(--ok) 30%, var(--pdf-border));
   border-radius: 10px;
   padding: 16px;
-  background: color-mix(in srgb, #059669 6%, var(--pdf-panel));
+  background: color-mix(in srgb, var(--ok) 6%, var(--pdf-panel));
   margin-bottom: 16px;
 }
 
@@ -390,7 +339,7 @@
 }
 
 .pdf-processed-header .material-symbols-outlined {
-  color: #059669;
+  color: var(--ok);
   font-size: 20px;
   margin-top: 1px;
 }
@@ -399,12 +348,12 @@
   font-size: 13px;
   font-weight: 600;
   margin: 0 0 2px;
-  color: #065f46;
+  color: var(--ok);
 }
 
 .pdf-processed-info p {
   font-size: 12px;
-  color: #047857;
+  color: var(--ok);
   margin: 0;
 }
 
@@ -428,23 +377,23 @@
 }
 
 .pdf-processed-download {
-  background: #059669;
+  background: var(--ok);
   color: #fff;
   border: none;
 }
 
 .pdf-processed-download:hover {
-  background: #047857;
+  filter: brightness(1.1);
 }
 
 .pdf-processed-preview {
   background: transparent;
-  border: 1px solid color-mix(in srgb, #059669 30%, var(--pdf-border));
-  color: #047857;
+  border: 1px solid color-mix(in srgb, var(--ok) 30%, var(--pdf-border));
+  color: var(--ok);
 }
 
 .pdf-processed-preview:hover {
-  background: color-mix(in srgb, #059669 8%, transparent);
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
 }
 
 /* ----- form controls ----- */

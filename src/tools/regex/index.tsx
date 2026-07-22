@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
 import { useToast } from '../../shell/useToast'
-import { evaluateJavascript, MAX_MATCHES } from './javascript'
+import { evaluateJavascript, hasDangerousPattern, MAX_MATCHES } from './javascript'
 import type { RegexEngine, RegexMode, RegexOperation, RegexResult } from './types'
 import './regex.css'
 
@@ -27,6 +27,7 @@ export default function RegexTool() {
   const [subject, setSubject] = useState(SAMPLE)
   const [replacement, setReplacement] = useState('[$<word>]')
   const [result, setResult] = useState<RegexResult>(emptyResult)
+  const [reDosWarning, setReDosWarning] = useState(false)
   const { toast, showToast } = useToast()
   const copy = useCopy(showToast)
   const debounceRef = useRef<number | undefined>(undefined)
@@ -39,6 +40,7 @@ export default function RegexTool() {
 
   const run = useCallback(() => {
     const started = performance.now()
+    setReDosWarning(hasDangerousPattern(pattern))
 
     if (mode === 'compare') {
       const jsResult = evaluateJavascript({ id: 0, engines: ['javascript'], pattern, flags, subject, operation, replacement })
@@ -77,10 +79,10 @@ export default function RegexTool() {
   return (
     <div className="regex-app">
       <ToolHeader
-        brand={<><span>.*</span> Regex lab</>}
+        brand={<><span className="tool-mark-accent">.*</span> Regex lab</>}
         localLabel="local matching"
       >
-        <button onClick={() => { setSubject(SAMPLE); setPattern('(?<word>foo+)'); setFlags('giu'); setOperation('match'); setReplacement('[$<word>]') }}><span className="material-symbols-outlined">auto_fix_high</span></button>
+        <button onClick={() => { setSubject(SAMPLE); setPattern('(?<word>foo+)'); setFlags('giu'); setOperation('match'); setReplacement('[$<word>]') }} aria-label="Reset to sample" title="Reset to sample pattern and subject"><span className="material-symbols-outlined">auto_fix_high</span></button>
       </ToolHeader>
 
       <main id="main-content" className="regex-main">
@@ -161,6 +163,11 @@ export default function RegexTool() {
               <button onClick={() => { setResult(emptyResult) }} aria-label="Clear"><span className="material-symbols-outlined">close</span></button>
               <button onClick={() => void copy(result.replacement ?? JSON.stringify(result.matches, null, 2), 'Result')} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
             </div>
+            {reDosWarning && !result.error && (
+              <div className="regex-error" role="alert" style={{ borderLeftColor: 'var(--warn)' }}>
+                This pattern may cause catastrophic backtracking (ReDoS) on long inputs. If the tab freezes, reload and simplify the pattern.
+              </div>
+            )}
             {result.error ? (
               <div className="regex-error" role="alert">{result.error}</div>
             ) : operation === 'replace' ? (
@@ -194,7 +201,7 @@ export default function RegexTool() {
           </div>
         </div>
       </main>
-      <div className="shell-toast" role="status" aria-live="polite">{toast ?? ''}</div>
+      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
     </div>
   )
 }

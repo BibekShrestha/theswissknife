@@ -77,9 +77,8 @@ function decodeHtmlFallback(value: string): string {
 
 function decodeHtml(value: string): string {
   if (typeof document === 'undefined') return decodeHtmlFallback(value)
-  const area = document.createElement('textarea')
-  area.innerHTML = value
-  return area.value
+  const doc = new DOMParser().parseFromString(value, 'text/html')
+  return doc.body.textContent ?? value
 }
 
 export function convertCodec(codec: CodecId, direction: CodecDirection, input: string): CodecResult {

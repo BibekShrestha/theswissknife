@@ -17,7 +17,7 @@ export default function JwtTool() {
   return (
     <div className="jwt-app">
       <ToolHeader
-        brand={<><span className="jwt-brand-mark">JWT</span> {mode === 'decode' ? 'decoder' : 'generator'}</>}
+        brand={<><span className="tool-mark-accent">JWT</span> {mode === 'decode' ? 'decoder' : 'generator'}</>}
         beforeSwitcher={
           <>
             <div className="jwt-tabs" role="tablist" aria-label="Mode">
@@ -47,7 +47,7 @@ export default function JwtTool() {
         <GenerateView onCopy={copy} />
       </div>
 
-      {toast && <div className="shell-toast">{toast}</div>}
+      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
     </div>
   )
 }

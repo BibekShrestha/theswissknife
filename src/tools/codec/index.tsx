@@ -28,7 +28,7 @@ export default function CodecTool() {
         brand={<><span className="material-symbols-outlined">swap_horiz</span> Codec studio</>}
         localLabel="local text conversion"
       >
-        <button onClick={() => setInput(SAMPLE)}><span className="material-symbols-outlined">auto_fix_high</span></button>
+        <button onClick={() => setInput(SAMPLE)} aria-label="Reset to sample" title="Reset to sample text"><span className="material-symbols-outlined">auto_fix_high</span></button>
       </ToolHeader>
 
       <main id="main-content" className="codec-main">
@@ -68,7 +68,7 @@ export default function CodecTool() {
           </article>
         </section>
       </main>
-      <div className="shell-toast" role="status" aria-live="polite">{toast ?? ''}</div>
+      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
     </div>
   )
 }

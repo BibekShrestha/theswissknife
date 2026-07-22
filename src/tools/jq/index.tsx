@@ -224,7 +224,7 @@ export default function App() {
   return (
     <div className="app">
       <ToolHeader
-        brand={<><span className="brand-jq">jq</span> playground <span className="badge" title="Real jq compiled to WebAssembly, running locally in your browser">{jq.fatal ? 'wasm failed' : jq.version ? `${jq.version} · wasm` : 'loading wasm…'}</span></>}
+        brand={<><span className="tool-mark-accent">jq</span> playground <span className="badge" title="Real jq compiled to WebAssembly, running locally in your browser">{jq.fatal ? 'wasm failed' : jq.version ? `${jq.version} · wasm` : 'loading wasm…'}</span></>}
       >
         <select
           className="examples-select"
@@ -244,10 +244,10 @@ export default function App() {
           ))}
         </select>
         <button onClick={() => setDrawerOpen(true)}><span className="material-symbols-outlined">menu_book</span> Reference</button>
-        <button onClick={() => void copy(buildCliCommand(filter, options), 'Command')} title="Copy the equivalent terminal command">
+        <button onClick={() => void copy(buildCliCommand(filter, options), 'Command')} aria-label="Copy command" title="Copy the equivalent terminal command">
           <span className="material-symbols-outlined">content_copy</span>
         </button>
-        <button onClick={share} title="Copy a link that restores this exact session">
+        <button onClick={share} aria-label="Share session" title="Copy a link that restores this exact session">
           <span className="material-symbols-outlined">share</span>
         </button>
       </ToolHeader>
@@ -307,10 +307,10 @@ export default function App() {
               <button onClick={() => formatInput(2)} title="Pretty-print (single JSON doc)">
                 Format
               </button>
-              <button onClick={() => formatInput(0)} title="Minify (single JSON doc)">
+              <button onClick={() => formatInput(0)} aria-label="Minify" title="Minify (single JSON doc)">
                 <span className="material-symbols-outlined">compress</span>
               </button>
-              <button onClick={() => fileRef.current?.click()} title="Load a local file">
+              <button onClick={() => fileRef.current?.click()} aria-label="Load file" title="Load a local file">
                 <span className="material-symbols-outlined">folder_open</span>
               </button>
               <button onClick={() => void copy(input, 'Input')} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
@@ -397,7 +397,7 @@ export default function App() {
 
       <CheatsheetDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onInsert={insertIntoFilter} />
 
-      {toast && <div className="shell-toast">{toast}</div>}
+      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
     </div>
   )
 }
