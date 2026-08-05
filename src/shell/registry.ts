@@ -66,4 +66,12 @@ export const tools: ToolMeta[] = [
     category: 'pdf',
     load: () => import('../tools/pdf'),
   },
+  {
+    slug: 'html-table',
+    name: 'HTML table extractor',
+    tagline: 'Pull any HTML table into CSV, JSON or Markdown — colspan and rowspan handled',
+    mark: '▦',
+    category: 'data',
+    load: () => import('../tools/html-table'),
+  },
 ]
