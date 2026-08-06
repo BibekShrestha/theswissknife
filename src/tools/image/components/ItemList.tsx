@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { CompareViewer } from './CompareViewer'
 import { formatBytes } from '../lib/naming'
-import type { Pipeline, QueueItem } from '../useImagePipeline'
+import type { Pipeline } from '../useImagePipeline'
 
 export function ItemList({ pipeline }: { pipeline: Pipeline }) {
   const { items, results, totals, running, removeItem, clearAll, downloadOne, downloadAll } = pipeline
-  const [preview, setPreview] = useState<QueueItem | null>(null)
+  // index into `results`, so the viewer can step through the whole batch
+  const [compare, setCompare] = useState<number | null>(null)
 
   if (items.length === 0) return null
 
@@ -45,12 +47,20 @@ export function ItemList({ pipeline }: { pipeline: Pipeline }) {
             <button
               type="button"
               className="image-thumb"
-              onClick={() => item.result && setPreview(item)}
+              onClick={() => {
+                const at = results.findIndex((candidate) => candidate.id === item.id)
+                if (at >= 0) setCompare(at)
+              }}
               disabled={!item.result}
-              aria-label={item.result ? `Preview ${item.result.name}` : 'No preview yet'}
+              aria-label={item.result ? `Compare ${item.result.name} with the original` : 'Nothing to compare yet'}
             >
               {item.result ? (
-                <img src={item.result.url} alt="" />
+                <>
+                  <img src={item.result.url} alt="" />
+                  <span className="image-thumb-hint material-symbols-outlined" aria-hidden>
+                    compare
+                  </span>
+                </>
               ) : (
                 <span className="material-symbols-outlined" aria-hidden>
                   {item.status === 'rejected' ? 'block' : 'image'}
@@ -69,7 +79,10 @@ export function ItemList({ pipeline }: { pipeline: Pipeline }) {
                     </span>
                     <span className="image-tag">{item.result.format.toUpperCase()}</span>
                     <span>
-                      {item.result.width} × {item.result.height} px
+                      {item.result.sourceWidth !== item.result.width ||
+                      item.result.sourceHeight !== item.result.height
+                        ? `${item.result.sourceWidth} × ${item.result.sourceHeight} → ${item.result.width} × ${item.result.height} px`
+                        : `${item.result.width} × ${item.result.height} px`}
                     </span>
                     <span>
                       {formatBytes(item.file.size)} → <strong>{formatBytes(item.result.bytes)}</strong>
@@ -98,16 +111,31 @@ export function ItemList({ pipeline }: { pipeline: Pipeline }) {
 
             <div className="image-item-actions">
               {item.result && (
-                <button
-                  type="button"
-                  className="image-icon-btn"
-                  onClick={() => downloadOne(item)}
-                  aria-label={`Download ${item.result.name}`}
-                >
-                  <span className="material-symbols-outlined" aria-hidden>
-                    download
-                  </span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="image-icon-btn"
+                    onClick={() => {
+                      const at = results.findIndex((candidate) => candidate.id === item.id)
+                      if (at >= 0) setCompare(at)
+                    }}
+                    aria-label={`Compare ${item.result.name} with the original`}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden>
+                      compare
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="image-icon-btn"
+                    onClick={() => downloadOne(item)}
+                    aria-label={`Download ${item.result.name}`}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden>
+                      download
+                    </span>
+                  </button>
+                </>
               )}
               <button
                 type="button"
@@ -125,42 +153,15 @@ export function ItemList({ pipeline }: { pipeline: Pipeline }) {
         ))}
       </ul>
 
-      {preview?.result && <Preview item={preview} onClose={() => setPreview(null)} />}
+      {compare !== null && results[compare] && (
+        <CompareViewer
+          items={results}
+          index={compare}
+          onIndex={setCompare}
+          onClose={() => setCompare(null)}
+        />
+      )}
     </section>
-  )
-}
-
-function Preview({ item, onClose }: { item: QueueItem; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  if (!item.result) return null
-
-  return (
-    <div className="image-modal" role="dialog" aria-modal="true" aria-label={item.result.name} onClick={onClose}>
-      <div className="image-modal-inner" onClick={(event) => event.stopPropagation()}>
-        <header>
-          <strong>{item.result.name}</strong>
-          <span className="image-muted">
-            {item.result.width} × {item.result.height} · {formatBytes(item.result.bytes)}
-          </span>
-          <div className="spacer" />
-          <button type="button" className="image-icon-btn" onClick={onClose} aria-label="Close preview">
-            <span className="material-symbols-outlined" aria-hidden>
-              close
-            </span>
-          </button>
-        </header>
-        <div className="image-modal-canvas">
-          <img src={item.result.url} alt={item.result.name} />
-        </div>
-      </div>
-    </div>
   )
 }
 
