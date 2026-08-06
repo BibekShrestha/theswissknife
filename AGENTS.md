@@ -60,3 +60,10 @@ src/
   editor with input-aware autocomplete. Quirks are documented in README.md
   (argv ~1MB crash guard, $ARGS emulation, --args unusable in-wasm).
 - `tools/jwt/` — JWT decode/verify/sign via WebCrypto.
+- `tools/image/` — batch convert/resize/compress. One engine
+  (`useImagePipeline`) behind four screens; canvas work runs in
+  `image.worker.ts`. `gif/` is a hand-written GIF89a encoder (median cut,
+  Floyd–Steinberg, LZW) because browsers cannot encode GIF — it is
+  dynamically imported so it only loads when GIF output is picked, and its
+  tests decode what it writes. SVG is input-only and rasterises on the main
+  thread (Chrome's `createImageBitmap` rejects SVG blobs).

@@ -9,6 +9,7 @@ const categories: { id: string; name: string; description: string }[] = [
   { id: 'text', name: 'Text', description: 'Pattern matching, encoding and decoding' },
   { id: 'time', name: 'Time', description: 'Convert and compare timestamps across zones' },
   { id: 'pdf', name: 'PDF', description: 'Merge, split, convert and protect documents' },
+  { id: 'image', name: 'Images', description: 'Convert, resize and compress pictures' },
 ]
 
 export function Landing() {

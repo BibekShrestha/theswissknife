@@ -13,7 +13,7 @@ export interface ToolMeta {
   tagline: string
   /** Short typographic mark shown on the landing card. */
   mark: string
-  category: 'data' | 'security' | 'text' | 'time' | 'pdf'
+  category: 'data' | 'security' | 'text' | 'time' | 'pdf' | 'image'
   load: () => Promise<{ default: ComponentType }>
 }
 
@@ -65,6 +65,14 @@ export const tools: ToolMeta[] = [
     mark: 'PDF',
     category: 'pdf',
     load: () => import('../tools/pdf'),
+  },
+  {
+    slug: 'image',
+    name: 'Image converter',
+    tagline: 'Convert, resize and compress JPEG, PNG, WebP and GIF — batch, with a size target',
+    mark: 'IMG',
+    category: 'image',
+    load: () => import('../tools/image'),
   },
   {
     slug: 'html-table',

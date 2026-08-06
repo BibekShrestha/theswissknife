@@ -9,6 +9,7 @@ browser** — nothing you paste ever leaves your machine.
 |---|---|---|
 | jq playground | [/jq](https://theswissknife.com/jq) | Real jq 1.8.2 (WebAssembly) with every CLI flag, input-aware autocomplete, examples, shareable links |
 | JWT decoder | [/jwt](https://theswissknife.com/jwt) | Decode, verify and sign JWTs (HS/RS/PS/ES/EdDSA) via WebCrypto |
+| Image converter | [/image](https://theswissknife.com/image) | Batch convert, resize and compress PNG/JPEG/WebP/GIF (SVG in), target file sizes, own GIF encoder |
 
 ## Develop
 
