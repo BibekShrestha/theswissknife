@@ -3,6 +3,7 @@ import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
 import { useToast } from '../../shell/useToast'
 import { extractTables, type ExtractOptions } from './extract'
+import { formatHtml } from './format'
 import { cleanGrid, FILE_META, serialize, type Format, type Grid } from './serialize'
 import './html-table.css'
 
@@ -122,6 +123,17 @@ export default function HtmlTableTool() {
     showToast('Pasted rich HTML from the clipboard')
   }
 
+  /** Re-indent the source in place. Pasted markup is usually one long line. */
+  const prettify = () => {
+    const formatted = formatHtml(html)
+    if (formatted === html) {
+      showToast('Already tidy')
+      return
+    }
+    setHtml(formatted)
+    showToast(`Prettified · ${formatted.split('\n').length.toLocaleString()} lines`)
+  }
+
   const openFile = (file: File | undefined) => {
     if (!file) return
     void file.text().then((text) => {
@@ -153,7 +165,7 @@ export default function HtmlTableTool() {
           aria-label="Load sample table"
           title="Load a sample table"
         >
-          <span className="material-symbols-outlined">auto_fix_high</span>
+          <span className="material-symbols-outlined">table_view</span>
         </button>
         <button onClick={() => fileRef.current?.click()} aria-label="Open an HTML file" title="Open an .html file">
           <span className="material-symbols-outlined">folder_open</span>
@@ -180,6 +192,14 @@ export default function HtmlTableTool() {
                 <strong>HTML source</strong>
               </div>
               <span>{html.length.toLocaleString()} chars</span>
+              <button
+                onClick={prettify}
+                disabled={!html.trim()}
+                aria-label="Prettify HTML"
+                title="Prettify — re-indent the source without changing the markup"
+              >
+                <span className="material-symbols-outlined">format_indent_increase</span>
+              </button>
               <button onClick={() => setHtml('')} disabled={!html} aria-label="Clear source">
                 <span className="material-symbols-outlined">close</span>
               </button>
