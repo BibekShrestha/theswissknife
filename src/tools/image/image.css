@@ -601,63 +601,253 @@
   padding: 3px 6px;
 }
 
-/* ---- preview ---- */
-.image-modal {
+/* ---- before/after viewer ---- */
+.image-compare-backdrop {
   align-items: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.62);
   display: flex;
   inset: 0;
   justify-content: center;
-  padding: 20px;
+  padding: 18px;
   position: fixed;
   z-index: 60;
 }
 
-.image-modal-inner {
+.image-compare {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  max-height: 100%;
-  max-width: 960px;
+  height: 100%;
+  max-width: 1240px;
   overflow: hidden;
   width: 100%;
 }
 
-.image-modal-inner > header {
+.image-compare-head,
+.image-compare-foot {
   align-items: center;
-  border-bottom: 1px solid var(--border);
   display: flex;
-  font-size: 12.5px;
-  gap: 10px;
-  padding: 8px 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
 }
 
-.image-modal-inner > header .image-muted {
+.image-compare-head {
+  border-bottom: 1px solid var(--border);
+}
+
+.image-compare-foot {
+  border-top: 1px solid var(--border);
+}
+
+.image-compare-title {
+  align-items: baseline;
+  display: flex;
+  gap: 9px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.image-compare-title .image-muted {
   font: 11px var(--font-mono);
 }
 
-.image-modal-canvas {
+.image-compare-modes {
+  display: flex;
+  gap: 4px;
+}
+
+.image-compare-modes .image-chip {
   align-items: center;
+  display: inline-flex;
+  gap: 5px;
+}
+
+.image-compare-modes .material-symbols-outlined {
+  font-size: 15px;
+}
+
+.image-compare-body {
+  display: flex;
+  flex: 1;
+  gap: 1px;
+  min-height: 0;
+}
+
+.image-compare-stage {
   /* the checkerboard makes transparency obvious rather than looking white */
   background-color: var(--panel-2);
   background-image: linear-gradient(45deg, var(--border) 25%, transparent 25%),
     linear-gradient(-45deg, var(--border) 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, var(--border) 75%),
     linear-gradient(-45deg, transparent 75%, var(--border) 75%);
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-  background-size: 16px 16px;
-  display: flex;
-  justify-content: center;
-  min-height: 200px;
-  overflow: auto;
-  padding: 14px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  background-size: 18px 18px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+  user-select: none;
 }
 
-.image-modal-canvas img {
-  max-width: 100%;
+.image-compare-stage[data-pannable] {
+  cursor: grab;
+}
+
+.image-compare-stage[data-pannable]:active {
+  cursor: grabbing;
+}
+
+/* both images occupy the same screen-space layer, so clipping one wipes
+   between them without either moving */
+.image-compare-layer {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: absolute;
+}
+
+.image-compare-frame {
+  /* fixed size: flexbox must not shrink it to fit the stage */
+  flex: 0 0 auto;
+  position: relative;
+}
+
+.image-compare-frame img {
+  display: block;
+  height: 100%;
+  /* a resized output keeps its own aspect ratio inside the original's frame */
   object-fit: contain;
+  width: 100%;
+}
+
+.image-compare-divider {
+  align-items: center;
+  background: var(--accent);
+  bottom: 0;
+  cursor: ew-resize;
+  display: flex;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  touch-action: none;
+  transform: translateX(-1px);
+  width: 2px;
+}
+
+.image-compare-divider .material-symbols-outlined {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fff;
+  display: flex;
+  font-size: 20px;
+  height: 30px;
+  justify-content: center;
+  rotate: 90deg;
+  width: 30px;
+}
+
+.image-compare-divider:focus-visible {
+  outline-offset: 3px;
+}
+
+.image-compare-tag {
+  backdrop-filter: blur(3px);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  bottom: 10px;
+  font: 10.5px var(--font-mono);
+  padding: 4px 7px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.image-compare-tag b {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.image-compare-tag em {
+  font-style: normal;
+}
+
+.image-compare-tag.left {
+  left: 10px;
+}
+
+.image-compare-tag.right {
+  right: 10px;
+}
+
+.image-compare-step {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  display: flex;
+  padding: 0 2px;
+}
+
+.image-compare-step:hover:not(:disabled) {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.image-compare-zoom {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.image-compare-zoom-value {
+  color: var(--muted);
+  font: 11px var(--font-mono);
+  min-width: 46px;
+  text-align: center;
+}
+
+.image-compare-facts {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font: 11px var(--font-mono);
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.image-compare-foot .image-btn-primary {
+  text-decoration: none;
+}
+
+.image-thumb {
+  position: relative;
+}
+
+.image-thumb-hint {
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  border-radius: var(--radius-sm) 0 0 0;
+  bottom: 0;
+  color: var(--text);
+  font-size: 13px !important;
+  opacity: 0;
+  padding: 1px 2px 0;
+  position: absolute;
+  right: 0;
+  transition: opacity 120ms ease;
+}
+
+.image-thumb:hover .image-thumb-hint,
+.image-thumb:focus-visible .image-thumb-hint {
+  opacity: 1;
 }
 
 @media (max-width: 720px) {
@@ -680,5 +870,34 @@
 
   .image-landing h1 {
     font-size: 21px;
+  }
+
+  .image-compare-backdrop {
+    padding: 0;
+  }
+
+  .image-compare {
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* two panes at phone width leaves nothing to see — the wipe still works */
+  .image-compare-body.side {
+    flex-direction: column;
+  }
+
+  .image-compare-modes .image-chip {
+    font-size: 11px;
+    padding: 3px 7px;
+  }
+
+  .image-compare-modes .image-chip .material-symbols-outlined {
+    display: none;
+  }
+
+  /* side by side at the bottom, the two tags overlap — stack them instead */
+  .image-compare-tag.left {
+    bottom: auto;
+    top: 10px;
   }
 }

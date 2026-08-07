@@ -59,6 +59,9 @@ export interface ItemResult {
   bytes: number
   width: number
   height: number
+  /** Decoded size of the input, for the before/after comparison. */
+  sourceWidth: number
+  sourceHeight: number
   format: OutFormat
   quality: number
   attempts: number
@@ -314,6 +317,8 @@ export function useImagePipeline(defaults?: Partial<PipelineOptions>) {
         bytes: output.blob.size,
         width: output.width,
         height: output.height,
+        sourceWidth: output.sourceWidth,
+        sourceHeight: output.sourceHeight,
         format,
         quality: output.quality,
         attempts: output.attempts,
