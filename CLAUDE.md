@@ -52,6 +52,8 @@ src/
   editor with input-aware autocomplete. Quirks are documented in README.md
   (argv ~1MB crash guard, $ARGS emulation, --args unusable in-wasm).
 - `tools/jwt/` — JWT decode/verify/sign via WebCrypto.
+- `tools/redact/` — grapheme-aware text masking with block characters, and an
+  honest note on what each setting still reveals.
 - `tools/image/` — batch convert/resize/compress with a hand-written GIF
   encoder (`gif/`, lazily imported) since browsers cannot encode GIF. See
   AGENTS.md for the details worth knowing before touching it.

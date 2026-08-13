@@ -10,6 +10,7 @@ browser** — nothing you paste ever leaves your machine.
 | jq playground | [/jq](https://theswissknife.com/jq) | Real jq 1.8.2 (WebAssembly) with every CLI flag, input-aware autocomplete, examples, shareable links |
 | JWT decoder | [/jwt](https://theswissknife.com/jwt) | Decode, verify and sign JWTs (HS/RS/PS/ES/EdDSA) via WebCrypto |
 | Regex lab | [/regex](https://theswissknife.com/regex) | Match, replace and compare JavaScript against PCRE2 in a worker guarded against runaway patterns |
+| Text redactor | [/redact](https://theswissknife.com/redact) | Mask text with block characters, choosing how much of the shape survives |
 | Codec studio | [/codec](https://theswissknife.com/codec) | Encode and decode Base64, URLs, HTML entities and UTF-8 hex |
 | Unix time | [/time](https://theswissknife.com/time) | Convert seconds through nanoseconds into local, UTC and zoned time |
 | PDF Buddy | [/pdf](https://theswissknife.com/pdf) | Merge, split, reorder, rotate, compress, watermark, number, protect and unlock PDFs |

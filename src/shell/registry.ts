@@ -43,6 +43,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/regex'),
   },
   {
+    slug: 'redact',
+    name: 'Text redactor',
+    tagline: 'Black out text with block characters — the shape stays, the words are gone for good',
+    mark: '█',
+    category: 'text',
+    load: () => import('../tools/redact'),
+  },
+  {
     slug: 'codec',
     name: 'Codec studio',
     tagline: 'Encode and decode Base64, URLs, HTML entities and UTF-8 hex without uploads',
