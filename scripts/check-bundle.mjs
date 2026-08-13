@@ -13,7 +13,7 @@ if (bytes > budget) {
   throw new Error(`Main bundle is ${(bytes / 1024).toFixed(2)} KiB gzipped; budget is 64 KiB.`)
 }
 
-const required = ['jq', 'jwt', 'regex', 'codec', 'time', 'pdf', 'html-table', 'image']
+const required = ['jq', 'jwt', 'regex', 'codec', 'time', 'pdf', 'html-table', 'image', 'redact']
 const sources = Object.keys(manifest)
 for (const slug of required) {
   if (!sources.some((source) => source.includes(`/tools/${slug}/`))) {
