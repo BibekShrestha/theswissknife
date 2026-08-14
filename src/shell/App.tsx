@@ -3,6 +3,7 @@ import { Landing } from './Landing'
 import { tools, type ToolMeta } from './registry'
 import { ErrorBoundary } from './ErrorBoundary'
 import { emit, Link, navigate, usePath } from './router'
+import { resolveShortcut } from './shortcuts'
 
 const cache = new Map<string, LazyExoticComponent<ComponentType>>()
 
@@ -38,23 +39,37 @@ function ShortcutOverlay({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="shortcut-backdrop" onClick={onClose} />
-      <div className="shortcut-overlay" role="dialog" aria-label="Keyboard shortcuts">
+      <div
+        className="shortcut-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Keyboard shortcuts"
+        data-shell-shortcuts
+      >
         <div className="shortcut-head">
           <strong>Keyboard shortcuts</strong>
           <button onClick={onClose} aria-label="Close"><span className="material-symbols-outlined">close</span></button>
         </div>
         <div className="shortcut-body">
-          {[
-            ['⌘1 – ⌘5', 'Jump to tool 1–5'],
-            ['⌘⇧H', 'Back to home'],
-            ['?', 'Show this panel'],
-          ].map(([keys, desc]) => (
-            <div className="shortcut-row" key={keys}>
-              <kbd>{keys}</kbd>
-              <span>{desc}</span>
+          <div className="shortcut-row">
+            <kbd>H</kbd>
+            <span>All tools</span>
+          </div>
+          {tools.slice(0, 9).map((t, i) => (
+            <div className="shortcut-row" key={t.slug}>
+              <kbd>{i + 1}</kbd>
+              <span>{t.name}</span>
             </div>
           ))}
+          <div className="shortcut-row">
+            <kbd>?</kbd>
+            <span>Show this panel</span>
+          </div>
         </div>
+        <p className="shortcut-note">
+          Single keys, no ⌘ — the browser keeps ⌘1–⌘9 for its tabs and ⌘⇧H for Home.
+          They stay quiet while you are typing in a field.
+        </p>
       </div>
     </>
   )
@@ -76,20 +91,18 @@ export default function App() {
   }, [path, tool])
 
   const onKey = useCallback((e: KeyboardEvent) => {
-    if (e.key === '?' && !(e.metaKey || e.ctrlKey)) {
-      e.preventDefault()
+    // A tool's own modal (image compare, PDF preview, share link) owns the
+    // keyboard while it is open, including keys the shell would claim.
+    if (document.querySelector('[aria-modal="true"]:not([data-shell-shortcuts])')) return
+    const action = resolveShortcut(e, tools.length)
+    if (!action) return
+    e.preventDefault()
+    if (action.type === 'help') {
       setShowShortcuts((v) => !v)
       return
     }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'H') {
-      e.preventDefault()
-      navigate('')
-      return
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '5') {
-      const idx = parseInt(e.key) - 1
-      if (tools[idx]) navigate(`/${tools[idx].slug}`)
-    }
+    setShowShortcuts(false)
+    navigate(action.type === 'home' ? '/' : `/${tools[action.index].slug}`)
   }, [])
 
   useEffect(() => {
@@ -108,6 +121,7 @@ export default function App() {
     <>
       <a href="#main-content" className="skip-link">Skip to content</a>
       <NotFound path={path} />
+      {showShortcuts && <ShortcutOverlay onClose={() => setShowShortcuts(false)} />}
     </>
   )
 
