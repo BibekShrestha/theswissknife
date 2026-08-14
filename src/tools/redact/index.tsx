@@ -1,7 +1,8 @@
-import { useDeferredValue, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
 import { useToast } from '../../shell/useToast'
+import { ShareDialog } from './components/ShareDialog'
 import { MASK_CHARS } from './lib/characters'
 import { PRESETS } from './lib/patterns'
 import {
@@ -14,6 +15,7 @@ import {
   type SpaceMode,
   type Target,
 } from './lib/redact'
+import { countKinds, decodeFragment, type Scheme } from './lib/share'
 import './redact.css'
 
 const SAMPLE = `Incident 4821 — 2026-08-09
@@ -42,11 +44,59 @@ export default function RedactTool() {
   const [draft, setDraft] = useState('')
   const [draftIsRegex, setDraftIsRegex] = useState(false)
   const [caseSensitive, setCaseSensitive] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [arrived, setArrived] = useState<{ patterns: number; literals: number } | null>(null)
 
   const { toast, showToast } = useToast()
   const copy = useCopy(showToast)
   const sourceRef = useRef<HTMLTextAreaElement>(null)
   const nextId = useRef(0)
+
+  const scheme: Scheme = useMemo(
+    () => ({ mask: normalizeMask(mask), spaces, scope, caseSensitive, targets: picks }),
+    [mask, spaces, scope, caseSensitive, picks],
+  )
+
+  const applyScheme = (next: Scheme) => {
+    setMask(next.mask)
+    setSpaces(next.spaces)
+    setScope(next.scope)
+    setCaseSensitive(next.caseSensitive)
+    setPicks(next.targets.map((target) => ({ ...target, id: nextId.current++ })))
+  }
+
+  // A shared scheme arrives in the fragment, which never leaves the browser.
+  // Nothing runs on arrival: the recipient's text pane is still empty.
+  //
+  // Also on hashchange — pasting a link into an already-open tab changes only
+  // the fragment, which does not reload the page.
+  useEffect(() => {
+    let alive = true
+    const load = () => {
+      decodeFragment(location.hash).then((incoming) => {
+        if (!alive || !incoming) return
+        applyScheme(incoming)
+        setArrived(countKinds(incoming.targets))
+      })
+    }
+    load()
+    window.addEventListener('hashchange', load)
+    return () => {
+      alive = false
+      window.removeEventListener('hashchange', load)
+    }
+    // deliberately once, on open: later edits should not be overwritten
+  }, [])
+
+  const discardScheme = () => {
+    setMask(DEFAULT_OPTIONS.mask)
+    setSpaces(DEFAULT_OPTIONS.spaces)
+    setScope('all')
+    setCaseSensitive(false)
+    setPicks([])
+    setArrived(null)
+    history.replaceState(null, '', `${location.pathname}${location.search}`)
+  }
 
   // Grapheme segmentation and a regex sweep over a long paste are not free;
   // deferring keeps typing smooth and lets React drop superseded work.
@@ -117,9 +167,30 @@ export default function RedactTool() {
         <button onClick={() => setText(SAMPLE)} aria-label="Load sample text" title="Load a sample to redact">
           <span className="material-symbols-outlined">description</span>
         </button>
+        <button
+          onClick={() => setSharing(true)}
+          aria-label="Share this scheme"
+          title="Share these settings and patterns — never your text"
+        >
+          <span className="material-symbols-outlined">share</span>
+        </button>
       </ToolHeader>
 
       <main id="main-content" className="redact-main">
+        {arrived && (
+          <div className="redact-arrived" role="status">
+            <span className="material-symbols-outlined">download_done</span>
+            <p>
+              Loaded a shared scheme — {arrived.patterns} pattern
+              {arrived.patterns === 1 ? '' : 's'}
+              {arrived.literals > 0 && `, ${arrived.literals} term${arrived.literals === 1 ? '' : 's'}`}
+              . Your text stays yours; nothing came with it.
+            </p>
+            <button onClick={() => setArrived(null)}>Keep</button>
+            <button onClick={discardScheme}>Discard</button>
+          </div>
+        )}
+
         <section className="redact-controls" aria-label="Redaction options">
           <div className="redact-control">
             <span className="redact-label">Redact</span>
@@ -391,6 +462,16 @@ export default function RedactTool() {
           proportional type, the words will not sit where they do here.
         </p>
       </main>
+
+      {sharing && (
+        <ShareDialog
+          scheme={scheme}
+          onApply={applyScheme}
+          onClose={() => setSharing(false)}
+          copy={copy}
+          showToast={showToast}
+        />
+      )}
 
       {toast && (
         <div className="shell-toast" role="status" aria-live="polite">

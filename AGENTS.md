@@ -63,6 +63,10 @@ src/
 - `tools/redact/` — masks text with a block character. Segments by grapheme
   (`Intl.Segmenter`), so a family emoji is one block rather than seven, and
   reports what each space setting still leaks (word lengths above all).
+  Schemes share as `#p=<base64url(deflate-raw(json))>` in the fragment, like
+  jq's `#z=`: patterns travel, hand-picked literals do not unless the sharer
+  opts in (they are the very values that were redacted), and the text never
+  does. `lib/share.ts` normalises anything arriving from a link.
 - `tools/image/` — batch convert/resize/compress. One engine
   (`useImagePipeline`) behind four screens; canvas work runs in
   `image.worker.ts`. `gif/` is a hand-written GIF89a encoder (median cut,
