@@ -27,7 +27,9 @@ export function usePath(): string {
 }
 
 export function navigate(to: string) {
-  history.pushState(null, '', BASE + to)
+  // pushState treats an empty url as "keep the current one", so the landing
+  // page — BASE + '/' — has to be spelled out when BASE is '' (dev, apex site).
+  history.pushState(null, '', `${BASE}${to}` || '/')
   emit()
 }
 

@@ -214,6 +214,8 @@ code {
   z-index: 9999;
   min-width: 320px;
   max-width: 90vw;
+  max-height: 85vh;
+  overflow: auto;
 }
 .shortcut-head {
   display: flex;
@@ -258,6 +260,15 @@ code {
 }
 .shortcut-row span {
   color: var(--muted);
+}
+.shortcut-note {
+  margin: 0;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  max-width: 38ch;
 }
 
 .icon-btn,
