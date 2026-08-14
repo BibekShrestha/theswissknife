@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { openPalette, paletteKeyLabel } from './palette'
 import { tools } from './registry'
 import { Link } from './router'
 import { useTheme } from './theme'
@@ -30,6 +31,11 @@ export function Landing() {
 
         <button className="landing-about-btn" onClick={() => document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' })} aria-label="About The Swiss Knife">
           <span className="material-symbols-outlined" aria-hidden>info</span>
+        </button>
+
+        <button className="palette-btn" onClick={openPalette} aria-label="Search tools" title="Search tools">
+          <span className="material-symbols-outlined" aria-hidden>search</span>
+          <kbd>{paletteKeyLabel()}</kbd>
         </button>
 
         <span className="landing-local">local by design</span>

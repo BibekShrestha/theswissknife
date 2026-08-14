@@ -1,11 +1,23 @@
-import { lazy, Suspense, useCallback, useEffect, useState, type ComponentType, type LazyExoticComponent } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+  type ComponentType,
+  type LazyExoticComponent,
+  type ReactNode,
+} from 'react'
 import { Landing } from './Landing'
 import { tools, type ToolMeta } from './registry'
 import { ErrorBoundary } from './ErrorBoundary'
-import { emit, Link, navigate, usePath } from './router'
-import { resolveShortcut } from './shortcuts'
+import { emit, Link, usePath } from './router'
+import { isPaletteKey, onOpenPalette } from './palette'
 
 const cache = new Map<string, LazyExoticComponent<ComponentType>>()
+
+/** Lazy like a tool: the palette is only worth downloading once it is asked for. */
+const CommandPalette = lazy(() => import('./CommandPalette'))
 
 function toolComponent(tool: ToolMeta) {
   let c = cache.get(tool.slug)
@@ -30,55 +42,10 @@ function NotFound({ path }: { path: string }) {
   )
 }
 
-function ShortcutOverlay({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <>
-      <div className="shortcut-backdrop" onClick={onClose} />
-      <div
-        className="shortcut-overlay"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Keyboard shortcuts"
-        data-shell-shortcuts
-      >
-        <div className="shortcut-head">
-          <strong>Keyboard shortcuts</strong>
-          <button onClick={onClose} aria-label="Close"><span className="material-symbols-outlined">close</span></button>
-        </div>
-        <div className="shortcut-body">
-          <div className="shortcut-row">
-            <kbd>H</kbd>
-            <span>All tools</span>
-          </div>
-          {tools.slice(0, 9).map((t, i) => (
-            <div className="shortcut-row" key={t.slug}>
-              <kbd>{i + 1}</kbd>
-              <span>{t.name}</span>
-            </div>
-          ))}
-          <div className="shortcut-row">
-            <kbd>?</kbd>
-            <span>Show this panel</span>
-          </div>
-        </div>
-        <p className="shortcut-note">
-          Single keys, no ⌘ — the browser keeps ⌘1–⌘9 for its tabs and ⌘⇧H for Home.
-          They stay quiet while you are typing in a field.
-        </p>
-      </div>
-    </>
-  )
-}
-
 export default function App() {
   const path = usePath()
   const tool = tools.find((t) => t.slug === path)
-  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
 
   useEffect(() => {
     const onPopState = () => emit()
@@ -91,18 +58,12 @@ export default function App() {
   }, [path, tool])
 
   const onKey = useCallback((e: KeyboardEvent) => {
+    if (!isPaletteKey(e)) return
     // A tool's own modal (image compare, PDF preview, share link) owns the
-    // keyboard while it is open, including keys the shell would claim.
-    if (document.querySelector('[aria-modal="true"]:not([data-shell-shortcuts])')) return
-    const action = resolveShortcut(e, tools.length)
-    if (!action) return
+    // keyboard while it is open — no stacking a palette on top of it.
+    if (document.querySelector('[aria-modal="true"]:not([data-shell-palette])')) return
     e.preventDefault()
-    if (action.type === 'help') {
-      setShowShortcuts((v) => !v)
-      return
-    }
-    setShowShortcuts(false)
-    navigate(action.type === 'home' ? '/' : `/${tools[action.index].slug}`)
+    setPaletteOpen((v) => !v)
   }, [])
 
   useEffect(() => {
@@ -110,31 +71,34 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [onKey])
 
-  if (!path) return (
-    <>
-      <a href="#main-content" className="skip-link">Skip to content</a>
-      <Landing />
-      {showShortcuts && <ShortcutOverlay onClose={() => setShowShortcuts(false)} />}
-    </>
-  )
-  if (!tool) return (
-    <>
-      <a href="#main-content" className="skip-link">Skip to content</a>
-      <NotFound path={path} />
-      {showShortcuts && <ShortcutOverlay onClose={() => setShowShortcuts(false)} />}
-    </>
-  )
+  // The ⌘K buttons in the headers reach the palette through this.
+  useEffect(() => onOpenPalette(() => setPaletteOpen(true)), [])
 
-  const Tool = toolComponent(tool)
-  return (
-    <>
-      <a href="#main-content" className="skip-link">Skip to content</a>
+  let content: ReactNode
+  if (!path) {
+    content = <Landing />
+  } else if (!tool) {
+    content = <NotFound path={path} />
+  } else {
+    const Tool = toolComponent(tool)
+    content = (
       <ErrorBoundary>
         <Suspense fallback={<div className="tool-loading" role="status">Loading {tool.name}…</div>}>
           <Tool />
         </Suspense>
       </ErrorBoundary>
-      {showShortcuts && <ShortcutOverlay onClose={() => setShowShortcuts(false)} />}
+    )
+  }
+
+  return (
+    <>
+      <a href="#main-content" className="skip-link">Skip to content</a>
+      {content}
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette path={path} onClose={() => setPaletteOpen(false)} />
+        </Suspense>
+      )}
     </>
   )
 }
