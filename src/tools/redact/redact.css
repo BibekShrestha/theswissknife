@@ -118,6 +118,193 @@
   border-color: var(--chip-on-border);
 }
 
+/* ---- a scheme arrived in the link ---- */
+.redact-arrived {
+  align-items: center;
+  background: var(--chip-on-bg);
+  border: 1px solid var(--chip-on-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 9px 12px;
+}
+
+.redact-arrived .material-symbols-outlined {
+  color: var(--accent);
+  font-size: 19px;
+}
+
+.redact-arrived p {
+  flex: 1;
+  font-size: 12.5px;
+  line-height: 1.45;
+  margin: 0;
+  min-width: 200px;
+}
+
+.redact-arrived button {
+  font-size: 11.5px;
+  min-height: 28px;
+  padding: 2px 10px;
+}
+
+/* ---- share dialog ---- */
+.redact-dialog-backdrop {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 60;
+}
+
+.redact-dialog {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  max-width: 640px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.redact-dialog > header {
+  align-items: center;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.redact-dialog > header strong {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.redact-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+  padding: 14px;
+}
+
+.redact-dialog-lede {
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.redact-icon {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  padding: 2px 4px;
+}
+
+.redact-literals {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px;
+}
+
+.redact-literals.on {
+  background: var(--warn-bg);
+  border-color: var(--warn);
+}
+
+.redact-literals p {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.redact-literals ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.redact-literals code {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  padding: 1px 6px;
+}
+
+.redact-check {
+  align-items: flex-start;
+  display: flex;
+  font-size: 12.5px;
+  gap: 8px;
+  line-height: 1.45;
+}
+
+.redact-check input {
+  accent-color: var(--accent);
+  margin-top: 2px;
+}
+
+.redact-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.redact-field-row {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.redact-field-row input[type='text'] {
+  flex: 1;
+  font: 11px var(--font-mono);
+  min-width: 0;
+}
+
+.redact-field textarea {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: 11px/1.5 var(--font-mono);
+  min-height: 116px;
+  padding: 9px;
+  resize: vertical;
+  width: 100%;
+}
+
+.redact-length {
+  color: var(--muted);
+  font: 10.5px var(--font-mono);
+  line-height: 1.4;
+}
+
+.redact-length.warn {
+  color: var(--warn);
+}
+
+.redact-length.bad {
+  color: var(--err);
+}
+
 /* ---- what to redact ---- */
 .redact-targets {
   background: var(--panel);
