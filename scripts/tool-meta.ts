@@ -98,6 +98,62 @@ export function buildJsonLd(tools: ToolSeoMeta[], origin = DEFAULT_ORIGIN): stri
   return JSON.stringify(data, null, 2)
 }
 
+/**
+ * A link preview shows about this much, and a search result rather less. The
+ * markup names every tool it can fit: a search engine truncating the display is
+ * its business, but a tool missing from the description entirely is ours.
+ */
+export const DESCRIPTION_LIMIT = 200
+
+const DESCRIPTION_PREFIX = 'Developer tools that run entirely in your browser: '
+
+/**
+ * The meta description, naming as many tools as fit. Past the limit the list
+ * ends with "and more" rather than being cut off mid-name.
+ */
+export function buildDescription(tools: ToolSeoMeta[], limit = DESCRIPTION_LIMIT): string {
+  const names = tools.map((tool) => tool.name)
+  const render = (items: string[]) =>
+    `${DESCRIPTION_PREFIX}${
+      items.length < names.length ? `${items.join(', ')} and more` : sentenceList(items)
+    }.`
+
+  let fitted: string[] = []
+  for (const name of names) {
+    const candidate = [...fitted, name]
+    if (render(candidate).length > limit && fitted.length > 0) break
+    fitted = candidate
+  }
+  return render(fitted)
+}
+
+const attributeEscape = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+/** The meta tags that name tools; og:description stays generic, so it cannot go stale. */
+const DESCRIBED_TAGS = ['description', 'twitter:description']
+
+const metaPattern = (name: string) => new RegExp(`(<meta name="${name}" content=")[^"]*(")`)
+
+/** Rewrite the tool-naming meta descriptions from the registry. */
+export function injectMeta(html: string, tools: ToolSeoMeta[]): string {
+  const description = attributeEscape(buildDescription(tools))
+  let out = html
+  for (const name of DESCRIBED_TAGS) {
+    const pattern = metaPattern(name)
+    if (!pattern.test(out)) {
+      // Loud failure: a silent no-op would ship a stale tool list.
+      throw new Error(`tool-meta: no <meta name="${name}"> found in index.html`)
+    }
+    out = out.replace(pattern, `$1${description}$2`)
+  }
+  return out
+}
+
 const JSON_LD_BLOCK = /<script type="application\/ld\+json">[\s\S]*?<\/script>/
 
 /** Swap the JSON-LD block in index.html for freshly generated data. */
