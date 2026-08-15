@@ -165,7 +165,10 @@ code {
   font-family: 'Material Symbols Outlined';
   font-style: normal;
   font-weight: 100 700;
-  src: url(/MaterialSymbolsOutlined.woff2) format('woff2');
+  /* Relative so Vite fingerprints it: an unhashed public/ asset would need
+     bespoke cache-busting in the service worker, and the old absolute path
+     ignored BASE_URL and 404'd on any non-root deploy. */
+  src: url('./MaterialSymbolsOutlined.woff2') format('woff2');
   font-display: block;
 }
 
@@ -448,6 +451,54 @@ code {
     opacity: 1;
     transform: translate(-50%, 0);
   }
+}
+
+/* ---- service worker update prompt (src/shell/pwa.ts, plain DOM) ---- */
+.pwa-update {
+  align-items: center;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  bottom: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  left: 50%;
+  padding: 8px 10px 8px 18px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 60;
+  animation: toast-in 0.15s ease;
+}
+
+.pwa-update button {
+  background: var(--accent);
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  padding: 5px 14px;
+}
+
+.pwa-update button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.pwa-update button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.pwa-update .pwa-update-later {
+  background: transparent;
+  color: var(--muted);
+}
+
+.pwa-update .pwa-update-later:hover {
+  background: transparent;
+  color: var(--text);
 }
 
 /* Shared mark for tool brand symbols in ToolHeader. */

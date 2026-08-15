@@ -39,11 +39,18 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback
+      // A tool that has never been opened is not in the offline cache, so its
+      // lazy chunk fails to load. That is not a crash — say so.
+      const offline = !navigator.onLine
       const message = sanitizeMessage(this.state.error.message)
       return (
         <div className="shell-error">
-          <h1>Something went wrong</h1>
-          <pre>{message || 'An unexpected error occurred.'}</pre>
+          <h1>{offline ? 'Offline' : 'Something went wrong'}</h1>
+          <pre>
+            {offline
+              ? "This tool hasn't been downloaded yet. Open it once while online and it will work offline from then on."
+              : message || 'An unexpected error occurred.'}
+          </pre>
           <Link to="/" className="shell-home-btn">
             <span className="material-symbols-outlined" aria-hidden>arrow_back</span> All tools
           </Link>

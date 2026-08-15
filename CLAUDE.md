@@ -10,6 +10,7 @@ TypeScript, deployed to GitHub Pages by `.github/workflows/deploy.yml`
 ```
 src/
   main.tsx          bootstrap
+  sw.ts             service worker — self-contained, emitted as /sw.js
   shell/            router, registry, landing, theme — SMALL and STABLE
   tools/<slug>/     ONE FOLDER PER TOOL — everything the tool needs
 ```
@@ -40,11 +41,33 @@ src/
 - Use the CSS variables from `src/shell/theme.css` (both themes come free);
   prefix tool class names with the slug (`.jwt-…`) to avoid collisions.
 
+## Offline (installable PWA)
+
+The site installs and runs with no network. `src/sw.ts` is transpiled and
+emitted as `/sw.js` by the `pwa()` plugin in `vite.config.ts`, which inlines
+the precache list built by `scripts/sw-manifest.ts`.
+
+- **The shell is precached; tools are cached when first opened.** The precache
+  list follows the entry chunk's *static* import graph only. This is a second
+  reason the laziness rule above matters: anything that leaks into the eager
+  graph is downloaded by every visitor on first paint, not just bundled.
+- **Don't precache the heavy assets.** The icon font (3.9 MB), jq wasm (929 KB)
+  and pdf.js worker (1.3 MB) are runtime-cached on first use, and they are all
+  invisible to `dist/.vite/manifest.json` — the list is built from the Rollup
+  bundle for exactly that reason.
+- Registration lives in `src/shell/pwa.ts`, imported lazily from `main.tsx` so
+  it stays out of the entry chunk. Dev never registers a worker.
+- A new build prompts to reload rather than swapping itself in; `sw.js` must
+  differ byte-wise per deploy or the browser never notices the update, which is
+  why the version hash covers the icons and `index.html` too.
+
 ## Commands
 
 - `npm run dev` — dev server (SPA fallback covers deep links like /jq)
 - `npm test` — Vitest; includes integration suites that run the real jq wasm
 - `npm run build` — tsc + vite build + 404.html copy (GitHub Pages fallback)
+- `npm run icons` — regenerate `public/icons/*.png` from the site mark (one-shot;
+  commit the output — the build does not run it)
 
 ## Existing tools
 

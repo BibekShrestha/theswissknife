@@ -5,6 +5,10 @@
 Sharp little developer tools, each at its own path, all running **entirely in your
 browser** — nothing you paste ever leaves your machine.
 
+Installable, and it works with the network off: the shell is cached on first
+visit, and each tool is kept once you've opened it — jq's WebAssembly and PDF
+Buddy's pdf.js engine included.
+
 | Tool | Path | What it does |
 |---|---|---|
 | jq playground | [/jq](https://theswissknife.com/jq) | Real jq 1.8.2 (WebAssembly) with every CLI flag, input-aware autocomplete, examples, shareable links |
@@ -24,7 +28,13 @@ npm install
 npm run dev      # dev server (deep links like /jq work)
 npm test         # unit + integration tests (runs the real wasm jq)
 npm run build    # production build → dist/ (+ 404.html SPA fallback)
+npm run icons    # regenerate the PWA icons from the site mark (one-shot)
 ```
+
+The service worker is only registered in a production build, so `npm run dev`
+never serves you a stale cache. To exercise offline behaviour, build and serve
+`dist/` over http://localhost (a secure context) rather than opening the files
+directly.
 
 Architecture and the **rules for adding a tool** live in [CLAUDE.md](CLAUDE.md) —
 short version: one folder under `src/tools/<slug>/`, one entry in

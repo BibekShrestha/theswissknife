@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build && cp dist/index.html dist/404.html && node scripts/check-bundle.mjs",
     "preview": "vite preview",
+    "icons": "node scripts/gen-icons.mjs",
     "test": "vitest run"
   },
   "dependencies": {
