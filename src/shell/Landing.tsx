@@ -4,7 +4,11 @@ import { tools } from './registry'
 import { Link } from './router'
 import { useTheme } from './theme'
 
-const categories: { id: string; name: string; description: string }[] = [
+/**
+ * Exported for main-pages.test.ts: a tool whose category is missing here would
+ * render nowhere on the landing page, silently.
+ */
+export const categories: { id: string; name: string; description: string }[] = [
   { id: 'data', name: 'Data', description: 'Query and transform structured data' },
   { id: 'security', name: 'Security', description: 'Inspect and generate tokens & keys' },
   { id: 'text', name: 'Text', description: 'Pattern matching, encoding and decoding' },

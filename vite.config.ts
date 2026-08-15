@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { buildSitemap, injectJsonLd, originFromCname, parseToolMeta } from './scripts/tool-meta'
+import {
+  buildSitemap,
+  injectJsonLd,
+  injectMeta,
+  originFromCname,
+  parseToolMeta,
+} from './scripts/tool-meta'
 
 const read = (relative: string) => {
   try {
@@ -24,7 +30,8 @@ function toolSeo(): Plugin {
   return {
     name: 'tool-seo',
     transformIndexHtml(html) {
-      return injectJsonLd(html, meta(), origin())
+      const tools = meta()
+      return injectMeta(injectJsonLd(html, tools, origin()), tools)
     },
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: buildSitemap(meta(), origin()) })

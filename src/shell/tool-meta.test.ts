@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildDescription,
   buildJsonLd,
   buildSitemap,
+  DESCRIPTION_LIMIT,
   injectJsonLd,
+  injectMeta,
   originFromCname,
   parseToolMeta,
 } from '../../scripts/tool-meta'
@@ -103,6 +106,72 @@ describe('buildJsonLd', () => {
 
   it('names every tool in the collection description', () => {
     for (const tool of tools) expect(data.description).toContain(tool.name)
+  })
+})
+
+describe('buildDescription', () => {
+  it('names the tools, newest ones included', () => {
+    const text = buildDescription(meta)
+    expect(text.startsWith('Developer tools that run entirely in your browser: ')).toBe(true)
+    expect(text).toContain(tools[0].name)
+  })
+
+  it('stays inside what a search result or link preview shows', () => {
+    expect(buildDescription(meta).length).toBeLessThanOrEqual(DESCRIPTION_LIMIT)
+  })
+
+  it('trims to whole names and says there are more', () => {
+    const text = buildDescription(meta, 90)
+    expect(text.length).toBeLessThanOrEqual(90)
+    expect(text).toMatch(/ and more\.$/)
+    // whatever it kept, it kept in full
+    const listed = text.split('browser: ')[1].replace(' and more.', '').split(', ')
+    for (const name of listed) expect(tools.map((t) => t.name)).toContain(name)
+  })
+
+  it('reads as a list when everything fits', () => {
+    const short = [
+      { slug: 'a', name: 'Alpha', tagline: 't', category: 'text' },
+      { slug: 'b', name: 'Beta', tagline: 't', category: 'text' },
+    ]
+    expect(buildDescription(short)).toBe(
+      'Developer tools that run entirely in your browser: Alpha, and Beta.',
+    )
+  })
+
+  it('keeps at least one tool even under an impossible limit', () => {
+    expect(buildDescription(meta, 10)).toContain(tools[0].name)
+  })
+})
+
+describe('injectMeta', () => {
+  const html = `<head>
+    <meta name="description" content="stale list" />
+    <meta property="og:description" content="untouched" />
+    <meta name="twitter:description" content="also stale" />
+  </head>`
+
+  it('rewrites both tool-naming descriptions and leaves og:description alone', () => {
+    const out = injectMeta(html, meta)
+    expect(out).not.toContain('stale')
+    expect(out).toContain('content="untouched"')
+    expect(out.match(/Developer tools that run entirely in your browser/g)).toHaveLength(2)
+  })
+
+  it('escapes characters that would break the attribute', () => {
+    // "JWT decode & generate" must not put a bare ampersand in the markup
+    const out = injectMeta(html, [
+      { slug: 'x', name: 'A & B "quoted"', tagline: 't', category: 'text' },
+    ])
+    expect(out).toContain('A &amp; B &quot;quoted&quot;')
+    expect(out).not.toMatch(/content="[^"]*&(?!amp;|quot;|lt;|gt;)/)
+  })
+
+  it('throws instead of silently shipping a stale description', () => {
+    expect(() => injectMeta('<head></head>', meta)).toThrow(/no <meta name="description">/)
+    expect(() =>
+      injectMeta('<head><meta name="description" content="x" /></head>', meta),
+    ).toThrow(/twitter:description/)
   })
 })
 
