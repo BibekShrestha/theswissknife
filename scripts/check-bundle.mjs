@@ -27,6 +27,19 @@ for (const slug of required) {
   }
 }
 
+// The service worker carries its precache list inlined, which is also what
+// makes sw.js differ between deploys. A worker that still has the placeholder,
+// or that never learned this build's entry chunk, would install and cache
+// nothing — and would look perfectly healthy doing it.
+const sw = readFileSync('dist/sw.js', 'utf8')
+
+if (sw.includes('__SW_MANIFEST__')) {
+  throw new Error('dist/sw.js still contains the __SW_MANIFEST__ placeholder.')
+}
+if (!sw.includes(entry.file)) {
+  throw new Error(`dist/sw.js does not reference the entry chunk ${entry.file}; precache list is wrong.`)
+}
+
 console.log(
-  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (64 KiB budget) · ${required.length} lazy tool chunks`,
+  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (64 KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB`,
 )

@@ -10,6 +10,7 @@ TypeScript, deployed to GitHub Pages by `.github/workflows/deploy.yml`
 ```
 src/
   main.tsx          bootstrap
+  sw.ts             service worker — self-contained, emitted as /sw.js
   shell/            router, registry, landing, theme — SMALL and STABLE
   tools/<slug>/     ONE FOLDER PER TOOL — everything the tool needs
 ```
@@ -48,11 +49,32 @@ src/
 - Use the CSS variables from `src/shell/theme.css` (both themes come free);
   prefix tool class names with the slug (`.jwt-…`) to avoid collisions.
 
+## Offline (installable PWA)
+
+`src/sw.ts` is transpiled and emitted as `/sw.js` by the `pwa()` plugin in
+`vite.config.ts`, with the precache list from `scripts/sw-manifest.ts` inlined.
+
+- **Shell precached, tools cached on first open.** The list follows the entry
+  chunk's *static* import graph, so anything that leaks into the eager graph is
+  now downloaded by every visitor on first paint — a second reason the laziness
+  rule above matters.
+- The icon font (3.9 MB), jq wasm (929 KB) and pdf.js worker (1.3 MB) are
+  runtime-cached, never precached. All three are missing from
+  `dist/.vite/manifest.json`, which is why the list is built from the Rollup
+  bundle instead.
+- `src/shell/pwa.ts` registers the worker and renders the update prompt; it is
+  imported lazily from `main.tsx` to stay out of the entry chunk, and is plain
+  DOM rather than React for the same reason. Dev registers no worker.
+- `sw.js` must differ byte-wise per deploy or no browser sees the update, so the
+  version hash covers the icons and `index.html`, not just hashed asset names.
+
 ## Commands
 
 - `npm run dev` — dev server (SPA fallback covers deep links like /jq)
 - `npm test` — Vitest; includes integration suites that run the real jq wasm
 - `npm run build` — tsc + vite build + 404.html copy (GitHub Pages fallback)
+- `npm run icons` — regenerate `public/icons/*.png` from the site mark (one-shot;
+  commit the output — the build does not run it)
 
 ## Existing tools
 
