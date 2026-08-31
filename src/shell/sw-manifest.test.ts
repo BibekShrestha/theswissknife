@@ -181,6 +181,12 @@ describe('buildWebManifest', () => {
     const data = JSON.parse(buildWebManifest({ base: '/', description: 'tools' }))
     expect(data.icons.some((i: { purpose: string }) => i.purpose === 'maskable')).toBe(true)
   })
+
+  it('uses the shell paper colour during installation and launch', () => {
+    const data = JSON.parse(buildWebManifest({ base: '/', description: 'tools' }))
+    expect(data.theme_color).toBe('#f7f7f5')
+    expect(data.background_color).toBe('#f7f7f5')
+  })
 })
 
 describe('injectPwaTags', () => {

@@ -22,7 +22,7 @@ export function useTheme(): ['dark' | 'light', () => void] {
     document.documentElement.style.colorScheme = theme
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute(
       'content',
-      theme === 'dark' ? '#11110f' : '#f4f1ea',
+      theme === 'dark' ? '#121212' : '#f7f7f5',
     )
     try {
       localStorage.setItem(KEY, theme)

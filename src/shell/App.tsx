@@ -13,6 +13,8 @@ import { tools, type ToolMeta } from './registry'
 import { ErrorBoundary } from './ErrorBoundary'
 import { emit, Link, usePath } from './router'
 import { isPaletteKey, onOpenPalette } from './palette'
+import { onOpenSidebar } from './sidebar'
+import { ToolSidebar } from './ToolSidebar'
 
 const cache = new Map<string, LazyExoticComponent<ComponentType>>()
 
@@ -46,6 +48,7 @@ export default function App() {
   const path = usePath()
   const tool = tools.find((t) => t.slug === path)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const onPopState = () => emit()
@@ -73,6 +76,8 @@ export default function App() {
 
   // The ⌘K buttons in the headers reach the palette through this.
   useEffect(() => onOpenPalette(() => setPaletteOpen(true)), [])
+  useEffect(() => onOpenSidebar(() => setSidebarOpen(true)), [])
+  useEffect(() => setSidebarOpen(false), [path])
 
   let content: ReactNode
   if (!path) {
@@ -82,11 +87,16 @@ export default function App() {
   } else {
     const Tool = toolComponent(tool)
     content = (
-      <ErrorBoundary>
-        <Suspense fallback={<div className="tool-loading" role="status">Loading {tool.name}…</div>}>
-          <Tool />
-        </Suspense>
-      </ErrorBoundary>
+      <div className="shell-workspace">
+        <ToolSidebar path={path} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="shell-tool-canvas">
+          <ErrorBoundary>
+            <Suspense fallback={<div className="tool-loading" role="status">Loading {tool.name}…</div>}>
+              <Tool />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
+      </div>
     )
   }
 

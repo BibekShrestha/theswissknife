@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f4f1ea" />
+    <meta name="theme-color" content="#f7f7f5" />
     <meta name="description" content="The Swiss Knife — sharp little developer tools that run entirely in your browser: jq playground, JWT decoder, and more." />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha384-wffi/M0Oy/M5O3OML3R8T4/2fiq+CTa+zFQAufCMPwxdT4whC6gIXgXaT9Fy6Yg4'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self'; connect-src 'self' blob:;" />
     <link rel="canonical" href="https://theswissknife.com/" />
@@ -88,7 +88,7 @@
             : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
           document.documentElement.dataset.theme = theme
           document.documentElement.style.colorScheme = theme
-          document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#11110f' : '#f4f1ea'
+          document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#121212' : '#f7f7f5'
         } catch {}
       })()
     </script>

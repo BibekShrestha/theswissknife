@@ -1,9 +1,12 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import readme from '../../README.md?raw'
 import { buildDescription, buildJsonLd, buildSitemap, parseToolMeta } from '../../scripts/tool-meta'
 import registrySource from './registry.ts?raw'
 import { categories } from './Landing'
 import { tools } from './registry'
+import { ToolSidebar } from './ToolSidebar'
 
 /**
  * "One folder plus one registry line" only holds if a registry line is enough
@@ -31,6 +34,21 @@ describe('the landing page lists every tool', () => {
     const used = new Set<string>(tools.map((tool) => tool.category))
     const empty = categories.filter((category) => !used.has(category.id))
     expect(empty.map((category) => category.id), 'dead entry in Landing.tsx').toEqual([])
+  })
+})
+
+describe('the persistent tool index lists every tool', () => {
+  const markup = renderToStaticMarkup(
+    createElement(ToolSidebar, { path: 'jq', open: false, onClose: () => undefined }),
+  )
+
+  it('derives every route from the registry', () => {
+    const missing = tools.filter((tool) => !markup.includes(`href="/${tool.slug}"`))
+    expect(missing.map((tool) => tool.slug)).toEqual([])
+  })
+
+  it('marks the current tool for sighted and assistive navigation', () => {
+    expect(markup).toContain('class="active" aria-current="page" href="/jq"')
   })
 })
 

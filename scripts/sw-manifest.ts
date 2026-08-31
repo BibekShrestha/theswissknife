@@ -166,8 +166,8 @@ export function buildWebManifest({ base, description }: WebManifestOptions): str
       display: 'standalone',
       // Matches the <meta name="theme-color"> default in index.html; the app
       // swaps that meta at runtime, but a manifest colour has to be static.
-      theme_color: '#f4f1ea',
-      background_color: '#f4f1ea',
+      theme_color: '#f7f7f5',
+      background_color: '#f7f7f5',
       icons: [
         icon('icon-192.png', 192, 'any'),
         icon('icon-512.png', 512, 'any'),

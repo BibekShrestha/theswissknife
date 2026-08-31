@@ -1,4 +1,4 @@
-import { createElement, useSyncExternalStore, type MouseEvent, type ReactNode } from 'react'
+import { createElement, useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent } from 'react'
 
 /**
  * Minimal path router. No dependency — the site only needs
@@ -33,18 +33,17 @@ export function navigate(to: string) {
   emit()
 }
 
-interface LinkProps {
+interface LinkProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
   to: string
-  className?: string
-  title?: string
-  children: ReactNode
 }
 
-export function Link({ to, className, title, children }: LinkProps) {
-  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+export function Link({ to, onClick, ...props }: LinkProps) {
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    onClick?.(e)
+    if (e.defaultPrevented) return
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
     e.preventDefault()
     navigate(to)
   }
-  return createElement('a', { href: BASE + to, className, title, onClick }, children)
+  return createElement('a', { ...props, href: BASE + to, onClick: handleClick })
 }
