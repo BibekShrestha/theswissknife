@@ -1415,3 +1415,18 @@ code {
     z-index: 65;
   }
 }
+
+/* Shortcut labels use the UI font: SF Mono renders ⌘ noticeably smaller than
+   its adjacent letter, while the platform UI fonts give both glyphs the same
+   visual weight and baseline. */
+.palette-btn kbd,
+.palette-search kbd,
+.landing-search kbd,
+.landing-command kbd {
+  align-items: center;
+  display: inline-flex;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  justify-content: center;
+  line-height: 1;
+}
