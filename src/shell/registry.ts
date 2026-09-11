@@ -35,6 +35,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/jwt'),
   },
   {
+    slug: 'ssl',
+    name: 'SSL certificate verifier',
+    tagline: 'Inspect certificates, check expiry and hostname coverage, and verify chain signatures locally',
+    mark: 'TLS',
+    category: 'security',
+    load: () => import('../tools/ssl'),
+  },
+  {
     slug: 'regex',
     name: 'Regex lab',
     tagline: 'Match, replace and compare JavaScript with PCRE2 in a guarded local worker',

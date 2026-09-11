@@ -13,6 +13,7 @@ Buddy's pdf.js engine included.
 |---|---|---|
 | jq playground | [/jq](https://theswissknife.com/jq) | Real jq 1.8.2 (WebAssembly) with every CLI flag, input-aware autocomplete, examples, shareable links |
 | JWT decode & generate | [/jwt](https://theswissknife.com/jwt) | Decode, verify and sign JWTs (HS/RS/PS/ES/EdDSA) via WebCrypto |
+| SSL certificate verifier | [/ssl](https://theswissknife.com/ssl) | Inspect X.509 certificates, check expiry and hostname coverage, and verify supplied chain signatures locally |
 | Regex lab | [/regex](https://theswissknife.com/regex) | Match, replace and compare JavaScript against PCRE2 in a worker guarded against runaway patterns |
 | Text redactor | [/redact](https://theswissknife.com/redact) | Mask text with block characters, pick what to hide, share the scheme as a link |
 | Codec studio | [/codec](https://theswissknife.com/codec) | Encode and decode Base64, URLs, HTML entities and UTF-8 hex |
