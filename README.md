@@ -20,6 +20,7 @@ Buddy's pdf.js engine included.
 | Unix time | [/time](https://theswissknife.com/time) | Convert seconds through nanoseconds into local, UTC and zoned time |
 | PDF Buddy | [/pdf](https://theswissknife.com/pdf) | Merge, split, reorder, rotate, compress, watermark, number, protect and unlock PDFs |
 | Image converter | [/image](https://theswissknife.com/image) | Batch convert, resize and compress PNG/JPEG/WebP/GIF (SVG in), aim for a target file size |
+| CSV viewer | [/csv](https://theswissknife.com/csv) | Paste, drop or open a CSV/TSV and read it as a sortable, searchable, editable table; export CSV, TSV, JSON or Markdown |
 | HTML table extractor | [/html-table](https://theswissknife.com/html-table) | Pull any HTML table into CSV, TSV, JSON or Markdown — colspan and rowspan handled |
 
 ## Develop

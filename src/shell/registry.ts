@@ -91,6 +91,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/image'),
   },
   {
+    slug: 'csv',
+    name: 'CSV viewer',
+    tagline: 'Paste or drop a CSV and read it as a real table — sort, search, edit and export offline',
+    mark: 'CSV',
+    category: 'data',
+    load: () => import('../tools/csv'),
+  },
+  {
     slug: 'html-table',
     name: 'HTML table extractor',
     tagline: 'Pull any HTML table into CSV, JSON or Markdown — colspan and rowspan handled',
