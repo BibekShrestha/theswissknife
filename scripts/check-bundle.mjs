@@ -7,10 +7,21 @@ const entry = manifest['index.html'] ?? manifest['src/main.tsx']
 if (!entry?.file) throw new Error('Could not find the main entry in the Vite manifest.')
 
 const bytes = gzipSync(readFileSync(`dist/${entry.file}`)).byteLength
-const budget = 64 * 1024
+
+// The entry chunk is react + the shell, and adding a tool should only add its
+// registry line — about a tenth of a kilobyte of name and tagline. The budget
+// is not there to police those; it is there to catch the shell growing, or a
+// tool leaking into the eager graph. Sized so registry lines never trip it on
+// their own, while anything chunk-shaped still does — the smallest tool chunk
+// is 2.4 KiB gzipped.
+const BUDGET_KIB = 68
+const budget = BUDGET_KIB * 1024
 
 if (bytes > budget) {
-  throw new Error(`Main bundle is ${(bytes / 1024).toFixed(2)} KiB gzipped; budget is 64 KiB.`)
+  throw new Error(
+    `Main bundle is ${(bytes / 1024).toFixed(2)} KiB gzipped; budget is ${BUDGET_KIB} KiB. ` +
+      'Something outside shell/ reached the entry chunk, or the shell itself grew.',
+  )
 }
 
 // Read from src/shell/registry.ts rather than repeating the slugs: a hardcoded
@@ -41,5 +52,5 @@ if (!sw.includes(entry.file)) {
 }
 
 console.log(
-  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (64 KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB`,
+  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB} KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB`,
 )

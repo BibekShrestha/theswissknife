@@ -1,0 +1,127 @@
+.ssl-app {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  max-width: 1320px;
+  min-height: 100%;
+  padding: 14px 18px 28px;
+}
+
+.ssl-main { display: flex; flex: 1; flex-direction: column; gap: 14px; }
+
+.ssl-intro {
+  align-items: center;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--panel)), var(--panel));
+  border: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  padding: 18px 20px;
+}
+.ssl-intro > div:first-child { align-items: center; background: var(--chip-on-bg); border: 1px solid var(--chip-on-border); border-radius: 50%; color: var(--accent); display: flex; height: 46px; justify-content: center; width: 46px; }
+.ssl-intro > div:first-child span { font-size: 25px; }
+.ssl-intro h1 { font-size: 19px; margin: 0 0 4px; }
+.ssl-intro p { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 0; }
+
+.ssl-input-grid, .ssl-result-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.3fr) minmax(320px, .7fr); }
+.ssl-result-grid { grid-template-columns: minmax(300px, .7fr) minmax(0, 1.3fr); }
+.ssl-card { background: var(--panel); border: 1px solid var(--border); min-width: 0; overflow: hidden; }
+.ssl-card > header { align-items: center; background: var(--panel-2); border-bottom: 1px solid var(--border); display: flex; gap: 9px; min-height: 38px; padding: 7px 11px; }
+.ssl-card > header strong { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
+.ssl-card > header > span:last-child { color: var(--muted); font: 10px var(--font-mono); margin-left: auto; }
+.ssl-step { color: var(--accent) !important; font: 700 10px var(--font-mono) !important; margin-left: 0 !important; }
+
+.ssl-source { display: flex; flex-direction: column; min-height: 310px; }
+.ssl-drop { display: grid; flex: 1; min-height: 270px; position: relative; }
+.ssl-drop.dragging { background: var(--chip-on-bg); outline: 2px dashed var(--accent); outline-offset: -7px; }
+.ssl-drop textarea { background: transparent; border: 0; font: 12px/1.55 var(--font-mono); grid-area: 1 / 1; min-height: 270px; padding: 16px; resize: vertical; width: 100%; }
+.ssl-drop textarea:focus { outline-offset: -2px; }
+.ssl-drop-hint { align-self: center; background: transparent; border: 0; display: flex; flex-direction: column; gap: 5px; grid-area: 1 / 1; justify-self: center; padding: 24px; pointer-events: auto; }
+.ssl-drop-hint .material-symbols-outlined { color: var(--accent); font-size: 31px; }
+.ssl-drop-hint strong { color: var(--text); font-size: 13px; }
+.ssl-drop-hint span:last-child { color: var(--muted); font-size: 11.5px; }
+
+.ssl-options-body { display: flex; flex-direction: column; gap: 10px; padding: 18px; }
+.ssl-options-body > label { font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+.ssl-host-row { align-items: center; border: 1px solid var(--border); display: flex; }
+.ssl-host-row:focus-within { border-color: var(--accent); outline: 1px solid var(--accent); }
+.ssl-host-row > span { color: var(--muted); font-size: 18px; padding-left: 10px; }
+.ssl-host-row input { background: transparent; border: 0; flex: 1; font: 13px var(--font-mono); min-width: 0; padding: 10px; }
+.ssl-host-row input:focus { outline: 0; }
+.ssl-options-body > p { color: var(--muted); font-size: 11.5px; line-height: 1.5; margin: -2px 0 5px; }
+.ssl-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; justify-content: center; padding: 8px 15px; }
+.ssl-command { border-top: 1px solid var(--border); display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr) auto; margin-top: 9px; padding-top: 14px; }
+.ssl-command > span { color: var(--muted); font-size: 10.5px; grid-column: 1 / -1; letter-spacing: .05em; text-transform: uppercase; }
+.ssl-command code { background: var(--panel-2); color: var(--tok-str); font: 10px/1.5 var(--font-mono); overflow-wrap: anywhere; padding: 8px; }
+.ssl-command button { align-self: stretch; padding: 4px 8px; }
+
+.ssl-error { align-items: center; background: var(--err-bg); border: 1px solid var(--err); color: var(--err); display: flex; gap: 11px; padding: 11px 14px; }
+.ssl-error > div { display: flex; flex-direction: column; gap: 2px; }
+.ssl-error strong { font-size: 12px; }
+.ssl-error span { font-size: 11.5px; }
+
+.ssl-results { display: flex; flex-direction: column; gap: 14px; }
+.ssl-verdict { align-items: center; border: 1px solid; display: flex; gap: 12px; padding: 13px 16px; }
+.ssl-verdict.ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.ssl-verdict.bad { background: var(--err-bg); border-color: var(--err); color: var(--err); }
+.ssl-verdict > .material-symbols-outlined { font-size: 28px; }
+.ssl-verdict > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ssl-verdict > div strong { font-size: 13px; }
+.ssl-verdict > div span { color: var(--text); font: 11px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ssl-expiry { border: 1px solid currentColor; border-radius: 999px; font: 11px var(--font-mono); margin-left: auto; padding: 4px 10px; white-space: nowrap; }
+
+.ssl-diagnostics ul { list-style: none; margin: 0; padding: 0; }
+.ssl-check { align-items: flex-start; border-bottom: 1px solid var(--border); display: flex; gap: 10px; padding: 13px; }
+.ssl-check:last-child { border-bottom: 0; }
+.ssl-check > .material-symbols-outlined { font-size: 19px; }
+.ssl-check.ok > .material-symbols-outlined { color: var(--ok); }
+.ssl-check.bad > .material-symbols-outlined { color: var(--err); }
+.ssl-check.neutral > .material-symbols-outlined { color: var(--muted); }
+.ssl-check > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ssl-check strong { font-size: 11.5px; }
+.ssl-check div span { color: var(--muted); font-size: 10.5px; line-height: 1.45; overflow-wrap: anywhere; }
+
+.ssl-details dl { display: grid; grid-template-columns: 1fr 1fr; margin: 0; }
+.ssl-field { border-bottom: 1px solid var(--border); min-width: 0; padding: 11px 13px; }
+.ssl-field:nth-child(odd) { border-right: 1px solid var(--border); }
+.ssl-field dt { color: var(--muted); font-size: 9.5px; letter-spacing: .08em; margin-bottom: 5px; text-transform: uppercase; }
+.ssl-field dd { font-size: 11.5px; line-height: 1.45; margin: 0; overflow-wrap: anywhere; }
+.ssl-field dd.mono { font: 10px/1.5 var(--font-mono); }
+.ssl-copy-value { background: none; border: 0; color: inherit; display: flex; font: inherit; gap: 7px; max-width: 100%; padding: 0; text-align: left; }
+.ssl-copy-value .material-symbols-outlined { color: var(--muted); flex: 0 0 auto; font-size: 14px; }
+
+.ssl-chain ol { list-style: none; margin: 0; padding: 0; }
+.ssl-chain li { align-items: center; border-bottom: 1px solid var(--border); display: grid; gap: 12px; grid-template-columns: 28px minmax(180px, 1fr) minmax(120px, .5fr) minmax(135px, auto); padding: 11px 13px; }
+.ssl-chain li:last-child { border-bottom: 0; }
+.ssl-chain-index { align-items: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 50%; display: flex; font: 10px var(--font-mono); height: 25px; justify-content: center; width: 25px; }
+.ssl-chain-name { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ssl-chain-name strong { font: 11.5px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ssl-chain-name span, .ssl-chain-key { color: var(--muted); font-size: 10px; }
+.ssl-chain-status { align-items: center; display: inline-flex; font-size: 10.5px; gap: 5px; justify-self: end; }
+.ssl-chain-status .material-symbols-outlined { font-size: 16px; }
+.ssl-chain-status.ok { color: var(--ok); }
+.ssl-chain-status.bad { color: var(--err); }
+.ssl-chain-status.neutral { color: var(--muted); }
+
+.ssl-limits { align-items: flex-start; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); display: flex; gap: 10px; padding: 11px 13px; }
+.ssl-limits > span { color: var(--accent); font-size: 18px; }
+.ssl-limits p { font-size: 10.5px; line-height: 1.5; margin: 0; }
+.ssl-limits strong { color: var(--text); }
+
+@media (max-width: 850px) {
+  .ssl-input-grid, .ssl-result-grid { grid-template-columns: 1fr; }
+  .ssl-chain li { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .ssl-chain-key { display: none; }
+}
+
+@media (max-width: 560px) {
+  .ssl-app { padding: 8px 10px 18px; }
+  .ssl-intro { align-items: flex-start; padding: 14px; }
+  .ssl-intro > div:first-child { height: 38px; width: 38px; }
+  .ssl-intro h1 { font-size: 16px; }
+  .ssl-details dl { grid-template-columns: 1fr; }
+  .ssl-field:nth-child(odd) { border-right: 0; }
+  .ssl-chain li { align-items: start; grid-template-columns: 28px minmax(0, 1fr); }
+  .ssl-chain-status { grid-column: 2; justify-self: start; }
+  .ssl-expiry { display: none; }
+}

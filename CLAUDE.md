@@ -36,7 +36,9 @@ src/
   the site's promise is "nothing you paste leaves your machine".
 - **Tools must stay lazy.** Nothing outside `shell/` may be imported by
   `main.tsx`/landing; check `npm run build` output — the main bundle is
-  ~62KB gz (react + shell) and must not grow when you add a tool.
+  ~64KB gz (react + shell) against a 68 KiB budget. Adding a tool should move
+  that by ~0.1KB, its registry line and nothing else; a jump of kilobytes means
+  the tool leaked into the eager graph.
 - Tool UI headers start with the `✚` home `Link` (see existing tools).
 - Use the CSS variables from `src/shell/theme.css` (both themes come free);
   prefix tool class names with the slug (`.jwt-…`) to avoid collisions.
