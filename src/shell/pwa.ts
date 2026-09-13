@@ -1,10 +1,10 @@
 /**
  * Service worker registration and the update prompt.
  *
- * Imported lazily from main.tsx so none of it lands in the entry chunk —
- * scripts/check-bundle.mjs leaves about a kilobyte of headroom under the 64 KiB
- * budget. That is also why the banner is plain DOM rather than a React
- * component: rendering it from App.tsx would pull this module into the entry.
+ * Imported lazily from main.tsx so none of it lands in the entry chunk, which
+ * scripts/check-bundle.mjs holds to a budget. That is also why the banner is
+ * plain DOM rather than a React component: rendering it from App.tsx would pull
+ * this module into the entry, where only react and the shell belong.
  */
 
 const BASE = import.meta.env.BASE_URL
