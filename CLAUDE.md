@@ -82,3 +82,7 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/image/` — batch convert/resize/compress with a hand-written GIF
   encoder (`gif/`, lazily imported) since browsers cannot encode GIF. See
   AGENTS.md for the details worth knowing before touching it.
+- `tools/qr/` — QR generator: `uqr` encodes, our own `render.ts` draws (one
+  path string feeds both SVG and canvas via `Path2D`). Scan check decodes the
+  render with `BarcodeDetector` where the browser has one. Only style settings
+  are persisted — never content (Wi-Fi passwords).

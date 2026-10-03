@@ -31,7 +31,8 @@
     "pdfjs-dist": "^6.1.200",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-dropzone": "^20.1.0"
+    "react-dropzone": "^20.1.0",
+    "uqr": "^0.1.3"
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.7",
