@@ -91,6 +91,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/image'),
   },
   {
+    slug: 'qr',
+    name: 'QR code generator',
+    tagline: 'Make QR codes for links, Wi-Fi, contacts and events — logos, colours, batch ZIP, all offline',
+    mark: 'QR',
+    category: 'image',
+    load: () => import('../tools/qr'),
+  },
+  {
     slug: 'csv',
     name: 'CSV viewer',
     tagline: 'Paste or drop a CSV and read it as a real table — sort, search, edit and export offline',
