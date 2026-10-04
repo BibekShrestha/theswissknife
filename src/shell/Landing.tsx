@@ -10,12 +10,13 @@ export const categories: { id: ToolMeta['category']; name: string; short: string
   { id: 'data', name: 'Data', short: 'DATA' },
   { id: 'security', name: 'Security', short: 'SEC' },
   { id: 'text', name: 'Text', short: 'TEXT' },
+  { id: 'docs', name: 'Docs', short: 'DOCS' },
   { id: 'time', name: 'Time', short: 'TIME' },
   { id: 'pdf', name: 'PDF', short: 'PDF' },
   { id: 'image', name: 'Images', short: 'IMG' },
 ]
 
-const lengths = [368, 334, 386, 322, 376, 344]
+const lengths = [368, 334, 386, 352, 322, 376, 344]
 const SPREAD = 55
 
 function matches(tool: ToolMeta, query: string) {

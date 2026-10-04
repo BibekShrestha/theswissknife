@@ -17,6 +17,7 @@ Buddy's pdf.js engine included.
 | Regex lab | [/regex](https://theswissknife.com/regex) | Match, replace and compare JavaScript against PCRE2 in a worker guarded against runaway patterns |
 | Text redactor | [/redact](https://theswissknife.com/redact) | Mask text with block characters, pick what to hide, share the scheme as a link |
 | Codec studio | [/codec](https://theswissknife.com/codec) | Encode and decode Base64, URLs, HTML entities and UTF-8 hex |
+| Markdown preview & export | [/markdown](https://theswissknife.com/markdown) | Live GitHub-flavoured Markdown preview with footnotes, KaTeX math and mermaid diagrams; export one self-contained HTML file, or a PDF through the print dialog, with themes, paper sizes and a table of contents |
 | Unix time | [/time](https://theswissknife.com/time) | Convert seconds through nanoseconds into local, UTC and zoned time |
 | PDF Buddy | [/pdf](https://theswissknife.com/pdf) | Merge, split, reorder, rotate, compress, watermark, number, protect and unlock PDFs |
 | Image converter | [/image](https://theswissknife.com/image) | Batch convert, resize and compress PNG/JPEG/WebP/GIF (SVG in), aim for a target file size |

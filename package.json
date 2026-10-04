@@ -14,6 +14,7 @@
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.12.4",
     "@codemirror/lint": "^6.9.7",
     "@codemirror/state": "^6.7.1",
@@ -26,7 +27,10 @@
     "file-saver": "^2.0.5",
     "jq-wasm": "^3.0.0-jq-1.8.2",
     "jszip": "^3.10.1",
+    "katex": "^0.18.4",
     "lucide-react": "^1.31.0",
+    "marked": "^18.0.10",
+    "mermaid": "^11.17.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.1.200",
     "react": "^19.2.8",

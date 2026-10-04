@@ -86,3 +86,12 @@ the precache list built by `scripts/sw-manifest.ts`.
   path string feeds both SVG and canvas via `Path2D`). Scan check decodes the
   render with `BarcodeDetector` where the browser has one. Only style settings
   are persisted — never content (Wi-Fi passwords).
+- `tools/markdown/` — marked → one HTML string → a sandboxed `srcdoc` frame
+  with **no `allow-scripts`** (pasted `<script>`/`onerror` stay inert, so no
+  sanitizer). The frame is the preview, the print source (PDF = the browser's
+  print dialog) and, via `buildHtml`, the export — one stylesheet from
+  `doc/docTheme.ts` for all three. KaTeX and mermaid are `import()`-only
+  (guarded by `lazy.test.ts`) and run in the parent, injecting markup. The
+  frame pins `<base href="about:srcdoc">` or `#anchors` navigate it away.
+  Remote images are blocked in preview/PDF by the site CSP; the exported file
+  carries its own script-free CSP that allows them.
