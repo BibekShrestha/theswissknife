@@ -6,7 +6,20 @@ const entry = manifest['index.html'] ?? manifest['src/main.tsx']
 
 if (!entry?.file) throw new Error('Could not find the main entry in the Vite manifest.')
 
-const bytes = gzipSync(readFileSync(`dist/${entry.file}`)).byteLength
+// The entry plus every chunk it imports statically: the bundler may hoist
+// shared code (the JSX runtime, interop helpers) into small chunks of their
+// own once enough lazy chunks share it. Those still load on first paint, so
+// measuring the entry file alone would let the budget quietly undercount.
+const eager = new Set()
+const walk = (key) => {
+  const chunk = manifest[key]
+  if (!chunk || eager.has(chunk.file)) return
+  eager.add(chunk.file)
+  for (const dep of chunk.imports ?? []) walk(dep)
+}
+walk(manifest['index.html'] ? 'index.html' : 'src/main.tsx')
+
+const bytes = [...eager].reduce((sum, file) => sum + gzipSync(readFileSync(`dist/${file}`)).byteLength, 0)
 
 // The entry chunk is react + the shell, and adding a tool should only add its
 // registry line — about a tenth of a kilobyte of name and tagline. The budget

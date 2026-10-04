@@ -13,7 +13,7 @@ export interface ToolMeta {
   tagline: string
   /** Short typographic mark shown on the landing card. */
   mark: string
-  category: 'data' | 'security' | 'text' | 'time' | 'pdf' | 'image'
+  category: 'data' | 'security' | 'text' | 'docs' | 'time' | 'pdf' | 'image'
   load: () => Promise<{ default: ComponentType }>
 }
 
@@ -45,7 +45,7 @@ export const tools: ToolMeta[] = [
   {
     slug: 'regex',
     name: 'Regex lab',
-    tagline: 'Match, replace and compare JavaScript with PCRE2 in a guarded local worker',
+    tagline: 'Match and replace with JavaScript regex in a local worker that stops runaway patterns',
     mark: '.*',
     category: 'text',
     load: () => import('../tools/regex'),
@@ -65,6 +65,14 @@ export const tools: ToolMeta[] = [
     mark: '⇄',
     category: 'text',
     load: () => import('../tools/codec'),
+  },
+  {
+    slug: 'markdown',
+    name: 'Markdown preview & export',
+    tagline: 'Live Markdown preview with math and diagrams — export one self-contained HTML file or a PDF',
+    mark: 'M↓',
+    category: 'docs',
+    load: () => import('../tools/markdown'),
   },
   {
     slug: 'time',

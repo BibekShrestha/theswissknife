@@ -1,0 +1,194 @@
+/* Tool chrome only. The document itself is styled by doc/docTheme.ts, inside
+   the frame, so it stays paper-white in both site themes — that is what prints. */
+
+.md-app {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.md-app .shell-toolbar button { align-items: center; display: inline-flex; gap: 6px; }
+.md-app .shell-toolbar button .material-symbols-outlined { font-size: 18px; }
+.md-app .shell-toolbar button.on { background: var(--chip-on-bg); border-color: var(--chip-on-border); }
+
+.md-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.md-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.md-step { color: var(--accent); font: 700 10px var(--font-mono); }
+.md-label { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.md-hint { color: var(--muted); font-size: 11.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- page setup -------------------------------------------------------- */
+
+.md-setup {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px 22px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  padding: 12px clamp(10px, 2vw, 20px) 14px;
+}
+
+.md-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.md-row { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+.md-row select { min-width: 0; }
+.md-row input[type='range'] { accent-color: var(--accent); flex: 1; min-width: 90px; }
+.md-checks { display: flex; flex-direction: column; gap: 4px; }
+.md-check { align-items: center; cursor: pointer; display: inline-flex; font-size: 13px; gap: 7px; }
+.md-check input { accent-color: var(--accent); margin: 0; }
+
+.md-seg { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; max-width: 100%; overflow: hidden; width: max-content; }
+.md-seg button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; min-height: 28px; padding: 3px 12px; white-space: nowrap; }
+.md-seg button + button { border-left: 1px solid var(--border); }
+.md-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+
+.md-notes {
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  gap: 4px;
+  grid-column: 1 / -1;
+  line-height: 1.5;
+  margin: 0;
+  padding-left: 18px;
+}
+.md-notes strong { color: var(--text); font-weight: 600; }
+
+/* ---- panes ----------------------------------------------------------------- */
+
+.md-tabs { display: none; }
+
+.md-work {
+  display: grid;
+  flex: 1;
+  gap: 0;
+  grid-template-columns: minmax(0, var(--md-split)) 8px minmax(0, 1fr);
+  min-height: 0;
+  padding: 10px clamp(10px, 2vw, 20px) 0;
+}
+
+/* The frame would swallow pointer events mid-drag and strand the splitter. */
+.md-work.is-dragging { cursor: col-resize; user-select: none; }
+.md-work.is-dragging .md-frame { pointer-events: none; }
+
+.md-pane {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.md-pane-head {
+  align-items: center;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex: none;
+  gap: 9px;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+.md-pane-head strong { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+
+.md-working { color: var(--accent); font: 10px var(--font-mono); }
+.md-sync { align-items: center; color: var(--muted); cursor: pointer; display: inline-flex; flex: none; font-size: 12px; gap: 6px; margin-left: auto; }
+.md-sync input { accent-color: var(--accent); margin: 0; }
+
+.md-pane-actions { display: inline-flex; gap: 4px; margin-left: auto; }
+.md-pane-btn { align-items: center; display: inline-flex; min-height: 26px; padding: 2px 6px; }
+.md-pane-btn .material-symbols-outlined { font-size: 17px; }
+.md-sync + .md-pane-btn { margin-left: 2px; }
+
+.md-editor { flex: 1; min-height: 0; position: relative; }
+.md-editor-host { height: 100%; }
+.md-loading { color: var(--muted); font-size: 13px; padding: 16px; }
+
+.md-gutter { cursor: col-resize; position: relative; touch-action: none; }
+.md-gutter::after {
+  background: var(--border);
+  border-radius: 2px;
+  content: '';
+  height: 36px;
+  left: 3px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+}
+.md-gutter:hover::after,
+.md-gutter:focus-visible::after,
+.md-work.is-dragging .md-gutter::after { background: var(--accent); }
+
+.md-frame { background: #fff; border: 0; display: block; flex: 1; min-height: 0; width: 100%; }
+
+/* ---- status bar -------------------------------------------------------------- */
+
+.md-status {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  font: 10.5px var(--font-mono);
+  gap: 4px 14px;
+  padding: 8px clamp(10px, 2vw, 20px) 10px;
+}
+.md-spacer { flex: 1; }
+.md-warn { color: var(--warn); }
+.md-link { background: none; border: 0; color: var(--accent); font: 11px var(--font-ui); min-height: 0; padding: 0 2px; }
+.md-link:hover:not(:disabled) { background: none; text-decoration: underline; }
+
+/* ---- narrow: tabs instead of a split ----------------------------------------- */
+
+@container (max-width: 900px) {
+  .md-tabs {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    display: inline-flex;
+    margin: 10px clamp(10px, 2vw, 20px) 0;
+    overflow: hidden;
+    width: max-content;
+  }
+  .md-tabs button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; min-height: 30px; padding: 3px 16px; }
+  .md-tabs button + button { border-left: 1px solid var(--border); }
+  .md-tabs button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+
+  .md-work { grid-template-columns: minmax(0, 1fr); }
+  .md-gutter { display: none; }
+  /* Hidden off-layout rather than display:none, so the frame keeps its
+     document and can still be printed from the Edit tab. */
+  .md-work[data-tab='edit'] .md-preview-pane,
+  .md-work[data-tab='preview'] .md-edit-pane {
+    height: 0;
+    min-height: 0;
+    overflow: hidden;
+    position: absolute;
+    visibility: hidden;
+    width: 100%;
+  }
+  .md-btn-label { display: none; }
+}
+
+@container (max-width: 520px) {
+  .md-hint { display: none; }
+}
+
+/* Labels go before the toolbar wraps; the icons keep their titles. Print
+   keeps its label longest — it is the action most people came for. */
+@container (max-width: 1320px) {
+  .md-btn-label { display: none; }
+  .md-primary .md-btn-label { display: inline; }
+}
+
+@container (max-width: 1000px) {
+  .md-primary .md-btn-label { display: none; }
+  /* The status bar already says "saved in this browser only". */
+  .md-app .shell-local-badge { display: none; }
+}
