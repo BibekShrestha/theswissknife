@@ -1,5 +1,5 @@
+/** Only JavaScript ships today; pcre2/ holds the scripted build for the second engine. */
 export type RegexEngine = 'javascript' | 'pcre2'
-export type RegexMode = RegexEngine | 'compare'
 export type RegexOperation = 'match' | 'replace'
 
 export interface CaptureSpan {
@@ -37,7 +37,4 @@ export interface RegexResult {
   truncated: boolean
 }
 
-export type RegexWorkerMessage =
-  | { type: 'ready' }
-  | { type: 'started'; id: number; engine: RegexEngine }
-  | { type: 'result'; id: number; result: RegexResult }
+export type RegexWorkerMessage = { type: 'result'; id: number; result: RegexResult }
