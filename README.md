@@ -14,7 +14,7 @@ Buddy's pdf.js engine included.
 | jq playground | [/jq](https://theswissknife.com/jq) | Real jq 1.8.2 (WebAssembly) with every CLI flag, input-aware autocomplete, examples, shareable links |
 | JWT decode & generate | [/jwt](https://theswissknife.com/jwt) | Decode, verify and sign JWTs (HS/RS/PS/ES/EdDSA) via WebCrypto |
 | SSL certificate verifier | [/ssl](https://theswissknife.com/ssl) | Inspect X.509 certificates, check expiry and hostname coverage, and verify supplied chain signatures locally |
-| Regex lab | [/regex](https://theswissknife.com/regex) | Match, replace and compare JavaScript against PCRE2 in a worker guarded against runaway patterns |
+| Regex lab | [/regex](https://theswissknife.com/regex) | Match and replace with JavaScript regular expressions in a worker that is stopped if a pattern backtracks catastrophically |
 | Text redactor | [/redact](https://theswissknife.com/redact) | Mask text with block characters, pick what to hide, share the scheme as a link |
 | Codec studio | [/codec](https://theswissknife.com/codec) | Encode and decode Base64, URLs, HTML entities and UTF-8 hex |
 | Markdown preview & export | [/markdown](https://theswissknife.com/markdown) | Live GitHub-flavoured Markdown preview with footnotes, KaTeX math and mermaid diagrams; export one self-contained HTML file, or a PDF through the print dialog, with themes, paper sizes and a table of contents |
@@ -40,10 +40,10 @@ never serves you a stale cache. To exercise offline behaviour, build and serve
 `dist/` over http://localhost (a secure context) rather than opening the files
 directly.
 
-Architecture and the **rules for adding a tool** live in [CLAUDE.md](CLAUDE.md) —
-short version: one folder under `src/tools/<slug>/`, one entry in
-`src/shell/registry.ts`, and the tool becomes a lazy chunk loaded only when its
-route opens.
+Architecture and the **rules for adding a tool** live in [AGENTS.md](AGENTS.md)
+(`CLAUDE.md` imports it) — short version: one folder under `src/tools/<slug>/`,
+one entry in `src/shell/registry.ts` and one row in the table above, and the
+tool becomes a lazy chunk loaded only when its route opens.
 
 ## Deployment
 

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
 import { useToast } from '../../shell/useToast'
-import { evaluateJavascript, hasDangerousPattern, MAX_MATCHES } from './javascript'
-import type { RegexEngine, RegexMode, RegexOperation, RegexResult } from './types'
+import { hasDangerousPattern, MAX_MATCHES, REGEX_TIMEOUT_MS } from './javascript'
+import { createRegexRunner } from './runner'
+import type { RegexOperation, RegexResult } from './types'
 import './regex.css'
 
 const FLAGS_JS = ['g', 'i', 'm', 's', 'u'] as const
@@ -20,54 +21,38 @@ const emptyResult: RegexResult = {
 }
 
 export default function RegexTool() {
-  const [mode, setMode] = useState<RegexMode>('javascript')
   const [operation, setOperation] = useState<RegexOperation>('match')
-  const [pattern, setPattern] = useState('(?<word>foo+)')
-  const [flags, setFlags] = useState('giu')
+  const [pattern, setPattern] = useState('(?<word>\\p{Lu}\\p{Ll}+)')
+  const [flags, setFlags] = useState('gu')
   const [subject, setSubject] = useState(SAMPLE)
   const [replacement, setReplacement] = useState('[$<word>]')
   const [result, setResult] = useState<RegexResult>(emptyResult)
   const [reDosWarning, setReDosWarning] = useState(false)
   const { toast, showToast } = useToast()
   const copy = useCopy(showToast)
-  const debounceRef = useRef<number | undefined>(undefined)
-
-  const engines: RegexEngine[] = useMemo(() => {
-    if (mode === 'javascript') return ['javascript']
-    if (mode === 'pcre2') return ['pcre2']
-    return ['javascript', 'pcre2']
-  }, [mode])
-
-  const run = useCallback(() => {
-    const started = performance.now()
-    setReDosWarning(hasDangerousPattern(pattern))
-
-    if (mode === 'compare') {
-      const jsResult = evaluateJavascript({ id: 0, engines: ['javascript'], pattern, flags, subject, operation, replacement })
-      const compareText = operation === 'replace'
-        ? `JavaScript: "${jsResult.replacement ?? '(error)'}"\n     PCRE2: (not available — see build instructions)`
-        : `JavaScript: ${jsResult.matches.length} matches in ${jsResult.elapsedMs.toFixed(1)}ms\n     PCRE2: not available — see build instructions`
-      setResult({
-        engine: 'javascript',
-        version: 'Compare',
-        matches: jsResult.matches,
-        replacement: compareText,
-        elapsedMs: performance.now() - started,
-        error: null,
-        truncated: jsResult.truncated,
-      })
-      return
-    }
-
-    const res = evaluateJavascript({ id: 0, engines, pattern, flags, subject, operation, replacement })
-    setResult(res)
-  }, [mode, pattern, flags, subject, operation, replacement, engines])
+  const runnerRef = useRef<ReturnType<typeof createRegexRunner>>(null)
 
   useEffect(() => {
-    clearTimeout(debounceRef.current)
-    debounceRef.current = window.setTimeout(run, 150)
-    return () => clearTimeout(debounceRef.current)
-  }, [run])
+    const runner = createRegexRunner(
+      () => new Worker(new URL('./regex.worker.ts', import.meta.url), { type: 'module' }),
+      REGEX_TIMEOUT_MS,
+    )
+    runnerRef.current = runner
+    return () => {
+      runnerRef.current = null
+      runner.dispose()
+    }
+  }, [])
+
+  // Patterns run in a worker the runner kills on timeout, so a catastrophic
+  // pattern costs a few seconds and an error message, never a frozen tab.
+  useEffect(() => {
+    setReDosWarning(hasDangerousPattern(pattern))
+    const timer = window.setTimeout(() => {
+      void runnerRef.current?.run({ engines: ['javascript'], pattern, flags, subject, operation, replacement }).then(setResult)
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [pattern, flags, subject, operation, replacement])
 
   const toggleFlag = (flag: string) => {
     setFlags((prev) => prev.includes(flag) ? prev.replace(flag, '') : prev + flag)
@@ -87,15 +72,6 @@ export default function RegexTool() {
 
       <main id="main-content" className="regex-main">
         <section className="regex-controls" aria-label="Regex settings">
-          <label>
-            <span>Engine</span>
-            <select value={mode} onChange={(event) => setMode(event.target.value as RegexMode)}>
-              <option value="javascript">JavaScript</option>
-              <option value="pcre2">PCRE2</option>
-              <option value="compare">Compare</option>
-            </select>
-          </label>
-
           <label>
             <span>Op</span>
             <select value={operation} onChange={(event) => setOperation(event.target.value as RegexOperation)}>
@@ -165,7 +141,7 @@ export default function RegexTool() {
             </div>
             {reDosWarning && !result.error && (
               <div className="regex-error" role="alert" style={{ borderLeftColor: 'var(--warn)' }}>
-                This pattern may cause catastrophic backtracking (ReDoS) on long inputs. If the tab freezes, reload and simplify the pattern.
+                This pattern may cause catastrophic backtracking (ReDoS) on long inputs. It runs in a worker that is stopped after {REGEX_TIMEOUT_MS / 1000} s, so the page stays responsive.
               </div>
             )}
             {result.error ? (
