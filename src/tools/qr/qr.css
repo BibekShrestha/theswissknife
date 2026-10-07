@@ -291,6 +291,88 @@ details[open] > summary .qr-chevron { transform: rotate(180deg); }
 .qr-batch-grid figcaption { color: var(--muted); font: 10px var(--font-mono); overflow: hidden; padding-top: 4px; text-overflow: ellipsis; white-space: nowrap; }
 .qr-batch-grid .qr-note { grid-column: 1 / -1; }
 
+/* ---- generate / scan ------------------------------------------------ */
+
+.qr-tabs { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.qr-tabs button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
+.qr-tabs button + button { border-left: 1px solid var(--border); }
+.qr-tabs button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+
+.qr-body { display: flex; flex: 1; flex-direction: column; }
+
+/* ---- scanner -------------------------------------------------------- */
+
+.qr-file,
+.qr-open .qr-primary {
+  align-items: center;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 5px 11px;
+  text-decoration: none;
+}
+.qr-file:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.qr-file input { height: 1px; opacity: 0; position: absolute; width: 1px; }
+.qr-open .qr-primary .material-symbols-outlined,
+.qr-file .material-symbols-outlined { font-size: 17px; }
+
+.qr-dropzone { cursor: default; flex-direction: column; min-height: 260px; justify-content: center; text-align: center; }
+.qr-dropzone > .material-symbols-outlined { font-size: 40px; }
+.qr-dropzone small { font-size: 11.5px; }
+.qr-dropzone kbd { font: 11px var(--font-mono); }
+.qr-main.is-dragging .qr-dropzone,
+.qr-main.is-dragging .qr-shot-frame {
+  background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--panel) 0 50%) 0 0 / 16px 16px;
+  border: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+}
+/* Shrink-wraps the image so the overlay's box is exactly the picture's. */
+.qr-shot-pic { position: relative; }
+.qr-shot-pic img { display: block; max-height: 60vh; max-width: 100%; }
+.qr-shot-pic svg { height: 100%; inset: 0; pointer-events: none; position: absolute; width: 100%; }
+.qr-shot-frame polygon { fill: color-mix(in srgb, var(--ok) 18%, transparent); stroke: var(--ok); stroke-width: 3; }
+.qr-shot figcaption { color: var(--muted); font: 11px var(--font-mono); padding-top: 6px; word-break: break-all; }
+
+.qr-scan-empty { margin: 40px auto; }
+.qr-scan-empty .material-symbols-outlined { font-size: 32px; }
+
+.qr-decoded { display: flex; flex-direction: column; gap: 12px; }
+.qr-decoded-head { align-items: center; display: flex; gap: 8px; }
+.qr-decoded-head .material-symbols-outlined { color: var(--accent); font-size: 22px; }
+.qr-decoded-head strong { font-size: 15px; }
+
+.qr-fields { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.qr-field-row { border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; padding-bottom: 8px; }
+.qr-field-row dt { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.qr-field-row dd { align-items: flex-start; display: flex; gap: 4px; margin: 0; }
+.qr-field-row dd > span { flex: 1; font-size: 13.5px; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.qr-masked { color: var(--muted); letter-spacing: .1em; }
+.qr-icon { align-items: center; background: transparent; border-color: transparent; display: inline-flex; flex: none; justify-content: center; min-height: 26px; padding: 0 5px; }
+.qr-icon .material-symbols-outlined { color: var(--muted); font-size: 16px; }
+
+.qr-open { display: flex; flex-direction: column; gap: 6px; }
+.qr-open .qr-primary { justify-content: center; }
+
+.qr-raw-out { border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; padding-top: 12px; }
+.qr-raw-out pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font: 12px/1.5 var(--font-mono);
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.qr-raw-out summary { cursor: pointer; }
+.qr-raw-out button { align-items: center; display: inline-flex; gap: 6px; }
+.qr-raw-out .material-symbols-outlined { font-size: 17px; }
+
 /* Container queries: the space that matters is beside the tool sidebar,
    not the viewport. */
 @container (max-width: 860px) {
