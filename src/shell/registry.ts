@@ -100,8 +100,8 @@ export const tools: ToolMeta[] = [
   },
   {
     slug: 'qr',
-    name: 'QR code generator',
-    tagline: 'Make QR codes for links, Wi-Fi, contacts and events — logos, colours, batch ZIP, all offline',
+    name: 'QR code generator & scanner',
+    tagline: 'Make QR codes for links, Wi-Fi, contacts and events, or read one from an image or paste — all offline',
     mark: 'QR',
     category: 'image',
     load: () => import('../tools/qr'),

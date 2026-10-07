@@ -154,7 +154,12 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/qr/` — QR generator: `uqr` encodes, our own `render.ts` draws (one
   path string feeds both SVG and canvas via `Path2D`). Scan check decodes the
   render with `BarcodeDetector` where the browser has one. Only style settings
-  are persisted — never content (Wi-Fi passwords).
+  are persisted — never content (Wi-Fi passwords). The Scan tab (`#scan`,
+  `scan/`) is a lazy chunk: jsQR decodes a chosen, dropped or pasted image
+  in `scan.worker.ts` under a deadline, retrying at smaller sizes, and
+  `scan/parse.ts` reads the payload back into fields (the inverse of
+  `payload.ts`, tested as a round trip). Links only open on a click and
+  show the punycode host first.
 - `tools/markdown/` — marked → one HTML string → a sandboxed `srcdoc` frame
   with **no `allow-scripts`** (pasted `<script>`/`onerror` stay inert, so no
   sanitizer). The frame is the preview, the print source (PDF = the browser's
