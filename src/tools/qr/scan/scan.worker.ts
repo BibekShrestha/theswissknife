@@ -8,7 +8,7 @@ import { decodePixels } from './engine'
 import type { ScanReply, ScanRequest } from './decode'
 
 self.onmessage = (event: MessageEvent<ScanRequest>) => {
-  const { id, data, width, height } = event.data
-  const reply: ScanReply = { id, found: decodePixels(data, width, height) }
+  const { id, data, width, height, blurs } = event.data
+  const reply: ScanReply = { id, found: decodePixels(data, width, height, blurs) }
   self.postMessage(reply)
 }

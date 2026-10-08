@@ -1,7 +1,7 @@
 import { describe as suite, expect, it } from 'vitest'
 import { buildPayload } from '../payload'
-import { encodeQr } from '../render'
-import { edgesFor } from './decode'
+import { encodeQr, isFinder } from '../render'
+import { edgesFor, planPasses } from './decode'
 import { decodePixels } from './engine'
 import { describe, readIcalDate, splitKeyed, unescapeText } from './parse'
 
@@ -23,6 +23,36 @@ function pixels(text: string, px = 4, invert = false) {
     }
   }
   return { data, dim, version: code.version }
+}
+
+/**
+ * The styled look jsQR cannot read as is: round dot modules and circular
+ * eyes (ring + disc), like many generators' "dots" preset.
+ */
+function dotted(text: string, px = 12) {
+  const { code } = encodeQr(text, { ...enc, ecc: 'H' })
+  if (!code) throw new Error('encode failed')
+  const dim = (code.size + 8) * px
+  const data = new Uint8ClampedArray(dim * dim * 4).fill(255)
+  const eyes = [[3.5, 3.5], [code.size - 3.5, 3.5], [3.5, code.size - 3.5]]
+  for (let y = 0; y < dim; y++) {
+    for (let x = 0; x < dim; x++) {
+      const mx = x / px - 4
+      const my = y / px - 4
+      const col = Math.floor(mx)
+      const row = Math.floor(my)
+      let dark = false
+      if (row >= 0 && col >= 0 && row < code.size && col < code.size && isFinder(row, col, code.size)) {
+        const [ex, ey] = eyes.find(([cx, cy]) => Math.abs(mx - cx) <= 3.5 && Math.abs(my - cy) <= 3.5)!
+        const r = Math.hypot(mx - ex, my - ey)
+        dark = (r <= 3.5 && r >= 2.5) || r <= 1.5
+      } else if (code.matrix[row]?.[col]) {
+        dark = Math.hypot(mx - col - 0.5, my - row - 0.5) <= 0.38
+      }
+      if (dark) data.set([0, 0, 0], (y * dim + x) * 4)
+    }
+  }
+  return { data, dim }
 }
 
 const values = (text: string) => Object.fromEntries(describe(text).fields.map((f) => [f.label, f.value]))
@@ -49,8 +79,29 @@ suite('decodePixels', () => {
     expect(br.x).toBeCloseTo(dim - 20, -1)
   })
 
+  it('reads dot modules with round eyes only through the blur ladder', () => {
+    const text = 'https://theswissknife.com/qr?style=dots'
+    const { data, dim } = dotted(text)
+    expect(decodePixels(data, dim, dim)).toBeNull()
+    const blurs = planPasses(dim).find((p) => p.blurs.length > 1)!.blurs
+    const found = decodePixels(data, dim, dim, blurs)
+    expect(found?.text).toBe(text)
+    // Blurring is symmetric, so the outline still sits on the code's edge.
+    expect(found!.corners[0].x).toBeCloseTo(48, -1)
+    expect(found!.corners[0].y).toBeCloseTo(48, -1)
+  })
+
   it('returns null for a blank image', () => {
     expect(decodePixels(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64)).toBeNull()
+  })
+})
+
+suite('planPasses', () => {
+  it('tries every size as is before any blur, and blurs only at 1024 px and below', () => {
+    const plan = planPasses(4000)
+    expect(plan.slice(0, 3)).toEqual([{ edge: 2048, blurs: [0] }, { edge: 1024, blurs: [0] }, { edge: 512, blurs: [0] }])
+    expect(plan.slice(3).map((p) => p.edge)).toEqual([1024, 512])
+    expect(plan.slice(3).every((p) => !p.blurs.includes(0))).toBe(true)
   })
 })
 

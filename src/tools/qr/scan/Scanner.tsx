@@ -111,14 +111,16 @@ export default function Scanner({ active, showToast }: { active: boolean; showTo
           {preview ? (
             <figure className="qr-shot">
               <div className="qr-shot-frame">
-                <div className="qr-shot-pic">
+                {result ? (
+                  // Picture and outline share one viewBox, so the outline cannot drift
+                  // from the code however the box is sized.
+                  <svg viewBox={`0 0 ${result.width} ${result.height}`} width={result.width} height={result.height} role="img" aria-label={`Scanned image: ${state.phase === 'done' ? state.name : ''}`}>
+                    <image href={preview} width={result.width} height={result.height} />
+                    {found && <polygon points={found.corners.map((p) => `${p.x},${p.y}`).join(' ')} vectorEffect="non-scaling-stroke" />}
+                  </svg>
+                ) : (
                   <img src={preview} alt={state.phase === 'idle' ? '' : `Scanned image: ${state.name}`} />
-                  {result && found && (
-                    <svg viewBox={`0 0 ${result.width} ${result.height}`} preserveAspectRatio="none" aria-hidden>
-                      <polygon points={found.corners.map((p) => `${p.x},${p.y}`).join(' ')} vectorEffect="non-scaling-stroke" />
-                    </svg>
-                  )}
-                </div>
+                )}
               </div>
               {state.phase !== 'idle' && <figcaption>{state.name}{result && ` · ${result.width}×${result.height}`}</figcaption>}
             </figure>

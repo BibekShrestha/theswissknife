@@ -156,8 +156,10 @@ the precache list built by `scripts/sw-manifest.ts`.
   render with `BarcodeDetector` where the browser has one. Only style settings
   are persisted — never content (Wi-Fi passwords). The Scan tab (`#scan`,
   `scan/`) is a lazy chunk: jsQR decodes a chosen, dropped or pasted image
-  in `scan.worker.ts` under a deadline, retrying at smaller sizes, and
-  `scan/parse.ts` reads the payload back into fields (the inverse of
+  in `scan.worker.ts` under a deadline, retrying at smaller sizes and then
+  with a blur ladder (`planPasses`) that lets jsQR read dot-module and
+  round-eye codes; the preview draws picture and outline in one SVG
+  `viewBox` so they cannot drift apart. `scan/parse.ts` reads the payload back into fields (the inverse of
   `payload.ts`, tested as a round trip). Links only open on a click and
   show the punycode host first.
 - `tools/markdown/` — marked → one HTML string → a sandboxed `srcdoc` frame
