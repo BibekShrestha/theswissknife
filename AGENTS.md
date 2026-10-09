@@ -155,13 +155,18 @@ the precache list built by `scripts/sw-manifest.ts`.
   path string feeds both SVG and canvas via `Path2D`). Scan check decodes the
   render with `BarcodeDetector` where the browser has one. Only style settings
   are persisted — never content (Wi-Fi passwords). The Scan tab (`#scan`,
-  `scan/`) is a lazy chunk: jsQR decodes a chosen, dropped or pasted image
-  in `scan.worker.ts` under a deadline, retrying at smaller sizes and then
-  with a blur ladder (`planPasses`) that lets jsQR read dot-module and
-  round-eye codes; the preview draws picture and outline in one SVG
-  `viewBox` so they cannot drift apart. `scan/parse.ts` reads the payload back into fields (the inverse of
-  `payload.ts`, tested as a round trip). Links only open on a click and
-  show the punycode host first.
+  `scan/`) is a lazy chunk. `scan.worker.ts` runs ZXing-C++ (`zxing-wasm`,
+  every code in the image) and, only when it finds nothing, OpenCV's WeChat
+  CNN decoder (`qr-scanner-wechat`, ~2.5 MB gz, dynamically imported).
+  Both wasm payloads are served from the site — `prepareZXingModule`'s
+  `locateFile` override is what stops zxing-wasm fetching from a CDN, and
+  `qr-scanner-wechat/wasm` is a vite.config alias to the package's raw
+  OpenCV module (its exports map only offers a first-code wrapper). On
+  BoofCV's 1,232-code photo benchmark the pair reads 82% (jsQR read 10%).
+  The preview draws picture and outlines in one SVG `viewBox` so they
+  cannot drift apart. `scan/parse.ts` reads payloads back into fields (the
+  inverse of `payload.ts`, tested as a round trip). Links only open on a
+  click and show the punycode host first.
 - `tools/markdown/` — marked → one HTML string → a sandboxed `srcdoc` frame
   with **no `allow-scripts`** (pasted `<script>`/`onerror` stay inert, so no
   sanitizer). The frame is the preview, the print source (PDF = the browser's
