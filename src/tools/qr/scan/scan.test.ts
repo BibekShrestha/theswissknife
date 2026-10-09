@@ -1,11 +1,32 @@
 import { describe as suite, expect, it } from 'vitest'
+import { prepareZXingModule } from 'zxing-wasm/reader'
 import { buildPayload } from '../payload'
 import { encodeQr, isFinder } from '../render'
-import { edgesFor, planPasses } from './decode'
-import { decodePixels } from './engine'
+import { decodeWechat, decodeZxing, type Pixels } from './engine'
 import { describe, readIcalDate, splitKeyed, unescapeText } from './parse'
 
 const enc = { ecc: 'M' as const, minVersion: 1, maskPattern: -1, boostEcc: false }
+
+// The worker's ?url import names a path Node cannot fetch, so hand ZXing the
+// bytes. getBuiltinModule (Node 22.3+) keeps Node's types out of the app.
+const { readFileSync } = (globalThis as unknown as {
+  process: { getBuiltinModule(id: 'node:fs'): { readFileSync(path: URL): Uint8Array } }
+}).process.getBuiltinModule('node:fs')
+const wasm = readFileSync(new URL('../../../../node_modules/zxing-wasm/dist/reader/zxing_reader.wasm', import.meta.url))
+prepareZXingModule({ overrides: { wasmBinary: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) as ArrayBuffer } })
+
+/** Places several renders side by side on one white canvas. */
+function sideBySide(...parts: { data: Uint8ClampedArray; dim: number }[]): Pixels {
+  const width = parts.reduce((w, p) => w + p.dim, 0)
+  const height = Math.max(...parts.map((p) => p.dim))
+  const data = new Uint8ClampedArray(width * height * 4).fill(255)
+  let x0 = 0
+  for (const p of parts) {
+    for (let y = 0; y < p.dim; y++) data.set(p.data.subarray(y * p.dim * 4, (y + 1) * p.dim * 4), (y * width + x0) * 4)
+    x0 += p.dim
+  }
+  return { data, width, height }
+}
 
 /** Renders a code as RGBA pixels — `px` per module, 4-module quiet zone. */
 function pixels(text: string, px = 4, invert = false) {
@@ -57,60 +78,54 @@ function dotted(text: string, px = 12) {
 
 const values = (text: string) => Object.fromEntries(describe(text).fields.map((f) => [f.label, f.value]))
 
-suite('decodePixels', () => {
-  it('reads back what the generator draws, UTF-8 included', () => {
+suite('decodeZxing', () => {
+  it('reads back what the generator draws, UTF-8 included', async () => {
     for (const text of ['https://theswissknife.com/qr', 'Grüße — 日本語 ✓', 'x'.repeat(400)]) {
       const { data, dim, version } = pixels(text)
-      const found = decodePixels(data, dim, dim)
-      expect(found?.text).toBe(text)
-      expect(found?.version).toBe(version)
+      const [found, ...rest] = await decodeZxing({ data, width: dim, height: dim })
+      expect(rest).toEqual([])
+      expect(found.text).toBe(text)
+      expect(found.version).toBe(version)
+      expect(found.ecLevel).toBe('M')
     }
   })
 
-  it('reads light-on-dark codes', () => {
+  it('reads light-on-dark codes', async () => {
     const { data, dim } = pixels('inverted', 4, true)
-    expect(decodePixels(data, dim, dim)?.text).toBe('inverted')
+    expect((await decodeZxing({ data, width: dim, height: dim }))[0]?.text).toBe('inverted')
   })
 
-  it('reports corners inside the quiet zone', () => {
-    const { data, dim } = pixels('corners', 5)
-    const [tl, , br] = decodePixels(data, dim, dim)!.corners
-    expect(tl.x).toBeCloseTo(20, -1)
-    expect(br.x).toBeCloseTo(dim - 20, -1)
-  })
-
-  it('reads dot modules with round eyes only through the blur ladder', () => {
+  it('reads dot modules with round eyes as they are — the style jsQR could not', async () => {
     const text = 'https://theswissknife.com/qr?style=dots'
     const { data, dim } = dotted(text)
-    expect(decodePixels(data, dim, dim)).toBeNull()
-    const blurs = planPasses(dim).find((p) => p.blurs.length > 1)!.blurs
-    const found = decodePixels(data, dim, dim, blurs)
+    const [found] = await decodeZxing({ data, width: dim, height: dim })
     expect(found?.text).toBe(text)
-    // Blurring is symmetric, so the outline still sits on the code's edge.
-    expect(found!.corners[0].x).toBeCloseTo(48, -1)
-    expect(found!.corners[0].y).toBeCloseTo(48, -1)
   })
 
-  it('returns null for a blank image', () => {
-    expect(decodePixels(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64)).toBeNull()
+  it('reads every code in the image, with corners on each code', async () => {
+    const a = pixels('first code', 5)
+    const b = pixels('second code', 5)
+    const found = await decodeZxing(sideBySide(a, b))
+    expect(found.map((f) => f.text).sort()).toEqual(['first code', 'second code'])
+    const second = found.find((f) => f.text === 'second code')!
+    // Top-left sits just inside the second render's 4-module (20 px) quiet zone.
+    expect(second.corners[0].x).toBeCloseTo(a.dim + 20, -1)
+    expect(second.corners[0].y).toBeCloseTo(20, -1)
+  })
+
+  it('returns nothing for a blank image', async () => {
+    expect(await decodeZxing({ data: new Uint8ClampedArray(64 * 64 * 4).fill(255), width: 64, height: 64 })).toEqual([])
   })
 })
 
-suite('planPasses', () => {
-  it('tries every size as is before any blur, and blurs only at 1024 px and below', () => {
-    const plan = planPasses(4000)
-    expect(plan.slice(0, 3)).toEqual([{ edge: 2048, blurs: [0] }, { edge: 1024, blurs: [0] }, { edge: 512, blurs: [0] }])
-    expect(plan.slice(3).map((p) => p.edge)).toEqual([1024, 512])
-    expect(plan.slice(3).every((p) => !p.blurs.includes(0))).toBe(true)
-  })
-})
-
-suite('edgesFor', () => {
-  it('tries full size first, then smaller copies', () => {
-    expect(edgesFor(300)).toEqual([300])
-    expect(edgesFor(1500)).toEqual([1500, 1024, 512])
-    expect(edgesFor(4000)).toEqual([2048, 1024, 512])
-  })
+suite('decodeWechat', () => {
+  it('loads OpenCV with its models and reads a code with its corners', async () => {
+    const { data, dim } = pixels('wechat fallback', 6)
+    const [found] = await decodeWechat({ data, width: dim, height: dim })
+    expect(found?.text).toBe('wechat fallback')
+    expect(found.corners[0].x).toBeCloseTo(24, -1)
+    expect(found.corners[2].x).toBeCloseTo(dim - 24, -1)
+  }, 60_000)
 })
 
 suite('describe', () => {

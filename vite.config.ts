@@ -139,4 +139,11 @@ export default defineConfig({
     assetsInlineLimit: (file) => /\.(?:woff2?|ttf|otf)$/i.test(file) ? false : undefined,
   },
   worker: { format: 'es' },
+  resolve: {
+    alias: {
+      // The QR scanner needs OpenCV's raw WeChat module (every code, true
+      // corners), which the package's exports map hides behind a wrapper.
+      'qr-scanner-wechat/wasm': fileURLToPath(new URL('node_modules/qr-scanner-wechat/dist/wasm.mjs', import.meta.url)),
+    },
+  },
 })

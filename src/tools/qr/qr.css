@@ -334,6 +334,18 @@ details[open] > summary .qr-chevron { transform: rotate(180deg); }
 .qr-shot-frame svg { display: block; height: auto; max-height: 60vh; max-width: 100%; }
 .qr-shot-frame svg { width: auto; }
 .qr-shot-frame polygon { fill: color-mix(in srgb, var(--ok) 18%, transparent); stroke: var(--ok); stroke-width: 3; }
+.qr-shot-frame text { fill: #fff; font-family: var(--font-mono); font-weight: 700; paint-order: stroke; stroke: var(--ok); stroke-width: 4px; }
+.qr-found-count { color: var(--muted); font-size: 12.5px; margin: 0 0 4px; }
+.qr-found-index {
+  background: var(--ok);
+  border-radius: 999px;
+  color: #fff;
+  font: 700 11px var(--font-mono);
+  min-width: 20px;
+  padding: 2px 6px;
+  text-align: center;
+}
+.qr-decoded + .qr-decoded { border-top: 1px solid var(--border); padding-top: 14px; }
 .qr-shot figcaption { color: var(--muted); font: 11px var(--font-mono); padding-top: 6px; word-break: break-all; }
 
 .qr-scan-empty { margin: 40px auto; }

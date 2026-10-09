@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useCopy } from '../../../shell/useCopy'
 import { Panel } from '../panel'
 import { createScanner, Superseded, type ScanResult } from './decode'
+import type { Found } from './engine'
 import { describe, type Field } from './parse'
 
 type State =
   | { phase: 'idle' }
-  | { phase: 'scanning'; name: string }
+  | { phase: 'scanning'; name: string; fallback: boolean }
   | { phase: 'done'; name: string; result: ScanResult }
   | { phase: 'error'; name: string; message: string }
 
@@ -37,9 +38,10 @@ export default function Scanner({ active, showToast }: { active: boolean; showTo
     const scanner = scannerRef.current
     if (!scanner) return
     setPreview(URL.createObjectURL(blob))
-    setState({ phase: 'scanning', name })
+    setState({ phase: 'scanning', name, fallback: false })
     try {
-      setState({ phase: 'done', name, result: await scanner.scan(blob) })
+      const result = await scanner.scan(blob, () => setState({ phase: 'scanning', name, fallback: true }))
+      setState({ phase: 'done', name, result })
     } catch (e) {
       if (!(e instanceof Superseded)) setState({ phase: 'error', name, message: (e as Error).message })
     }
@@ -88,7 +90,9 @@ export default function Scanner({ active, showToast }: { active: boolean; showTo
   }
 
   const result = state.phase === 'done' ? state.result : null
-  const found = result?.found ?? null
+  const found = result?.found ?? []
+  // Outline labels scale with the picture so they read the same at any size.
+  const labelSize = result ? Math.max(14, Math.max(result.width, result.height) / 40) : 0
 
   return (
     <div
@@ -98,7 +102,7 @@ export default function Scanner({ active, showToast }: { active: boolean; showTo
       onDrop={onDrop}
     >
       <div className="qr-left">
-        <Panel step="01" title="Image" hint="Screenshot, photo or saved code · one code per image">
+        <Panel step="01" title="Image" hint="Screenshot, photo or saved code · every code in it is read">
           <div className="qr-actions">
             <label className="qr-primary qr-file">
               <input type="file" accept="image/*" onChange={(e) => { take(e.target.files?.[0], 'File'); e.target.value = '' }} />
@@ -116,7 +120,14 @@ export default function Scanner({ active, showToast }: { active: boolean; showTo
                   // from the code however the box is sized.
                   <svg viewBox={`0 0 ${result.width} ${result.height}`} width={result.width} height={result.height} role="img" aria-label={`Scanned image: ${state.phase === 'done' ? state.name : ''}`}>
                     <image href={preview} width={result.width} height={result.height} />
-                    {found && <polygon points={found.corners.map((p) => `${p.x},${p.y}`).join(' ')} vectorEffect="non-scaling-stroke" />}
+                    {found.map((f, i) => (
+                      <g key={i}>
+                        <polygon points={f.corners.map((p) => `${p.x},${p.y}`).join(' ')} vectorEffect="non-scaling-stroke" />
+                        {found.length > 1 && (
+                          <text x={centre(f).x} y={centre(f).y} fontSize={labelSize} textAnchor="middle" dominantBaseline="central">{i + 1}</text>
+                        )}
+                      </g>
+                    ))}
                   </svg>
                 ) : (
                   <img src={preview} alt={state.phase === 'idle' ? '' : `Scanned image: ${state.name}`} />
@@ -136,16 +147,26 @@ export default function Scanner({ active, showToast }: { active: boolean; showTo
 
       <aside className="qr-right" aria-label="Decoded content" aria-live="polite">
         {state.phase === 'idle' && <Empty icon="center_focus_weak" text="The decoded content appears here." />}
-        {state.phase === 'scanning' && <Empty icon="progress_activity" text="Looking for a QR code…" />}
+        {state.phase === 'scanning' && (
+          <Empty
+            icon="progress_activity"
+            text={state.fallback
+              ? 'Nothing yet — trying the deep decoder. The first time, it loads ~2.5 MB from this site, then works offline.'
+              : 'Looking for QR codes…'}
+          />
+        )}
         {state.phase === 'error' && <Empty icon="error" text={state.message} bad />}
-        {state.phase === 'done' && !found && (
+        {state.phase === 'done' && !found.length && (
           <Empty
             icon="search_off"
             text="No QR code found. Crop closer to the code, make sure all four corners and some margin are in the picture, and avoid glare."
             bad
           />
         )}
-        {found && <Decoded text={found.text} version={found.version} bytes={found.bytes} onCopy={(value, label) => void copy(value, label)} />}
+        {found.length > 1 && <p className="qr-found-count">{found.length} codes found — numbered on the image</p>}
+        {found.map((f, i) => (
+          <Decoded key={i} found={f} index={found.length > 1 ? i + 1 : undefined} engine={result!.engine!} onCopy={(value, label) => void copy(value, label)} />
+        ))}
       </aside>
     </div>
   )
@@ -160,19 +181,29 @@ function Empty({ icon, text, bad }: { icon: string; text: string; bad?: boolean 
   )
 }
 
-function Decoded({ text, version, bytes, onCopy }: { text: string; version: number; bytes: number; onCopy: (value: string, label: string) => void }) {
+const centre = (f: Found) => ({
+  x: f.corners.reduce((s, p) => s + p.x, 0) / 4,
+  y: f.corners.reduce((s, p) => s + p.y, 0) / 4,
+})
+
+const ENGINE_LABEL = { zxing: 'ZXing', wechat: 'WeChat decoder' }
+
+function Decoded({ found, index, engine, onCopy }: { found: Found; index?: number; engine: keyof typeof ENGINE_LABEL; onCopy: (value: string, label: string) => void }) {
+  const { text, version, bytes, ecLevel } = found
   const info = describe(text)
-  const size = 17 + version * 4
   return (
     <div className="qr-decoded">
       <header className="qr-decoded-head">
+        {index !== undefined && <span className="qr-found-index">{index}</span>}
         <span className="material-symbols-outlined" aria-hidden>{info.icon}</span>
         <strong>{info.label}</strong>
       </header>
       <p className="qr-stats">
-        <span>v{version}</span>
-        <span>{size}×{size}</span>
-        <span>{bytes.toLocaleString()} B</span>
+        {version !== undefined && <span>v{version}</span>}
+        {version !== undefined && <span>{17 + version * 4}×{17 + version * 4}</span>}
+        {ecLevel && <span>ECC {ecLevel}</span>}
+        {bytes !== undefined && <span>{bytes.toLocaleString()} B</span>}
+        <span title="The decoder that read this code">{ENGINE_LABEL[engine]}</span>
       </p>
 
       {info.fields.length > 0 && (
