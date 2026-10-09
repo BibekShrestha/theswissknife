@@ -168,6 +168,8 @@ the precache list built by `scripts/sw-manifest.ts`.
   corners in `manifest.json`) plus synthetic hard shots from `synth.ts`,
   each one step inside the severity where the decoders give up — two of
   them only the WeChat fallback reads.
+  **Camera-free by design**: the scanner reads images only (file, drop,
+  paste) and never calls `getUserMedia` — don't add live camera scanning.
   The preview draws picture and outlines in one SVG `viewBox` so they
   cannot drift apart. `scan/parse.ts` reads payloads back into fields (the
   inverse of `payload.ts`, tested as a round trip). Links only open on a

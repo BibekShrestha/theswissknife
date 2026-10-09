@@ -139,7 +139,7 @@ export default function Scanner({ active, showToast }: { active: boolean; showTo
             <div className="qr-drop qr-dropzone" aria-hidden>
               <span className="material-symbols-outlined">qr_code_scanner</span>
               <span>Drop an image here, or press <kbd>{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'}V</kbd> to paste a screenshot</span>
-              <small>PNG, JPEG, WebP, GIF, SVG… decoded on this device; nothing is uploaded or stored</small>
+              <small>PNG, JPEG, WebP, GIF, SVG… decoded on this device; nothing is uploaded or stored, and the camera is never used</small>
             </div>
           )}
         </Panel>
