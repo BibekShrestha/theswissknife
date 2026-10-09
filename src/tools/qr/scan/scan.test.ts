@@ -1,19 +1,11 @@
 import { describe as suite, expect, it } from 'vitest'
-import { prepareZXingModule } from 'zxing-wasm/reader'
 import { buildPayload } from '../payload'
 import { encodeQr, isFinder } from '../render'
 import { decodeWechat, decodeZxing, type Pixels } from './engine'
+import './testing'
 import { describe, readIcalDate, splitKeyed, unescapeText } from './parse'
 
 const enc = { ecc: 'M' as const, minVersion: 1, maskPattern: -1, boostEcc: false }
-
-// The worker's ?url import names a path Node cannot fetch, so hand ZXing the
-// bytes. getBuiltinModule (Node 22.3+) keeps Node's types out of the app.
-const { readFileSync } = (globalThis as unknown as {
-  process: { getBuiltinModule(id: 'node:fs'): { readFileSync(path: URL): Uint8Array } }
-}).process.getBuiltinModule('node:fs')
-const wasm = readFileSync(new URL('../../../../node_modules/zxing-wasm/dist/reader/zxing_reader.wasm', import.meta.url))
-prepareZXingModule({ overrides: { wasmBinary: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) as ArrayBuffer } })
 
 /** Places several renders side by side on one white canvas. */
 function sideBySide(...parts: { data: Uint8ClampedArray; dim: number }[]): Pixels {

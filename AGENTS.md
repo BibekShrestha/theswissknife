@@ -163,6 +163,11 @@ the precache list built by `scripts/sw-manifest.ts`.
   `qr-scanner-wechat/wasm` is a vite.config alias to the package's raw
   OpenCV module (its exports map only offers a first-code wrapper). On
   BoofCV's 1,232-code photo benchmark the pair reads 82% (jsQR read 10%).
+  `regression.test.ts` guards that: six real benchmark photos in
+  `scan/fixtures/` (credited in its README; expected payloads and labelled
+  corners in `manifest.json`) plus synthetic hard shots from `synth.ts`,
+  each one step inside the severity where the decoders give up — two of
+  them only the WeChat fallback reads.
   The preview draws picture and outlines in one SVG `viewBox` so they
   cannot drift apart. `scan/parse.ts` reads payloads back into fields (the
   inverse of `payload.ts`, tested as a round trip). Links only open on a

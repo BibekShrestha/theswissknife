@@ -1,0 +1,214 @@
+[
+  {
+    "file": "blurred-042.jpg",
+    "source": "qrcodes_v3/detection/blurred/image042.jpg",
+    "why": "Motion blur on a small code",
+    "engine": "zxing",
+    "texts": [
+      "GH64-05708A"
+    ],
+    "codes": [
+      [
+        [
+          43.2,
+          240.3
+        ],
+        [
+          55.6,
+          43.8
+        ],
+        [
+          245.3,
+          53.5
+        ],
+        [
+          240.6,
+          250.6
+        ]
+      ]
+    ]
+  },
+  {
+    "file": "curved-035.jpg",
+    "source": "qrcodes_v3/detection/curved/image035.jpg",
+    "why": "Code wrapped round a curved surface; CJK + URL payload",
+    "engine": "zxing",
+    "texts": [
+      "正宗铁观音茶叶 乐品乐茶 \nhttp://detail.tmall.com/item.htm?id=13996190738"
+    ],
+    "codes": [
+      [
+        [
+          279.7,
+          676.8
+        ],
+        [
+          281,
+          494.8
+        ],
+        [
+          464.5,
+          496.8
+        ],
+        [
+          461.9,
+          677.7
+        ]
+      ]
+    ]
+  },
+  {
+    "file": "high_version-026.jpg",
+    "source": "qrcodes_v3/detection/high_version/image026.jpg",
+    "why": "Dense high-version code, 648-character payload",
+    "engine": "zxing",
+    "texts": [
+      "QR code (abbreviated from Quick Response Code) is the trademark for a type of matrix barcode (or two-dimensional barcode) first designed in 1994 for the automotive industry in Japan.[1] A barcode is a machine-readable optical label that contains information about the item to which it is attached. In practice, QR codes often contain data for a locator, identifier, or tracker that points to a website or application. A QR code uses four standardized encoding modes (numeric, alphanumeric, byte/binary, and kanji) to store data efficiently; extensions may also be used.[2]\nsdfgksjdflkgjsdkfgiotmbx,cmvbofghjoaasdfaERYYKLLDFGSDFFFFFFFFFFFFFFFFFFFFFF"
+    ],
+    "codes": [
+      [
+        [
+          122,
+          258.1
+        ],
+        [
+          741.6,
+          78.4
+        ],
+        [
+          984.5,
+          590.2
+        ],
+        [
+          316.9,
+          858.1
+        ]
+      ]
+    ]
+  },
+  {
+    "file": "rotations-022.jpg",
+    "source": "qrcodes_v3/detection/rotations/image022.jpg",
+    "why": "Three codes at different rotations in one photo",
+    "engine": "zxing",
+    "texts": [
+      "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+      "Version 1 QR",
+      "Version 2 QR Code Test Image"
+    ],
+    "codes": [
+      [
+        [
+          102.9,
+          602.5
+        ],
+        [
+          381.8,
+          556.1
+        ],
+        [
+          452.3,
+          782.3
+        ],
+        [
+          129.1,
+          854.6
+        ]
+      ],
+      [
+        [
+          688.7,
+          896.9
+        ],
+        [
+          636.2,
+          743.4
+        ],
+        [
+          785.3,
+          719.7
+        ],
+        [
+          850.9,
+          866.3
+        ]
+      ],
+      [
+        [
+          666.7,
+          626.3
+        ],
+        [
+          624.5,
+          533.6
+        ],
+        [
+          731.6,
+          516.8
+        ],
+        [
+          779.8,
+          605.9
+        ]
+      ]
+    ]
+  },
+  {
+    "file": "glare-045.jpg",
+    "source": "qrcodes_v3/detection/glare/image045.jpg",
+    "why": "Glare across the code; only the WeChat fallback reads it",
+    "engine": "wechat",
+    "texts": [
+      "http://www.youtube.com/watch?v=7qa6Bho4OyM&feature=share&list=PLk13TE2t32tgRCVo0q8tTB1CyZyMDQCNH&index=10"
+    ],
+    "codes": [
+      [
+        [
+          376.8,
+          151.6
+        ],
+        [
+          337.9,
+          412.1
+        ],
+        [
+          76.8,
+          374.7
+        ],
+        [
+          119.5,
+          110.5
+        ]
+      ]
+    ]
+  },
+  {
+    "file": "damaged-009.jpg",
+    "source": "qrcodes_v3/detection/damaged/image009.jpg",
+    "why": "Physically damaged code; only the WeChat fallback reads it",
+    "engine": "wechat",
+    "texts": [
+      "amzn.to/socialqr"
+    ],
+    "codes": [
+      [
+        [
+          893.9,
+          634.8
+        ],
+        [
+          360.6,
+          822.6
+        ],
+        [
+          186.5,
+          286.7
+        ],
+        [
+          704.9,
+          65.1
+        ]
+      ]
+    ]
+  }
+]
