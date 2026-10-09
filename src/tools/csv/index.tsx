@@ -11,6 +11,7 @@ import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
 import { useToast } from '../../shell/useToast'
 import { Grid, type Cursor } from './Grid'
+import { GroupPicker } from './GroupPicker'
 import { decodeBytes, ENCODING_LABELS, type Encoding } from './decode'
 import {
   DELIMITERS,
@@ -24,7 +25,13 @@ import {
   columnName,
   columnTypes,
   buildOrder,
+  applyFilters,
+  describeFilter,
+  groupedDisplay,
+  groupRows,
   initialWidths,
+  VALUELESS,
+  type Filter,
   looksLikeHeader,
   measureColumn,
   type Sort,
@@ -86,6 +93,11 @@ export default function CsvTool() {
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [searchColumn, setSearchColumn] = useState(-1)
   const [sort, setSort] = useState<Sort | null>(null)
+  const [filters, setFilters] = useState<Filter[]>([])
+  const [groupBy, setGroupBy] = useState(-1)
+  const [groupPicker, setGroupPicker] = useState<HTMLElement | null>(null)
+  const closeGroupPicker = useCallback(() => setGroupPicker(null), [])
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [cursor, setCursor] = useState<Cursor | null>(null)
 
   const [format, setFormat] = useState<Format>('csv')
@@ -106,6 +118,7 @@ export default function CsvTool() {
   // typing smooth and lets React drop superseded work.
   const deferredText = useDeferredValue(text)
   const deferredQuery = useDeferredValue(query)
+  const deferredFilters = useDeferredValue(filters)
 
   const detection = useMemo(() => detectDelimiter(deferredText, quote), [deferredText, quote])
   const delimiter = delimiterChoice === 'auto' ? detection.delimiter : delimiterChoice
@@ -145,9 +158,26 @@ export default function CsvTool() {
   const types = useMemo(() => columnTypes(rows, width, bodyStart), [rows, width, bodyStart])
 
   const order = useMemo(
-    () => buildOrder(rows, bodyStart, deferredQuery, { caseSensitive, column: searchColumn }, sort, types),
-    [rows, bodyStart, deferredQuery, caseSensitive, searchColumn, sort, types],
+    () =>
+      applyFilters(
+        rows,
+        buildOrder(rows, bodyStart, deferredQuery, { caseSensitive, column: searchColumn }, sort, types),
+        deferredFilters,
+        types,
+        caseSensitive,
+      ),
+    [rows, bodyStart, deferredQuery, caseSensitive, searchColumn, sort, types, deferredFilters],
   )
+
+  const groups = useMemo(
+    () => (groupBy >= 0 && groupBy < width ? groupRows(rows, order, groupBy, types, sort) : null),
+    [groupBy, width, rows, order, types, sort],
+  )
+  // What the grid shows: rows, or group headers with their (expanded) rows.
+  const display = useMemo(() => (groups ? groupedDisplay(groups, collapsed) : order), [groups, collapsed, order])
+  // What an export writes: every row that passes, in on-screen order — rows
+  // of a collapsed group included, since collapsing is about the view.
+  const exportOrder = useMemo(() => (groups ? groups.flatMap((group) => group.rows) : order), [groups, order])
 
   // Widths follow the content. Sorting and searching leave them alone; a
   // re-parse re-measures, since the columns themselves may be different.
@@ -157,7 +187,9 @@ export default function CsvTool() {
 
   useEffect(() => {
     if (searchColumn >= width) setSearchColumn(-1)
-  }, [searchColumn, width])
+    if (groupBy >= width) setGroupBy(-1)
+    setFilters((prev) => (prev.some((filter) => filter.column >= width) ? prev.filter((filter) => filter.column < width) : prev))
+  }, [searchColumn, groupBy, width])
 
   const hasData = rows.length > 0
   const showSource = !hasData || sourceOpen
@@ -178,6 +210,10 @@ export default function CsvTool() {
     setEdits(0)
     setQuery('')
     setSearchColumn(-1)
+    setFilters([])
+    setGroupBy(-1)
+    setGroupPicker(null)
+    setCollapsed(new Set())
     setSourceOpen(false)
   }, [])
 
@@ -258,6 +294,36 @@ export default function CsvTool() {
       return copyOf
     })
 
+  const onToggleGroup = useCallback(
+    (value: string) =>
+      setCollapsed((prev) => {
+        const next = new Set(prev)
+        if (!next.delete(value)) next.add(value)
+        return next
+      }),
+    [],
+  )
+
+  const changeGroupBy = (column: number) => {
+    setGroupBy(column)
+    setGroupPicker(null)
+    setCollapsed(new Set())
+    setCursor(null)
+  }
+
+  const allCollapsed = groups !== null && groups.length > 0 && groups.every((group) => collapsed.has(group.value))
+  const toggleAllGroups = () =>
+    setCollapsed(allCollapsed || !groups ? new Set() : new Set(groups.map((group) => group.value)))
+
+  const setColumnFilter = useCallback(
+    (column: number, filter: Filter | null) =>
+      setFilters((prev) => {
+        const rest = prev.filter((entry) => entry.column !== column)
+        return filter ? [...rest, filter] : rest
+      }),
+    [],
+  )
+
   const onEdit = (row: number, column: number, value: string) => {
     setParsed((prev) => {
       if ((prev.rows[row]?.[column] ?? '') === value) return prev
@@ -275,7 +341,7 @@ export default function CsvTool() {
 
   const buildOutput = () =>
     serialize(
-      order.map((index) => rows[index]),
+      exportOrder.map((index) => rows[index]),
       { format, delimiter, quote: quote || '"', headers, types, inferTypes, width },
     )
 
@@ -296,11 +362,18 @@ export default function CsvTool() {
 
   const needle = caseSensitive ? deferredQuery : deferredQuery.toLowerCase()
   const bodyCount = Math.max(0, rows.length - bodyStart)
-  const filtered = deferredQuery.trim() !== '' || sort !== null
-  const cursorRow = cursor !== null ? rows[order[cursor.index] ?? -1] : undefined
+  const activeFilters = deferredFilters.filter((filter) => VALUELESS.has(filter.op) || filter.value !== '').length
+  const narrowed = deferredQuery !== '' || activeFilters > 0
+  const filtered = narrowed || sort !== null || groups !== null
+  const cursorItem = cursor !== null ? display[cursor.index] : undefined
+  const cursorGroup = groups && cursorItem !== undefined && cursorItem < 0 ? groups[~cursorItem] : undefined
+  const cursorRow = cursorItem !== undefined && cursorItem >= 0 ? rows[cursorItem] : undefined
   const cursorValue = cursor && cursorRow ? (cursorRow[cursor.column] ?? '') : ''
+  const columnLabel = (column: number) => headers?.[column]?.trim() || columnName(column)
   const cursorLabel = cursor
-    ? `${headers?.[cursor.column]?.trim() || columnName(cursor.column)} · row ${cursor.index + 1}`
+    ? `${columnLabel(cursor.column)} · row ${
+        groups && cursorItem !== undefined ? cursorItem - bodyStart + 1 : cursor.index + 1
+      }`
     : ''
 
   return (
@@ -402,7 +475,7 @@ export default function CsvTool() {
         {hasData && (
           <>
             <div className="csv-bar">
-              <label className="csv-search">
+              <div className={`csv-search${searchColumn >= 0 ? ' scoped' : ''}`} role="search">
                 <span className="material-symbols-outlined" aria-hidden>search</span>
                 <input
                   ref={searchRef}
@@ -412,27 +485,70 @@ export default function CsvTool() {
                   onKeyDown={(event) => {
                     if (event.key === 'Escape') setQuery('')
                   }}
-                  placeholder="Search rows"
+                  placeholder={searchColumn >= 0 ? `Search ${columnLabel(searchColumn)}` : 'Search rows'}
                   aria-label="Search rows"
                 />
+                {/* Where the search looks — part of the search, so it lives in the box. */}
+                <select
+                  className="csv-search-scope"
+                  value={searchColumn}
+                  onChange={(event) => setSearchColumn(Number(event.target.value))}
+                  aria-label="Search in"
+                  title="Search every column, or only one"
+                >
+                  <option value={-1}>in all columns</option>
+                  {Array.from({ length: width }, (_, c) => (
+                    <option key={c} value={c}>
+                      in {columnLabel(c)}
+                    </option>
+                  ))}
+                </select>
                 <kbd>/</kbd>
-              </label>
-              <select
-                value={searchColumn}
-                onChange={(event) => setSearchColumn(Number(event.target.value))}
-                aria-label="Search in column"
-                title="Limit the search to one column"
-              >
-                <option value={-1}>every column</option>
-                {Array.from({ length: width }, (_, c) => (
-                  <option key={c} value={c}>
-                    {headers?.[c]?.trim() || columnName(c)}
-                  </option>
-                ))}
-              </select>
+              </div>
+              <div className={`csv-groupby${groups ? ' on' : ''}`}>
+                <button
+                  className={groupPicker ? 'open' : ''}
+                  onClick={(event) => {
+                    const anchor = event.currentTarget
+                    setGroupPicker((open) => (open ? null : anchor))
+                  }}
+                  aria-haspopup="menu"
+                  aria-expanded={groupPicker !== null}
+                  title="Fold rows that share a value under one header"
+                >
+                  <span className="material-symbols-outlined" aria-hidden>category</span>
+                  {groups ? (
+                    <span>
+                      Grouped by <strong>{columnLabel(groupBy)}</strong>
+                    </span>
+                  ) : (
+                    <span>Group</span>
+                  )}
+                  <span className="material-symbols-outlined csv-groupby-caret" aria-hidden>expand_more</span>
+                </button>
+                {groups && (
+                  <button
+                    className="csv-groupby-clear"
+                    onClick={() => changeGroupBy(-1)}
+                    aria-label="Stop grouping"
+                    title="Stop grouping"
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                )}
+              </div>
+              {groups && (
+                <button
+                  onClick={toggleAllGroups}
+                  aria-label={allCollapsed ? 'Expand every group' : 'Collapse every group'}
+                  title={allCollapsed ? 'Expand every group' : 'Collapse every group'}
+                >
+                  <span className="material-symbols-outlined">{allCollapsed ? 'unfold_more' : 'unfold_less'}</span>
+                </button>
+              )}
 
               <span className="csv-count">
-                {deferredQuery ? (
+                {narrowed ? (
                   <>
                     <strong>{order.length.toLocaleString()}</strong> of {bodyCount.toLocaleString()} rows
                   </>
@@ -440,6 +556,12 @@ export default function CsvTool() {
                   <>
                     <strong>{bodyCount.toLocaleString()}</strong> row{bodyCount === 1 ? '' : 's'} ×{' '}
                     {width} col{width === 1 ? '' : 's'}
+                  </>
+                )}
+                {groups && (
+                  <>
+                    {' '}
+                    · <strong>{groups.length.toLocaleString()}</strong> group{groups.length === 1 ? '' : 's'}
                   </>
                 )}
               </span>
@@ -500,6 +622,29 @@ export default function CsvTool() {
                 <span className="material-symbols-outlined">download</span>
               </button>
             </div>
+
+            {filters.length > 0 && (
+              <div className="csv-filters" role="group" aria-label="Column filters">
+                <span className="material-symbols-outlined" aria-hidden>filter_alt</span>
+                {filters.map((filter) => (
+                  <span className="csv-filter" key={filter.column}>
+                    <strong>{columnLabel(filter.column)}</strong> {describeFilter(filter)}
+                    <button
+                      onClick={() => setColumnFilter(filter.column, null)}
+                      aria-label={`Remove the filter on ${columnLabel(filter.column)}`}
+                      title="Remove this filter"
+                    >
+                      <span className="material-symbols-outlined">close</span>
+                    </button>
+                  </span>
+                ))}
+                {filters.length > 1 && (
+                  <button className="csv-filter-clear" onClick={() => setFilters([])}>
+                    Clear all
+                  </button>
+                )}
+              </div>
+            )}
 
             {optionsOpen && (
               <div className="csv-options">
@@ -586,7 +731,11 @@ export default function CsvTool() {
 
             <Grid
               rows={rows}
-              order={order}
+              order={display}
+              groups={groups}
+              groupColumn={groupBy}
+              collapsed={collapsed}
+              bodyStart={bodyStart}
               width={width}
               headers={headers}
               types={types}
@@ -601,10 +750,22 @@ export default function CsvTool() {
               onAutoFit={onAutoFit}
               onCursor={setCursor}
               onEdit={onEdit}
+              onToggleGroup={onToggleGroup}
+              filters={filters}
+              onFilter={setColumnFilter}
             />
 
             <footer className="csv-foot">
-              {cursor ? (
+              {cursorGroup ? (
+                <>
+                  <span className="csv-foot-label">{columnLabel(groupBy)}</span>
+                  <code className="csv-foot-value">{cursorGroup.value || <em>empty</em>}</code>
+                  <span className="csv-foot-meta">
+                    {cursorGroup.rows.length.toLocaleString()} row{cursorGroup.rows.length === 1 ? '' : 's'} · Enter to{' '}
+                    {collapsed.has(cursorGroup.value) ? 'expand' : 'collapse'}
+                  </span>
+                </>
+              ) : cursor ? (
                 <>
                   <span className="csv-foot-label">{cursorLabel}</span>
                   <code className="csv-foot-value">{cursorValue || <em>empty</em>}</code>
@@ -617,7 +778,7 @@ export default function CsvTool() {
                 </>
               ) : (
                 <span className="csv-foot-label">
-                  Click a cell to inspect it · double-click to edit · drag a header edge to resize
+                  Click a cell to inspect it · double-click to edit · filter from a column's header
                 </span>
               )}
               <div className="spacer" />
@@ -629,6 +790,19 @@ export default function CsvTool() {
         )}
       </main>
 
+      {groupPicker && hasData && (
+        <GroupPicker
+          anchor={groupPicker}
+          rows={rows}
+          bodyStart={bodyStart}
+          width={width}
+          types={types}
+          label={columnLabel}
+          current={groupBy}
+          onPick={changeGroupBy}
+          onClose={closeGroupPicker}
+        />
+      )}
       {dragging && <div className="csv-dropveil">Drop a CSV, TSV or text file</div>}
       {toast && (
         <div className="shell-toast" role="status" aria-live="polite">

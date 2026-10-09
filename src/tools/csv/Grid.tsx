@@ -10,8 +10,20 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import { columnName, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, type ColumnType, type Sort } from './view'
+import {
+  columnName,
+  describeFilter,
+  groupIndex,
+  isGroupHeader,
+  MAX_COLUMN_WIDTH,
+  MIN_COLUMN_WIDTH,
+  type ColumnType,
+  type Filter,
+  type Group,
+  type Sort,
+} from './view'
 import { columnOffsets, columnWindow, rowWindow } from './virtual'
+import { ColumnFilter } from './ColumnFilter'
 
 export const ROW_HEIGHT = 29
 export const HEADER_HEIGHT = 34
@@ -35,8 +47,19 @@ export interface Cursor {
 
 interface GridProps {
   rows: string[][]
-  /** Row indices in display order, after filtering and sorting. */
+  /**
+   * Row indices in display order, after filtering and sorting. When grouped,
+   * group headers are mixed in as negative entries (`~groupIndex`).
+   */
   order: number[]
+  /** The groups `order` refers to, or null when the grid is not grouped. */
+  groups: Group[] | null
+  groupColumn: number
+  collapsed: ReadonlySet<string>
+  /** When grouped, the gutter shows each row's line in the data instead of its position. */
+  bodyStart: number
+  /** At most one per column. */
+  filters: Filter[]
   width: number
   headers: string[] | null
   types: ColumnType[]
@@ -52,6 +75,8 @@ interface GridProps {
   onAutoFit: (column: number) => void
   onCursor: (cursor: Cursor | null) => void
   onEdit: (row: number, column: number, value: string) => void
+  onToggleGroup: (value: string) => void
+  onFilter: (column: number, filter: Filter | null) => void
 }
 
 const TYPE_MARK: Record<ColumnType, string> = {
@@ -87,9 +112,72 @@ function Highlight({ text, needle, caseSensitive }: { text: string; needle: stri
   return <>{parts}</>
 }
 
+const formatSum = (value: number) =>
+  value.toLocaleString(undefined, { maximumFractionDigits: 6 })
+
+interface GroupHeaderProps {
+  group: Group
+  index: number
+  top: number
+  width: number
+  /** The visible width — the label spans the screen, not the whole row. */
+  viewWidth: number
+  label: string
+  sumLabel: (column: number) => string
+  open: boolean
+  selected: boolean
+  ariaRow: number
+  onToggle: () => void
+}
+
+/**
+ * One row standing for a whole group: the shared value, how many rows have it
+ * and the sum of every number column. The text sticks to the left edge so it
+ * stays readable however far the grid is scrolled sideways.
+ */
+function GroupHeader({ group, top, width, viewWidth, label, sumLabel, open, selected, ariaRow, onToggle }: GroupHeaderProps) {
+  const count = group.rows.length
+  return (
+    <div
+      className={`csv-row csv-group${selected ? ' on' : ''}`}
+      role="row"
+      aria-rowindex={ariaRow}
+      aria-expanded={open}
+      style={{ top, width }}
+    >
+      <button
+        type="button"
+        className="csv-group-label"
+        style={{ width: Math.min(width, viewWidth) }}
+        tabIndex={-1}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onToggle}
+        title={open ? 'Collapse this group' : 'Expand this group'}
+      >
+        <span className="material-symbols-outlined" aria-hidden>
+          {open ? 'expand_more' : 'chevron_right'}
+        </span>
+        <span className="csv-group-key">{label}</span>
+        <strong>{group.value === '' ? <em>empty</em> : oneLine(group.value)}</strong>
+        <span className="csv-group-count">
+          {count.toLocaleString()} row{count === 1 ? '' : 's'}
+        </span>
+        {[...group.sums].map(([column, sum]) => (
+          <span key={column} className="csv-group-sum">
+            {sumLabel(column)} Σ <b>{formatSum(sum)}</b>
+          </span>
+        ))}
+      </button>
+    </div>
+  )
+}
+
 export function Grid(props: GridProps) {
   const { rows, order, width, headers, types, widths, sort, needle, caseSensitive, cursor, editable } = props
-  const { onSort, onResize, onAutoFit, onCursor, onEdit } = props
+  const { groups, groupColumn, collapsed, bodyStart, filters } = props
+  const { onSort, onResize, onAutoFit, onCursor, onEdit, onToggleGroup, onFilter } = props
+  const [filterOpen, setFilterOpen] = useState<{ column: number; anchor: HTMLElement } | null>(null)
+  const closeFilter = useCallback(() => setFilterOpen(null), [])
 
   const scroller = useRef<HTMLDivElement>(null)
   const [scroll, setScroll] = useState({ top: 0, left: 0 })
@@ -172,7 +260,7 @@ export function Grid(props: GridProps) {
   const commit = useCallback(() => {
     if (!editing) return
     const row = order[editing.index]
-    if (row !== undefined) onEdit(row, editing.column, draft)
+    if (row !== undefined && !isGroupHeader(row)) onEdit(row, editing.column, draft)
     setEditing(null)
   }, [draft, editing, onEdit, order])
 
@@ -180,7 +268,7 @@ export function Grid(props: GridProps) {
     (next: Cursor) => {
       if (!editable) return
       const row = order[next.index]
-      if (row === undefined) return
+      if (row === undefined || isGroupHeader(row)) return
       setDraft(rows[row]?.[next.column] ?? '')
       setEditing(next)
     },
@@ -211,7 +299,11 @@ export function Grid(props: GridProps) {
       case 'F2':
         if (cursor) {
           event.preventDefault()
-          beginEdit(cursor)
+          const item = order[cursor.index]
+          if (groups && item !== undefined && isGroupHeader(item)) {
+            const group = groups[groupIndex(item)]
+            if (group) onToggleGroup(group.value)
+          } else beginEdit(cursor)
         }
         return
       case 'Escape':
@@ -251,10 +343,12 @@ export function Grid(props: GridProps) {
           {columnIndexes.map((column) => {
             const label = headers?.[column]?.trim() || columnName(column)
             const active = sort?.column === column
+            const filter = filters.find((entry) => entry.column === column)
+            const filterShown = filterOpen?.column === column
             return (
               <div
                 key={column}
-                className={`csv-head-cell${active ? ' sorted' : ''}`}
+                className={`csv-head-cell${active ? ' sorted' : ''}${filter ? ' filtered' : ''}`}
                 role="columnheader"
                 aria-colindex={column + 1}
                 aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -272,6 +366,20 @@ export function Grid(props: GridProps) {
                       {sort.direction === 'asc' ? '↑' : '↓'}
                     </span>
                   )}
+                </button>
+                <button
+                  type="button"
+                  className={`csv-head-filter${filter || filterShown ? ' on' : ''}`}
+                  aria-label={`Filter ${label}`}
+                  aria-expanded={filterShown}
+                  aria-haspopup="dialog"
+                  title={filter ? `Filtered: ${label} ${describeFilter(filter)}` : `Filter ${label}`}
+                  onClick={(event) => {
+                    const anchor = event.currentTarget
+                    setFilterOpen((open) => (open?.column === column ? null : { column, anchor }))
+                  }}
+                >
+                  <span className="material-symbols-outlined" aria-hidden>filter_alt</span>
                 </button>
                 <span
                   className="csv-resize"
@@ -293,6 +401,29 @@ export function Grid(props: GridProps) {
         <div className="csv-body" style={{ height: bodyHeight, width: totalWidth }}>
           {order.slice(visibleRows.first, visibleRows.last).map((rowIndex, offset) => {
             const index = visibleRows.first + offset
+            if (isGroupHeader(rowIndex)) {
+              const group = groups?.[groupIndex(rowIndex)]
+              if (!group) return null
+              return (
+                <GroupHeader
+                  key={rowIndex}
+                  group={group}
+                  index={index}
+                  top={index * ROW_HEIGHT}
+                  width={totalWidth}
+                  viewWidth={viewport.width}
+                  label={headers?.[groupColumn]?.trim() || columnName(groupColumn)}
+                  sumLabel={(column) => headers?.[column]?.trim() || columnName(column)}
+                  open={!collapsed.has(group.value)}
+                  selected={cursor?.index === index}
+                  ariaRow={index + (headers ? 2 : 1)}
+                  onToggle={() => {
+                    onCursor({ index, column: cursor?.column ?? 0 })
+                    onToggleGroup(group.value)
+                  }}
+                />
+              )
+            }
             const row = rows[rowIndex]
             const selectedRow = cursor?.index === index
             return (
@@ -304,7 +435,7 @@ export function Grid(props: GridProps) {
                 style={{ top: index * ROW_HEIGHT, width: totalWidth }}
               >
                 <div className="csv-gutter csv-cell" style={{ width: GUTTER_WIDTH }} role="rowheader">
-                  {index + 1}
+                  {groups ? rowIndex - bodyStart + 1 : index + 1}
                 </div>
                 {columnIndexes.map((column) => {
                   const value = row?.[column] ?? ''
@@ -354,6 +485,20 @@ export function Grid(props: GridProps) {
           })}
         </div>
       </div>
+      {filterOpen && filterOpen.column < width && (
+        <ColumnFilter
+          key={filterOpen.column}
+          anchor={filterOpen.anchor}
+          column={filterOpen.column}
+          label={headers?.[filterOpen.column]?.trim() || columnName(filterOpen.column)}
+          type={types[filterOpen.column] ?? 'text'}
+          rows={rows}
+          bodyStart={bodyStart}
+          filter={filters.find((entry) => entry.column === filterOpen.column)}
+          onChange={(next) => onFilter(filterOpen.column, next)}
+          onClose={closeFilter}
+        />
+      )}
     </div>
   )
 }

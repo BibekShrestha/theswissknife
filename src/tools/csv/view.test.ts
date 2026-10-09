@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyFilters,
   buildOrder,
+  groupedDisplay,
+  groupIndex,
+  groupRows,
+  isGroupHeader,
+  matchesFilter,
+  profileColumns,
+  topValues,
+  type Filter,
   columnName,
   columnTypes,
   compareValues,
@@ -161,12 +170,120 @@ describe('measureColumn and initialWidths', () => {
   })
 
   it('stays inside the bounds the grid can lay out', () => {
-    expect(measureColumn([['x']], 0, 0, 'x')).toBe(MIN_COLUMN_WIDTH)
+    expect(measureColumn([['x']], 0, 0, '')).toBe(MIN_COLUMN_WIDTH)
     expect(measureColumn([['y'.repeat(5000)]], 0, 0, '')).toBe(MAX_COLUMN_WIDTH)
   })
 
   it('counts the header text, so a wide name is not clipped', () => {
     expect(measureColumn([['a_very_wide_column_name'], ['1']], 1, 0, 'a_very_wide_column_name'))
       .toBeGreaterThan(MIN_COLUMN_WIDTH)
+  })
+
+  it('leaves room for the type mark and filter button beside a short name', () => {
+    expect(measureColumn([['plan'], ['pro']], 1, 0, 'plan')).toBeGreaterThan(measureColumn([['plan'], ['pro']], 1, 0, ''))
+  })
+})
+
+describe('column filters', () => {
+  const rows = [
+    ['name', 'plan', 'mrr', 'signed_up'],
+    ['Ada', 'pro', '49.00', '2024-01-14'],
+    ['Grace', 'free', '0', '2023-11-30'],
+    ['Linus', 'Pro', '199', ''],
+    ['Ken', '', '9.5', '2024-05-11'],
+  ]
+  const types = columnTypes(rows, 4, 1)
+  const all = [1, 2, 3, 4]
+  const keep = (filters: Filter[], caseSensitive = false) => applyFilters(rows, all, filters, types, caseSensitive)
+
+  it('compares by the column type, not as text', () => {
+    expect(types[2]).toBe('number')
+    expect(keep([{ column: 2, op: 'gt', value: '9' }])).toEqual([1, 3, 4])
+    expect(keep([{ column: 2, op: 'equals', value: '49' }])).toEqual([1])
+    expect(keep([{ column: 3, op: 'lt', value: '2024-01-01' }])).toEqual([2])
+  })
+
+  it('follows case sensitivity for text tests', () => {
+    expect(keep([{ column: 1, op: 'equals', value: 'pro' }])).toEqual([1, 3])
+    expect(keep([{ column: 1, op: 'equals', value: 'pro' }], true)).toEqual([1])
+    expect(keep([{ column: 0, op: 'starts', value: 'g' }])).toEqual([2])
+  })
+
+  it('treats blanks as absence', () => {
+    expect(keep([{ column: 3, op: 'lt', value: '2099-01-01' }])).toEqual([1, 2, 4])
+    expect(keep([{ column: 1, op: 'empty', value: '' }])).toEqual([4])
+    expect(keep([{ column: 1, op: 'not-empty', value: '' }])).toEqual([1, 2, 3])
+    expect(keep([{ column: 1, op: 'not-equals', value: 'free' }])).toEqual([1, 3, 4])
+  })
+
+  it('ANDs filters and ignores one still waiting for a value', () => {
+    expect(keep([{ column: 1, op: 'contains', value: 'pro' }, { column: 2, op: 'lt', value: '100' }])).toEqual([1])
+    expect(keep([{ column: 0, op: 'contains', value: '' }])).toEqual(all)
+    expect(matchesFilter('x', { column: 0, op: 'gt', value: '' }, 'number', false)).toBe(true)
+  })
+})
+
+describe('grouping', () => {
+  const rows = [
+    ['plan', 'mrr', 'id'],
+    ['pro', '49', '1'],
+    ['free', '0', '2'],
+    ['', '5', '3'],
+    ['pro', '51', '4'],
+    ['team', '199', '5'],
+  ]
+  const types = columnTypes(rows, 3, 1)
+
+  it('groups by exact value, blanks last, keeping row order within a group', () => {
+    const groups = groupRows(rows, [5, 4, 3, 2, 1], 0, types, null)
+    expect(groups.map((group) => group.value)).toEqual(['free', 'pro', 'team', ''])
+    expect(groups[1].rows).toEqual([4, 1])
+  })
+
+  it('sums every other number column', () => {
+    const groups = groupRows(rows, [1, 2, 3, 4, 5], 0, types, null)
+    expect(groups[1].sums.get(1)).toBe(100)
+    expect(groups[1].sums.get(2)).toBe(5)
+    expect(groups[1].sums.has(0)).toBe(false)
+  })
+
+  it('orders groups by type and follows a sort on the same column', () => {
+    const asc = groupRows(rows, [1, 2, 3, 4, 5], 1, types, null)
+    expect(asc.map((group) => group.value)).toEqual(['0', '5', '49', '51', '199'])
+    const desc = groupRows(rows, [1, 2, 3, 4, 5], 1, types, { column: 1, direction: 'desc' })
+    expect(desc[0].value).toBe('199')
+  })
+
+  it('lays out headers and hides collapsed rows', () => {
+    const groups = groupRows(rows, [1, 2, 3, 4, 5], 0, types, null)
+    const display = groupedDisplay(groups, new Set(['pro']))
+    expect(display.filter(isGroupHeader).map(groupIndex)).toEqual([0, 1, 2, 3])
+    expect(display.filter((item) => !isGroupHeader(item))).toEqual([2, 5, 3])
+  })
+})
+
+describe('topValues', () => {
+  it('lists the most common non-blank values first, skipping the header', () => {
+    const rows = [['plan'], ['pro'], ['free'], ['pro'], [''], ['team'], ['pro'], ['free']]
+    expect(topValues(rows, 1, 0, 2)).toEqual([
+      { value: 'pro', count: 3 },
+      { value: 'free', count: 2 },
+    ])
+  })
+})
+
+describe('profileColumns', () => {
+  const rows = [['id', 'plan', 'note'], ['1', 'pro', ''], ['2', 'free', ''], ['3', 'pro', ''], ['4', 'pro', '']]
+
+  it('counts distinct values, previews the common ones and spots unique columns', () => {
+    const [id, plan, note] = profileColumns(rows, 1, 3, 1000)
+    expect(id).toMatchObject({ distinct: 4, unique: true, capped: false })
+    expect(plan).toMatchObject({ distinct: 2, unique: false, top: ['pro', 'free'] })
+    expect(note).toMatchObject({ distinct: 0, unique: false, top: [] })
+  })
+
+  it('stops counting at the cap, and reads only the rows it is allowed', () => {
+    expect(profileColumns(rows, 1, 1, 1000, 2)[0]).toMatchObject({ distinct: 2, capped: true, unique: false })
+    expect(profileColumns(rows, 1, 2, 2)[1].distinct).toBe(2)
   })
 })

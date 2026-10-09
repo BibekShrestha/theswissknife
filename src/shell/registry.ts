@@ -109,7 +109,7 @@ export const tools: ToolMeta[] = [
   {
     slug: 'csv',
     name: 'CSV viewer',
-    tagline: 'Paste or drop a CSV and read it as a real table — sort, search, edit and export offline',
+    tagline: 'Paste or drop a CSV and read it as a real table — sort, search, filter, group, edit and export offline',
     mark: 'CSV',
     category: 'data',
     load: () => import('../tools/csv'),
