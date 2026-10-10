@@ -157,17 +157,22 @@ the precache list built by `scripts/sw-manifest.ts`.
   are persisted — never content (Wi-Fi passwords). The Scan tab (`#scan`,
   `scan/`) is a lazy chunk. `scan.worker.ts` runs ZXing-C++ (`zxing-wasm`,
   every code in the image) and, only when it finds nothing, OpenCV's WeChat
-  CNN decoder (`qr-scanner-wechat`, ~2.5 MB gz, dynamically imported).
+  CNN decoder (`qr-scanner-wechat`, ~2.5 MB gz, dynamically imported),
+  retried on 1024 and 512 px copies because its detector is scale-sensitive
+  (`WECHAT_RETRY_EDGES`). Last comes the browser's `BarcodeDetector`, on the
+  main thread under a deadline, where one exists (Chrome on Android uses
+  Google's barcode model, Chrome on Mac Apple Vision); it reports no
+  version or ECC level, and Node tests cannot run it.
   Both wasm payloads are served from the site — `prepareZXingModule`'s
   `locateFile` override is what stops zxing-wasm fetching from a CDN, and
   `qr-scanner-wechat/wasm` is a vite.config alias to the package's raw
   OpenCV module (its exports map only offers a first-code wrapper). On
-  BoofCV's 1,232-code photo benchmark the pair reads 82% (jsQR read 10%).
-  `regression.test.ts` guards that: six real benchmark photos in
+  BoofCV's 1,232-code photo benchmark the pair reads 82.5% (jsQR read 10%).
+  `regression.test.ts` guards that: eight real benchmark photos in
   `scan/fixtures/` (credited in its README; expected payloads and labelled
   corners in `manifest.json`) plus synthetic hard shots from `synth.ts`,
   each one step inside the severity where the decoders give up — two of
-  them only the WeChat fallback reads.
+  them only the WeChat fallback reads; two photos only its retries read.
   The preview draws picture and outlines in one SVG `viewBox` so they
   cannot drift apart. `scan/parse.ts` reads payloads back into fields (the
   inverse of `payload.ts`, tested as a round trip); `toForm` fills the

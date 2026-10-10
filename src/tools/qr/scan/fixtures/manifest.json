@@ -210,5 +210,65 @@
         ]
       ]
     ]
+  },
+  {
+    "file": "glare-024.jpg",
+    "source": "qrcodes_v3/detection/glare/image024.jpg",
+    "why": "Glare; WeChat misses it at full size and reads it on the 1024 px retry",
+    "engine": "wechat",
+    "retry": true,
+    "texts": [
+      "http://cokeurl.com/q/2017-00776"
+    ],
+    "codes": [
+      [
+        [
+          335.5,
+          719.9
+        ],
+        [
+          279.7,
+          569.1
+        ],
+        [
+          445.9,
+          506.5
+        ],
+        [
+          488,
+          653.6
+        ]
+      ]
+    ]
+  },
+  {
+    "file": "glare-036.jpg",
+    "source": "qrcodes_v3/detection/glare/image036.jpg",
+    "why": "Small code under glare; only the 512 px WeChat retry reads it",
+    "engine": "wechat",
+    "retry": true,
+    "texts": [
+      "http://bit.ly/l5qo2F?r=qr"
+    ],
+    "codes": [
+      [
+        [
+          118,
+          516
+        ],
+        [
+          104,
+          121
+        ],
+        [
+          517,
+          130
+        ],
+        [
+          519,
+          517
+        ]
+      ]
+    ]
   }
 ]

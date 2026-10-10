@@ -1,6 +1,6 @@
 # QR scanner regression photos
 
-Six photos from the QR code benchmark that Peter Abeles assembled for
+Eight photos from the QR code benchmark that Peter Abeles assembled for
 [BoofCV](https://boofcv.org/index.php?title=Performance:QrCode)
 ([qrcodes_v3.zip](https://boofcv.org/notwiki/regression/fiducial/qrcodes_v3.zip)).
 The dataset is published without a stated licence; these are kept here only
@@ -20,5 +20,7 @@ of every code, scaled to the stored size.
 | `rotations-022.jpg` | three codes, three rotations | ZXing |
 | `glare-045.jpg` | glare | WeChat fallback |
 | `damaged-009.jpg` | physical damage | WeChat fallback |
+| `glare-024.jpg` | glare | WeChat retry at 1024 px |
+| `glare-036.jpg` | glare, small code | WeChat retry at 512 px |
 
-jsQR, the scanner's first decoder, reads none of the six at this size.
+jsQR, the scanner's first decoder, reads none of the first six at this size.
