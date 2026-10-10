@@ -4,6 +4,9 @@
  * (MECARD, `sms:` URIs, events wrapped in a VCALENDAR).
  */
 
+import { buildPayload, type Fields, type PresetId } from '../payload'
+import type { Ecc } from '../render'
+
 export type Kind = 'url' | 'wifi' | 'email' | 'phone' | 'sms' | 'contact' | 'geo' | 'event' | 'text'
 
 export interface Field {
@@ -219,4 +222,100 @@ export function describe(raw: string): Described {
   }
 
   return make('text', [])
+}
+
+/** A scanned payload as the generator's form would hold it. */
+export interface Form {
+  preset: PresetId
+  fields: Fields
+  /** Error-correction level read from the code, so a re-made code keeps it. */
+  ecc?: Ecc
+  /** The form rebuilds the payload byte for byte; when not, Edit as text is the faithful route. */
+  exact: boolean
+}
+
+/** `20261003T143000` → `2026-10-03T14:30` for a datetime-local input; `Z` times move to local. */
+export function toLocalInput(value: string): string {
+  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/.exec(value.trim())
+  if (!m) return ''
+  if (!m[7]) return `${m[1]}-${m[2]}-${m[3]}T${m[4] ?? '00'}:${m[5] ?? '00'}`
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? 0)))
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+/** The raw payload in the Text preset — always exact. */
+export function asText(raw: string, ecc?: string): Form {
+  return { preset: 'text', fields: { text: raw }, exact: true, ...eccOf(ecc) }
+}
+
+// A literal list, not render.ts's ECC_LEVELS: that import would pull the encoder into the scanner chunk.
+const eccOf = (ecc?: string): { ecc?: Ecc } => ['L', 'M', 'Q', 'H'].includes(ecc ?? '') ? { ecc: ecc as Ecc } : {}
+
+function fieldsOf(raw: string): [PresetId, Fields] {
+  const text = raw.trim()
+
+  if (/^WIFI:/i.test(text)) {
+    const f = splitKeyed(text.slice(5))
+    const t = (f.T ?? '').toUpperCase()
+    const security = !t || t === 'NOPASS' ? 'nopass' : t === 'WEP' ? 'WEP' : 'WPA'
+    return ['wifi', { ssid: f.S ?? '', security, password: security === 'nopass' ? '' : f.P ?? '', hidden: f.H?.toLowerCase() === 'true' ? 'true' : '' }]
+  }
+
+  if (/^BEGIN:VCARD/i.test(text)) {
+    const get = new Map<string, string>()
+    for (const [name, value] of contentLines(text)) if (!get.has(name)) get.set(name, value)
+    const one = (name: string) => unescapeText(get.get(name) ?? '')
+    // Structured values split on unescaped `;` only; an escaped one is part of the text.
+    const parts = (name: string) => (get.get(name) ?? '').split(/(?<!\\);/).map(unescapeText).filter(Boolean).join(', ')
+    let [last = '', first = ''] = (get.get('N') ?? '').split(/(?<!\\);/).map(unescapeText)
+    if (!first && !last) first = one('FN')
+    return ['contact', {
+      first, last,
+      org: parts('ORG'),
+      title: one('TITLE'),
+      phone: one('TEL'),
+      email: one('EMAIL'),
+      url: one('URL'),
+      address: parts('ADR'),
+      note: one('NOTE'),
+    }]
+  }
+
+  if (/^MECARD:/i.test(text)) {
+    const f = splitKeyed(text.slice(7))
+    const [last = '', first = ''] = (f.N ?? '').split(',').map((s) => s.trim())
+    return ['contact', { first, last, org: f.ORG ?? '', phone: f.TEL ?? '', email: f.EMAIL ?? '', url: f.URL ?? '', address: f.ADR ?? '', note: f.NOTE ?? '' }]
+  }
+
+  if (/^BEGIN:(VEVENT|VCALENDAR)/i.test(text)) {
+    const get = new Map<string, string>()
+    for (const [name, value] of contentLines(text)) if (!get.has(name)) get.set(name, value)
+    const one = (name: string) => unescapeText(get.get(name) ?? '')
+    return ['event', {
+      title: one('SUMMARY'),
+      start: toLocalInput(get.get('DTSTART') ?? ''),
+      end: toLocalInput(get.get('DTEND') ?? ''),
+      location: one('LOCATION'),
+      description: one('DESCRIPTION'),
+    }]
+  }
+
+  // Everything else reuses describe(): its fields are already decoded.
+  const info = describe(text)
+  const v = (label: string) => info.fields.find((f) => f.label === label)?.value ?? ''
+  switch (info.kind) {
+    case 'email': return ['email', { to: v('To'), subject: v('Subject'), body: v('Body') }]
+    case 'phone': return ['phone', { number: v('Number') }]
+    case 'sms': return ['sms', { number: v('Number'), message: v('Message') }]
+    case 'geo': return ['geo', { lat: v('Latitude'), lng: v('Longitude'), label: v('Label') }]
+    default: return ['text', { text: raw }]
+  }
+}
+
+/** Fills the generator's form from a scanned payload: the inverse of `buildPayload`. */
+export function toForm(raw: string, ecc?: string): Form {
+  const [preset, fields] = fieldsOf(raw)
+  const built = buildPayload(preset, fields)
+  return { preset, fields, exact: !built.error && built.payload === raw, ...eccOf(ecc) }
 }

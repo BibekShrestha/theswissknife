@@ -2,9 +2,10 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useToast } from '../../shell/useToast'
 import Generator from './Generator'
+import type { Form } from './scan/parse'
 import './qr.css'
 
-// The decoder (jsQR) only loads when someone opens Scan.
+// The decoders only load when someone opens Scan.
 const Scanner = lazy(() => import('./scan/Scanner'))
 
 type Tab = 'generate' | 'scan'
@@ -16,6 +17,8 @@ export default function QrTool() {
   const [tab, setTabState] = useState<Tab>(tabFromHash)
   const [scanOpened, setScanOpened] = useState(tab === 'scan')
   const { toast, showToast } = useToast()
+  // A scanned code handed to the generator; a fresh object each time, so the same code can be loaded twice.
+  const [load, setLoad] = useState<Form | null>(null)
 
   const show = (next: Tab) => {
     setTabState(next)
@@ -49,12 +52,12 @@ export default function QrTool() {
       {/* Both stay mounted once opened, so switching never loses work. */}
       <main id="main-content" className="qr-body">
         <div hidden={tab !== 'generate'}>
-          <Generator showToast={showToast} />
+          <Generator showToast={showToast} load={load} />
         </div>
         {scanOpened && (
           <div hidden={tab !== 'scan'}>
             <Suspense fallback={<p className="qr-note">Loading the scanner…</p>}>
-              <Scanner active={tab === 'scan'} showToast={showToast} />
+              <Scanner active={tab === 'scan'} showToast={showToast} onEdit={(form) => { setLoad(form); setTab('generate'); window.scrollTo(0, 0) }} />
             </Suspense>
           </div>
         )}

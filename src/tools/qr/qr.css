@@ -365,7 +365,8 @@ details[open] > summary .qr-chevron { transform: rotate(180deg); }
 .qr-icon { align-items: center; background: transparent; border-color: transparent; display: inline-flex; flex: none; justify-content: center; min-height: 26px; padding: 0 5px; }
 .qr-icon .material-symbols-outlined { color: var(--muted); font-size: 16px; }
 
-.qr-open { display: flex; flex-direction: column; gap: 6px; }
+.qr-open,
+.qr-edit { display: flex; flex-direction: column; gap: 6px; }
 .qr-open .qr-primary { justify-content: center; }
 
 .qr-raw-out { border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; padding-top: 12px; }

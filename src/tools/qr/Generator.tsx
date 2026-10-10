@@ -3,6 +3,7 @@ import { Panel } from './panel'
 import { useCopy } from '../../shell/useCopy'
 import { BATCH_LIMIT, parseBatch } from './batch'
 import { buildPayload, presets, type Fields, type PresetId } from './payload'
+import type { Form } from './scan/parse'
 import {
   canvasBlob, colorWarnings, dataMode, drawCanvas, drawQr, ECC_LEVELS, encodeQr, logoRisk, MAX_BYTES, toSvg, utf8Length,
   type Ecc, type EncodeOptions, type EyeStyle, type Logo, type ModuleStyle, type Style,
@@ -153,7 +154,7 @@ async function renderFile(payload: string, s: Settings, logo: Logo | null): Prom
   return canvasBlob(canvas, MIME[s.format], 0.92)
 }
 
-export default function Generator({ showToast }: { showToast: (message: string) => void }) {
+export default function Generator({ showToast, load }: { showToast: (message: string) => void; load?: Form | null }) {
   const [mode, setMode] = useState<Mode>('single')
   const [preset, setPreset] = useState<PresetId>('text')
   const [fields, setFields] = useState(INITIAL_FIELDS)
@@ -171,6 +172,15 @@ export default function Generator({ showToast }: { showToast: (message: string) 
   const setEnc = (patch: Partial<EncodeOptions>) => setSettings((s) => ({ ...s, encode: { ...s.encode, ...patch } }))
   const setStyle = (patch: Partial<Style>) => setSettings((s) => ({ ...s, style: { ...s.style, ...patch } }))
   const setField = (key: string, value: string) => setFields((f) => ({ ...f, [preset]: { ...f[preset], [key]: value } }))
+
+  // A code from the Scan tab replaces that preset's form; the other presets keep what was typed.
+  useEffect(() => {
+    if (!load) return
+    setMode('single')
+    setPreset(load.preset)
+    setFields((f) => ({ ...f, [load.preset]: { ...INITIAL_FIELDS[load.preset], ...load.fields } }))
+    if (load.ecc) setSettings((s) => ({ ...s, encode: { ...s.encode, ecc: load.ecc! } }))
+  }, [load])
 
   useEffect(() => {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)) } catch { /* private mode: settings just won't stick */ }
