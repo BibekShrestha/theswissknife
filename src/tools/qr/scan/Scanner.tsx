@@ -186,7 +186,7 @@ const centre = (f: Found) => ({
   y: f.corners.reduce((s, p) => s + p.y, 0) / 4,
 })
 
-const ENGINE_LABEL = { zxing: 'ZXing', wechat: 'WeChat decoder' }
+const ENGINE_LABEL = { zxing: 'ZXing', wechat: 'WeChat decoder', native: 'Browser detector' }
 
 function Decoded({ found, index, engine, onCopy, onEdit }: { found: Found; index?: number; engine: keyof typeof ENGINE_LABEL; onCopy: (value: string, label: string) => void; onEdit: (form: Form) => void }) {
   const { text, version, bytes, ecLevel } = found

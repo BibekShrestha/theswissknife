@@ -30,11 +30,13 @@ describe('benchmark photos', () => {
   for (const fx of manifest) {
     it(`${fx.file}: ${fx.why}`, async () => {
       const pixels = decodeJpeg(fx.file)
-      const { engine, found } = await readCodes(pixels)
+      const { engine, found, edge } = await readCodes(pixels)
       expect(found.map((f) => f.text).sort()).toEqual(fx.texts)
       // The primary decoder must keep reading what it reads today, not quietly
       // hand it to the slower fallback.
       if (fx.engine === 'zxing') expect(engine).toBe('zxing')
+      // These are read only by WeChat's smaller-copy retry; full size misses them.
+      if ('retry' in fx) expect(edge).toBeLessThan(Math.max(pixels.width, pixels.height))
       // Every outline lands on a different hand-labelled code.
       const used = new Set<number>()
       for (const f of found) {
