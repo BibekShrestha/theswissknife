@@ -37,7 +37,7 @@ export function shrink(p: Pixels, edge: number): Pixels & { kx: number; ky: numb
   return { data, width, height, kx, ky }
 }
 
-/** The order `decode.ts` runs them in: WeChat only when ZXing finds nothing, then on smaller copies. */
+/** The order `decode.ts` runs them in, minus the browser's BarcodeDetector (Node has none): WeChat only when ZXing finds nothing, then on smaller copies. */
 export async function readCodes(pixels: Pixels): Promise<{ engine: 'zxing' | 'wechat'; found: Found[]; edge?: number }> {
   const zxing = await decodeZxing(pixels)
   if (zxing.length) return { engine: 'zxing', found: zxing }
