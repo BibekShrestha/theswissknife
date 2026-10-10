@@ -3,7 +3,7 @@ import { useCopy } from '../../../shell/useCopy'
 import { Panel } from '../panel'
 import { createScanner, Superseded, type ScanResult } from './decode'
 import type { Found } from './engine'
-import { describe, type Field } from './parse'
+import { asText, describe, toForm, type Field, type Form } from './parse'
 
 type State =
   | { phase: 'idle' }
@@ -16,7 +16,7 @@ function firstImage(files: Iterable<File> | ArrayLike<File>): File | undefined {
   return Array.from(files).find((f) => f.type.startsWith('image/'))
 }
 
-export default function Scanner({ active, showToast }: { active: boolean; showToast: (message: string) => void }) {
+export default function Scanner({ active, showToast, onEdit }: { active: boolean; showToast: (message: string) => void; onEdit: (form: Form) => void }) {
   const [state, setState] = useState<State>({ phase: 'idle' })
   const [preview, setPreview] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -165,7 +165,7 @@ export default function Scanner({ active, showToast }: { active: boolean; showTo
         )}
         {found.length > 1 && <p className="qr-found-count">{found.length} codes found — numbered on the image</p>}
         {found.map((f, i) => (
-          <Decoded key={i} found={f} index={found.length > 1 ? i + 1 : undefined} engine={result!.engine!} onCopy={(value, label) => void copy(value, label)} />
+          <Decoded key={i} found={f} index={found.length > 1 ? i + 1 : undefined} engine={result!.engine!} onCopy={(value, label) => void copy(value, label)} onEdit={onEdit} />
         ))}
       </aside>
     </div>
@@ -188,9 +188,10 @@ const centre = (f: Found) => ({
 
 const ENGINE_LABEL = { zxing: 'ZXing', wechat: 'WeChat decoder' }
 
-function Decoded({ found, index, engine, onCopy }: { found: Found; index?: number; engine: keyof typeof ENGINE_LABEL; onCopy: (value: string, label: string) => void }) {
+function Decoded({ found, index, engine, onCopy, onEdit }: { found: Found; index?: number; engine: keyof typeof ENGINE_LABEL; onCopy: (value: string, label: string) => void; onEdit: (form: Form) => void }) {
   const { text, version, bytes, ecLevel } = found
   const info = describe(text)
+  const form = toForm(text, ecLevel)
   return (
     <div className="qr-decoded">
       <header className="qr-decoded-head">
@@ -220,6 +221,22 @@ function Decoded({ found, index, engine, onCopy }: { found: Found; index?: numbe
           <p className="qr-note">Check the host above first — a QR code hides where it leads, which makes it a favourite for phishing.</p>
         </div>
       )}
+
+      <div className="qr-edit">
+        <div className="qr-actions">
+          <button className="qr-primary" onClick={() => onEdit(form)}>
+            <span className="material-symbols-outlined" aria-hidden>edit</span> Edit in generator
+          </button>
+          {!form.exact && (
+            <button onClick={() => onEdit(asText(text, ecLevel))}>
+              <span className="material-symbols-outlined" aria-hidden>notes</span> Edit as text
+            </button>
+          )}
+        </div>
+        {!form.exact && (
+          <p className="qr-note">The {info.label.toLowerCase()} form writes this a little differently from the original (field order, fields it has no box for). Edit as text keeps every character.</p>
+        )}
+      </div>
 
       {/* Collapsed when it holds a secret, or it would show the masked password in full. */}
       <details className="qr-raw-out" open={!info.fields.some((f) => f.secret) || undefined}>

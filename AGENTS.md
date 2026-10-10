@@ -170,7 +170,10 @@ the precache list built by `scripts/sw-manifest.ts`.
   them only the WeChat fallback reads.
   The preview draws picture and outlines in one SVG `viewBox` so they
   cannot drift apart. `scan/parse.ts` reads payloads back into fields (the
-  inverse of `payload.ts`, tested as a round trip). Links only open on a
+  inverse of `payload.ts`, tested as a round trip); `toForm` fills the
+  generator's form from a scanned code (Edit in generator, keeping its ECC
+  level) and says when the form can't rebuild it byte for byte, offering
+  Edit as text instead. Links only open on a
   click and show the punycode host first.
 - `tools/markdown/` — marked → one HTML string → a sandboxed `srcdoc` frame
   with **no `allow-scripts`** (pasted `<script>`/`onerror` stay inert, so no

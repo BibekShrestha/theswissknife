@@ -3,7 +3,7 @@ import { buildPayload } from '../payload'
 import { encodeQr, isFinder } from '../render'
 import { decodeWechat, decodeZxing, type Pixels } from './engine'
 import './testing'
-import { describe, readIcalDate, splitKeyed, unescapeText } from './parse'
+import { describe, readIcalDate, splitKeyed, toForm, toLocalInput, unescapeText } from './parse'
 
 const enc = { ecc: 'M' as const, minVersion: 1, maskPattern: -1, boostEcc: false }
 
@@ -184,5 +184,49 @@ suite('helpers', () => {
     expect(readIcalDate('20261003T143000')).toBe('2026-10-03 14:30')
     expect(readIcalDate('20261003T143000Z')).toBe('2026-10-03 14:30 UTC')
     expect(readIcalDate('20261003')).toBe('2026-10-03')
+  })
+})
+
+suite('toForm', () => {
+  const cases: [Parameters<typeof buildPayload>[0], Record<string, string>][] = [
+    ['text', { text: 'https://example.com/a?b=c' }],
+    ['wifi', { ssid: 'Cafe; "Guest"', security: 'WPA', password: 'p@ss:w;rd\\', hidden: 'true' }],
+    ['wifi', { ssid: 'Open', security: 'nopass', password: '', hidden: '' }],
+    ['email', { to: 'me+tag@example.com', subject: 'Hi & bye', body: 'Line 1\nLine 2' }],
+    ['phone', { number: '+15550100000' }],
+    ['sms', { number: '+15550100000', message: 'On my way: 5 min' }],
+    ['contact', { first: 'Ada', last: 'Lovelace', org: 'Analytical; Engines', title: 'Programmer', phone: '+15550100000', email: 'ada@example.com', url: 'https://example.com', address: '12 St James, London', note: 'First\nprogrammer' }],
+    ['geo', { lat: '27.7172', lng: '85.324', label: 'Kathmandu Durbar' }],
+    ['event', { title: 'Launch, v2', start: '2026-10-03T14:30', end: '2026-10-03T16:00', location: 'Room 1', description: 'Bring a laptop' }],
+  ]
+
+  for (const [preset, fields] of cases) {
+    it(`fills the ${preset} form from what the generator wrote`, () => {
+      const { payload } = buildPayload(preset, fields)
+      const form = toForm(payload, 'Q')
+      expect(form.preset).toBe(preset)
+      expect(form.exact).toBe(true)
+      expect(form.ecc).toBe('Q')
+      expect(buildPayload(form.preset, form.fields).payload).toBe(payload)
+    })
+  }
+
+  it('fills forms from other generators, flagging what it cannot rewrite exactly', () => {
+    const mecard = toForm('MECARD:N:Lovelace,Ada;TEL:+15550100000;EMAIL:ada@example.com;;')
+    expect(mecard).toMatchObject({ preset: 'contact', exact: false, fields: { first: 'Ada', last: 'Lovelace', phone: '+15550100000' } })
+    expect(toForm('WIFI:T:WPA2;S:Home;P:secret;;')).toMatchObject({ preset: 'wifi', exact: false, fields: { security: 'WPA', ssid: 'Home', password: 'secret' } })
+    expect(toForm('sms:+15550100000?body=Hello%20there')).toMatchObject({ preset: 'sms', fields: { number: '+15550100000', message: 'Hello there' } })
+    expect(toForm('mailto:a@example.com?cc=b@example.com&subject=Hi')).toMatchObject({ preset: 'email', exact: false, fields: { to: 'a@example.com', subject: 'Hi' } })
+    expect(toForm('just some text').preset).toBe('text')
+    expect(toForm('x', 'bogus').ecc).toBeUndefined()
+  })
+
+  it('turns iCalendar times into datetime-local values', () => {
+    expect(toLocalInput('20261003T143000')).toBe('2026-10-03T14:30')
+    expect(toLocalInput('20261003')).toBe('2026-10-03T00:00')
+    expect(toLocalInput('nope')).toBe('')
+    const utc = new Date(Date.UTC(2026, 9, 3, 14, 30))
+    const p = (n: number) => String(n).padStart(2, '0')
+    expect(toLocalInput('20261003T143000Z')).toBe(`${utc.getFullYear()}-${p(utc.getMonth() + 1)}-${p(utc.getDate())}T${p(utc.getHours())}:${p(utc.getMinutes())}`)
   })
 })
