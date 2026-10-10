@@ -34,9 +34,10 @@ interface Detector { detect(source: ImageBitmapSource): Promise<{ rawValue: stri
 interface DetectorCtor { new (opts: { formats: string[] }): Detector; getSupportedFormats(): Promise<string[]> }
 
 /**
- * The last resort, where the browser has one: it runs on the device, and on
- * Android Chrome it is Google's barcode model. Null when there is none, or it
- * has no QR support, so the caller can skip it.
+ * The browser's own detector, where it has one: it runs on the device, and
+ * on Android Chrome it is Google's barcode model. Tried before WeChat, which
+ * costs a 2.5 MB download. Null when there is none, or it has no QR support,
+ * so the caller can skip it.
  */
 async function nativeDetector(): Promise<Detector | null> {
   const Ctor = (globalThis as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector
@@ -89,9 +90,9 @@ async function loadImage(blob: Blob, timeoutMs: number): Promise<Loaded> {
 export class Superseded extends Error {}
 
 /**
- * Runs the decoders in a worker with a deadline: ZXing first, OpenCV's
- * WeChat decoder only when ZXing finds nothing, retried on smaller copies,
- * then the browser's own BarcodeDetector where there is one.
+ * Runs the decoders with a deadline: ZXing first (in a worker), then the
+ * browser's own BarcodeDetector where there is one, then OpenCV's WeChat
+ * decoder (in the worker), retried on smaller copies.
  * Only the latest scan matters: starting one abandons the previous,
  * terminating its worker if a pass was still running.
  */
@@ -130,7 +131,7 @@ export function createScanner(spawn: () => Worker, timeoutMs = SCAN_TIMEOUT_MS, 
     })
   }
 
-  /** `onFallback` fires when ZXing came up empty and the WeChat pass starts. */
+  /** `onFallback` fires when ZXing and the browser detector came up empty and the WeChat pass starts. */
   async function scan(blob: Blob, onFallback?: () => void): Promise<ScanResult> {
     abort?.()
     const gen = ++generation
@@ -170,14 +171,15 @@ export function createScanner(spawn: () => Worker, timeoutMs = SCAN_TIMEOUT_MS, 
 
       let found = await run('zxing', MAX_EDGE, timeoutMs)
       if (found.length) return { found, engine: 'zxing', width, height }
+      found = await run('native', MAX_EDGE, timeoutMs)
+      if (found.length) return { found, engine: 'native', width, height }
       if (gen !== generation) throw new Superseded()
       onFallback?.()
       for (const edge of [MAX_EDGE, ...WECHAT_RETRY_EDGES.filter((e) => e < Math.min(long, MAX_EDGE))]) {
         found = await run('wechat', edge, wechatTimeoutMs)
         if (found.length) return { found, engine: 'wechat', width, height }
       }
-      found = await run('native', MAX_EDGE, timeoutMs)
-      return { found, engine: found.length ? 'native' : null, width, height }
+      return { found: [], engine: null, width, height }
     } finally {
       close?.()
     }

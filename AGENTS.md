@@ -159,10 +159,11 @@ the precache list built by `scripts/sw-manifest.ts`.
   every code in the image) and, only when it finds nothing, OpenCV's WeChat
   CNN decoder (`qr-scanner-wechat`, ~2.5 MB gz, dynamically imported),
   retried on 1024 and 512 px copies because its detector is scale-sensitive
-  (`WECHAT_RETRY_EDGES`). Last comes the browser's `BarcodeDetector`, on the
-  main thread under a deadline, where one exists (Chrome on Android uses
-  Google's barcode model, Chrome on Mac Apple Vision); it reports no
-  version or ECC level, and Node tests cannot run it.
+  (`WECHAT_RETRY_EDGES`). Between ZXing and WeChat comes the browser's
+  `BarcodeDetector`, on the main thread under a deadline, where one exists
+  (Chrome on Android uses Google's barcode model, Chrome on Mac Apple
+  Vision) — it saves the WeChat download there. It reports no version or
+  ECC level, and Node tests cannot run it, so `readCodes` skips it.
   Both wasm payloads are served from the site — `prepareZXingModule`'s
   `locateFile` override is what stops zxing-wasm fetching from a CDN, and
   `qr-scanner-wechat/wasm` is a vite.config alias to the package's raw
