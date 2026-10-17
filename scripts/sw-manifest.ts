@@ -180,8 +180,9 @@ export function buildWebManifest({ base, description }: WebManifestOptions): str
       start_url: base,
       scope: base,
       display: 'standalone',
-      // Matches the <meta name="theme-color"> default in index.html; the app
-      // swaps that meta at runtime, but a manifest colour has to be static.
+      // Matches the light-scheme <meta name="theme-color"> in index.html; the
+      // page switches those metas with the theme, but a manifest colour has
+      // to be static.
       theme_color: '#f7f7f5',
       background_color: '#f7f7f5',
       icons: [

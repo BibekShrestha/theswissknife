@@ -29,10 +29,11 @@ export function useTheme(): [Theme, () => void] {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
-    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute(
-      'content',
-      theme === 'dark' ? '#121212' : '#f7f7f5',
-    )
+    // index.html carries one theme-color per OS scheme so the browser bar is
+    // right before any script runs; once a theme is chosen both follow it.
+    for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+      meta.content = theme === 'dark' ? '#121212' : '#f7f7f5'
+    }
   }, [theme])
 
   useEffect(() => {

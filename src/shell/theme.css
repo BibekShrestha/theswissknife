@@ -13,6 +13,11 @@
   --control-h: 34px;
 }
 
+/* Light is the default, so the page is themed even before (or without) the
+   boot script in index.html. Dark applies when chosen, or when the OS prefers
+   it and nothing has been chosen yet; the two dark blocks must stay identical
+   (src/shell/theme-css.test.ts checks). */
+:root,
 :root[data-theme='light'] {
   color-scheme: light;
   --bg: #f7f7f5;
@@ -72,6 +77,38 @@
   --tok-lit: #e58bb9;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
   --grid-line: rgba(243, 240, 232, 0.045);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #121212;
+    --panel: #1a1a19;
+    --panel-2: #242424;
+    --border: #2b2b2a;
+    --border-strong: #595754;
+    --control-border: #73706a;
+    --text: #edece8;
+    --muted: #a3a09a;
+    --accent: #f0493e;
+    --accent-hover: #ff6258;
+    --accent-dim: #44231f;
+    /* White is only 3.67:1 on the brighter dark accent; near-black is 5.11:1. */
+    --on-accent: #121212;
+    --ok: #58bd8b;
+    --warn: #e0a94f;
+    --err: #ff6b61;
+    --err-bg: #431f1c;
+    --warn-bg: #3b301d;
+    --chip-on-bg: #44231f;
+    --chip-on-border: #ff6258;
+    --tok-key: #77c8a7;
+    --tok-str: #83b8f0;
+    --tok-num: #df9d69;
+    --tok-lit: #e58bb9;
+    --shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
+    --grid-line: rgba(243, 240, 232, 0.045);
+  }
 }
 
 html,
@@ -364,15 +401,6 @@ code {
 }
 
 /* ---- shell-toolbar (shared across tools) ---- */
-.shell-toolbar {
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  gap: 10px;
-  min-height: 48px;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-}
 
 .shell-brand {
   font-size: 17px;
@@ -515,24 +543,6 @@ code {
   font-weight: 700;
 }
 
-/* Shared home mark only; tool structure remains local to each lazy chunk. */
-.home-link {
-  align-items: center;
-  background: var(--accent);
-  border-radius: var(--radius-sm);
-  color: var(--on-accent);
-  display: inline-flex;
-  flex: 0 0 auto;
-  height: 30px;
-  justify-content: center;
-  text-decoration: none;
-  width: 30px;
-}
-
-.home-link:hover {
-  background: var(--accent-hover);
-}
-
 .tool-loading,
 .shell-notfound {
   background: var(--panel);
@@ -640,16 +650,6 @@ code {
 
 /* ---- hero ---- */
 
-.landing-hero {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: calc(100vh - 56px);
-  padding: clamp(56px, 10vh, 100px) 0 clamp(48px, 6vw, 72px);
-  position: relative;
-  text-align: center;
-}
-
 .landing-hero h1 {
   font-size: clamp(44px, 7vw, 80px);
   font-weight: 780;
@@ -659,10 +659,6 @@ code {
   max-width: 700px;
   position: relative;
 }
-
-/* ---- tool selection (categorized grid, like PDF Buddy) ---- */
-
-/* ---- why section ---- */
 
 /* ---- footer ---- */
 
@@ -736,17 +732,27 @@ code {
 /* ---- Swiss drafting shell, adapted from the reference UI ---- */
 
 .shell-toolbar {
-  background: var(--bg);
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
   gap: 10px;
   min-height: 52px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  background: var(--bg);
   padding: 6px clamp(10px, 2vw, 24px);
 }
 
 .home-link {
+  align-items: center;
   background: var(--text);
   border-radius: 6px;
   color: var(--bg);
+  display: inline-flex;
+  flex: 0 0 auto;
   height: 34px;
+  justify-content: center;
+  text-decoration: none;
   width: 34px;
 }
 
@@ -875,16 +881,19 @@ code {
   position: absolute;
 }
 .landing-hero {
-  align-items: center;
   display: grid;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(100vh - 56px);
+  padding: 20px clamp(28px, 4vw, 64px);
+  position: relative;
+  text-align: left;
+  align-items: center;
   gap: 20px;
   grid-template-columns: minmax(300px, .85fr) minmax(480px, 1.15fr);
   height: calc(100% - 43px);
   margin: 0 auto;
   max-width: 1240px;
-  padding: 20px clamp(28px, 4vw, 64px);
-  position: relative;
-  text-align: left;
 }
 .landing-copy { min-width: 0; }
 .landing-eyebrow { align-items: center; color: var(--muted); display: flex; font: 600 10px var(--font-mono); gap: 12px; letter-spacing: .16em; text-transform: uppercase; }
@@ -912,6 +921,7 @@ code {
   transition: transform 750ms cubic-bezier(.34,1.4,.64,1) var(--blade-delay), opacity 420ms ease var(--blade-delay), width 700ms ease var(--blade-delay);
   width: 300px;
   z-index: var(--blade-z);
+  text-decoration: none;
 }
 .knife-blade.open { opacity: 1; pointer-events: auto; transform: rotate(var(--blade-angle)); width: var(--blade-width); }
 .knife-blade-face {
