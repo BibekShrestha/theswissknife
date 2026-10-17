@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type DragEvent } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import {
   addFingerprints,
@@ -177,7 +178,7 @@ export default function SslTool() {
         <section className="ssl-intro">
           <div><span className="material-symbols-outlined" aria-hidden>encrypted</span></div>
           <div>
-            <h1>Inspect an X.509 certificate without uploading it</h1>
+            <h2>Inspect an X.509 certificate without uploading it</h2>
             <p>Check identity, expiry, key details, fingerprints, and the signatures linking a supplied chain. Your certificates and hostname stay in this browser.</p>
           </div>
         </section>
@@ -263,7 +264,7 @@ export default function SslTool() {
           </section>
         )}
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

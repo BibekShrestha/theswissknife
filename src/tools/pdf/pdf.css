@@ -277,7 +277,7 @@
   border: none;
   border-radius: var(--pdf-radius);
   background: var(--pdf-accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   transition: background 120ms, opacity 120ms;
   margin-bottom: 16px;

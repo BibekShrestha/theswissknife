@@ -30,7 +30,7 @@
 .uuid-controls input[type='number'] { font: 13px var(--font-mono); width: 80px; }
 .uuid-check input:disabled + span { opacity: .5; }
 .uuid-controls p { color: var(--muted); font-size: 12px; margin: 0 0 0 auto; }
-.uuid-primary { align-items: center; background: var(--accent); border-color: var(--accent); color: #fff; display: inline-flex; gap: 6px; }
+.uuid-primary { align-items: center; background: var(--accent); border-color: var(--accent); color: var(--on-accent); display: inline-flex; gap: 6px; }
 .uuid-primary .material-symbols-outlined { font-size: 18px; }
 
 .uuid-pane {

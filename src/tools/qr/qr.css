@@ -271,7 +271,7 @@ details[open] > summary .qr-chevron { transform: rotate(180deg); }
 .qr-export .qr-field:not(.qr-narrow) { flex: 1; }
 
 .qr-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.qr-primary { background: var(--accent); border-color: var(--accent); color: #fff; flex: 1; font-weight: 600; justify-content: center; }
+.qr-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); flex: 1; font-weight: 600; justify-content: center; }
 .qr-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 .qr-note { color: var(--muted); font-size: 12px; margin: 0; }

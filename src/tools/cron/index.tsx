@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { DAY_NAMES, describeCron, describeField } from './describe'
 import { nextRuns, type NextRunsResult, type WallTime } from './next'
@@ -239,7 +240,7 @@ export default function CronTool() {
           </div>
         </section>
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useRef, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { convert, formatLabel, formats, type ConvertError, type Format, type InputFormat } from './convert'
 import './convert.css'
@@ -94,7 +95,7 @@ export default function ConvertTool() {
   return (
     <div className="convert-app">
       <ToolHeader
-        brand={<><span className="material-symbols-outlined">sync_alt</span> YAML · JSON · TOML</>}
+        brand={<><span className="material-symbols-outlined" aria-hidden>sync_alt</span> YAML · JSON · TOML</>}
         localLabel="local conversion"
       >
         <button onClick={() => { setInput(SAMPLE); setFrom('auto') }} aria-label="Reset to sample" title="Reset to sample"><span className="material-symbols-outlined">auto_fix_high</span></button>
@@ -179,7 +180,7 @@ export default function ConvertTool() {
           </section>
         )}
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

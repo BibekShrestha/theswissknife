@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import type { DiffError, DiffMode, DiffResult, Segment } from './compute'
 import { unifiedPatch } from './patch'
@@ -86,7 +87,7 @@ export default function DiffTool() {
   return (
     <div className="diff-app">
       <ToolHeader
-        brand={<><span className="material-symbols-outlined">difference</span> Diff</>}
+        brand={<><span className="material-symbols-outlined" aria-hidden>difference</span> Diff</>}
         localLabel="local comparison"
       >
         <button onClick={swap} aria-label="Swap sides" title="Swap original and changed"><span className="material-symbols-outlined">swap_horiz</span></button>
@@ -135,7 +136,7 @@ export default function DiffTool() {
           )}
         </section>
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

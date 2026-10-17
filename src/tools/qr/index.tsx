@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import Generator from './Generator'
 import type { Form } from './scan/parse'
@@ -39,7 +40,7 @@ export default function QrTool() {
   return (
     <div className="qr-app">
       <ToolHeader
-        brand={<><span className="material-symbols-outlined">{tab === 'scan' ? 'qr_code_scanner' : 'qr_code_2'}</span> QR code {tab === 'scan' ? 'scanner' : 'generator'}</>}
+        brand={<><span className="material-symbols-outlined" aria-hidden>{tab === 'scan' ? 'qr_code_scanner' : 'qr_code_2'}</span> QR code {tab === 'scan' ? 'scanner' : 'generator'}</>}
         localLabel={tab === 'scan' ? 'decoded locally' : 'generated locally'}
         beforeSwitcher={
           <div className="qr-tabs" role="tablist" aria-label="Mode">
@@ -62,7 +63,7 @@ export default function QrTool() {
           </div>
         )}
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

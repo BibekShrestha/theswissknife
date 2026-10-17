@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { OptionsPanel } from './components/OptionsPanel'
 import './jq.css'
@@ -400,7 +401,7 @@ export default function App() {
 
       <CheatsheetDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onInsert={insertIntoFilter} />
 
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

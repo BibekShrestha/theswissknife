@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { ShareDialog } from './components/ShareDialog'
 import { MASK_CHARS } from './lib/characters'
@@ -473,11 +474,7 @@ export default function RedactTool() {
         />
       )}
 
-      {toast && (
-        <div className="shell-toast" role="status" aria-live="polite">
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }

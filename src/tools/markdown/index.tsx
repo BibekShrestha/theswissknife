@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { buildHtml, fileBase } from './doc/buildHtml'
 import { buildCss, MARGINS, PAPERS, THEMES, type DocSettings } from './doc/docTheme'
@@ -50,7 +51,7 @@ export default function MarkdownTool() {
 
   const frameRef = useRef<HTMLIFrameElement>(null)
   const editorRef = useRef<MarkdownEditorHandle>(null)
-  const workRef = useRef<HTMLDivElement>(null)
+  const workRef = useRef<HTMLElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const scrollLock = useRef<'editor' | 'frame' | null>(null)
   const { toast, showToast } = useToast()
@@ -208,7 +209,7 @@ export default function MarkdownTool() {
 
   return (
     <div className="md-app">
-      <ToolHeader brand={<><span className="material-symbols-outlined">markdown</span> Markdown preview &amp; export</>} localLabel="local, no-upload">
+      <ToolHeader brand={<><span className="material-symbols-outlined" aria-hidden>markdown</span> Markdown preview &amp; export</>} localLabel="local, no-upload">
         <button className={setupOpen ? 'on' : ''} aria-expanded={setupOpen} onClick={() => setSetupOpen((v) => !v)} title="Theme, paper, margins, contents"><span className="material-symbols-outlined" aria-hidden>tune</span><span className="md-btn-label">Page setup</span></button>
         <button onClick={() => void exportHtml()} disabled={busy !== ''} title="Download one self-contained .html file"><span className="material-symbols-outlined" aria-hidden>{busy === 'html' ? 'hourglass_top' : 'download'}</span><span className="md-btn-label">Export HTML</span></button>
         <button className="md-primary" onClick={() => void print()} disabled={busy !== ''} title="Print, or Save as PDF from the dialog"><span className="material-symbols-outlined" aria-hidden>picture_as_pdf</span><span className="md-btn-label">Print / PDF</span></button>
@@ -267,7 +268,8 @@ export default function MarkdownTool() {
         <button role="tab" aria-selected={tab === 'preview'} className={tab === 'preview' ? 'on' : ''} onClick={() => setTab('preview')}>Preview</button>
       </div>
 
-      <div
+      <main
+        id="main-content"
         ref={workRef}
         className={`md-work${dragging ? ' is-dragging' : ''}`}
         data-tab={tab}
@@ -325,7 +327,7 @@ export default function MarkdownTool() {
             onLoad={() => setFrameReady(true)}
           />
         </section>
-      </div>
+      </main>
 
       <footer className="md-status">
         <span>{counts.words.toLocaleString()} words</span>
@@ -341,7 +343,7 @@ export default function MarkdownTool() {
         <button className="md-link" onClick={() => setDoc(SAMPLE)}>Sample</button>
       </footer>
 
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

@@ -63,7 +63,7 @@ export default function ImageTool() {
 function Landing({ onPick }: { onPick: (id: ScreenId) => void }) {
   return (
     <div className="image-landing">
-      <h1>Convert, resize and compress images</h1>
+      <h2>Convert, resize and compress images</h2>
       <p className="image-lede">
         Batch up to 30 files at once. Decoding, resizing and encoding all happen in this tab — no
         upload, no server, no queue but your own.

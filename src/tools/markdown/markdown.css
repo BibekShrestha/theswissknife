@@ -14,7 +14,7 @@
 .md-app .shell-toolbar button .material-symbols-outlined { font-size: 18px; }
 .md-app .shell-toolbar button.on { background: var(--chip-on-bg); border-color: var(--chip-on-border); }
 
-.md-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.md-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 .md-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 .md-step { color: var(--accent); font: 700 10px var(--font-mono); }

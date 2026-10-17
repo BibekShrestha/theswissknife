@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { createUlidGenerator, encodeUlid } from './ulid'
 import { createV7Generator, formatUuid, inspectLines, uuidV4 } from './uuid'
@@ -34,7 +35,7 @@ export default function UuidTool() {
   return (
     <div className="uuid-app">
       <ToolHeader
-        brand={<><span className="material-symbols-outlined">fingerprint</span> UUID &amp; ULID</>}
+        brand={<><span className="material-symbols-outlined" aria-hidden>fingerprint</span> UUID &amp; ULID</>}
         localLabel="runs locally"
         beforeSwitcher={
           <div className="uuid-tabs" role="tablist" aria-label="Mode">
@@ -46,7 +47,7 @@ export default function UuidTool() {
       <main id="main-content" className="uuid-main">
         {mode === 'generate' ? <Generate copy={copy} /> : <Inspect copy={copy} />}
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

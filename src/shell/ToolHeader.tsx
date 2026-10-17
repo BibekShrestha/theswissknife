@@ -26,7 +26,7 @@ export function ToolHeader({ brand, localLabel, beforeSwitcher, children }: Tool
         <BladeMark className="shell-logo-mark" />
       </Link>
       <div className="shell-tool-identity">
-        <div className="shell-brand">{brand}</div>
+        <h1 className="shell-brand">{brand}</h1>
         <span>theswissknife.com</span>
       </div>
       {localLabel && <span className="shell-local-badge">{localLabel}</span>}
@@ -43,7 +43,7 @@ export function ToolHeader({ brand, localLabel, beforeSwitcher, children }: Tool
         <span>GitHub</span>
       </a>
       <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-        <span className="material-symbols-outlined">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
+        <span className="material-symbols-outlined" aria-hidden>{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
       </button>
     </header>
   )

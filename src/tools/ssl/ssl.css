@@ -20,7 +20,7 @@
 }
 .ssl-intro > div:first-child { align-items: center; background: var(--chip-on-bg); border: 1px solid var(--chip-on-border); border-radius: 50%; color: var(--accent); display: flex; height: 46px; justify-content: center; width: 46px; }
 .ssl-intro > div:first-child span { font-size: 25px; }
-.ssl-intro h1 { font-size: 19px; margin: 0 0 4px; }
+.ssl-intro h2 { font-size: 19px; margin: 0 0 4px; }
 .ssl-intro p { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 0; }
 
 .ssl-input-grid, .ssl-result-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.3fr) minmax(320px, .7fr); }
@@ -118,7 +118,7 @@
   .ssl-app { padding: 8px 10px 18px; }
   .ssl-intro { align-items: flex-start; padding: 14px; }
   .ssl-intro > div:first-child { height: 38px; width: 38px; }
-  .ssl-intro h1 { font-size: 16px; }
+  .ssl-intro h2 { font-size: 16px; }
   .ssl-details dl { grid-template-columns: 1fr; }
   .ssl-field:nth-child(odd) { border-right: 0; }
   .ssl-chain li { align-items: start; grid-template-columns: 28px minmax(0, 1fr); }

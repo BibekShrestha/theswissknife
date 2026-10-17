@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { hasDangerousPattern, MAX_MATCHES, REGEX_TIMEOUT_MS } from './javascript'
 import { createRegexRunner } from './runner'
@@ -177,7 +178,7 @@ export default function RegexTool() {
           </div>
         </div>
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }
