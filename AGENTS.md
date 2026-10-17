@@ -153,6 +153,21 @@ the precache list built by `scripts/sw-manifest.ts`.
   zone via `Intl.DateTimeFormat`; spring-forward gap times are skipped,
   fall-back repeats run once at the first occurrence; a 400-year search bound
   turns `0 0 30 2 *` into "never runs").
+- `tools/dates/` — meeting planner and date math, no library. `zone.ts` does
+  wall-clock ⇄ instant in IANA zones with `Intl.DateTimeFormat` only
+  (`resolveWall`: Temporal-style 'compatible' — gap times move forward,
+  repeated times take the earlier occurrence). `timeline.ts`: the planner
+  covers the reference (first) zone's calendar day in 15-minute slots
+  (every offset in use is a multiple of 15 min), so a 23/25-hour DST day
+  has 92/100 slots and other zones' rows line up on the same instants. `catalog.ts` adds city aliases,
+  current names for renamed ids (engines may list `Asia/Calcutta`) and
+  abbreviations, each with all its meanings (IST, CST, BST… are flagged
+  ambiguous). `duration.ts`: ISO 8601 parse/format, add (years/months with
+  month-end clamping, then days on the wall clock, then exact time) with an
+  exact (D = 24 h) alternative, calendar difference in the start zone,
+  business days (Mon–Fri, start date excluded). `ics.ts` writes RFC 5545 by
+  hand (UTC times, 75-octet folding). Fragment: `#zones=…` / `#d=…`; the
+  event title is never put in it.
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
   (`lib/pdfjs.ts` loads it lazily and points it at its runtime-cached worker).
   13 sub-tools under `tools/`, each a lazy chunk.

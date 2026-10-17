@@ -107,6 +107,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/cron'),
   },
   {
+    slug: 'dates',
+    name: 'Dates & time zones',
+    tagline: 'Plan a meeting across time zones with DST-aware hour strips, and do date differences and ISO 8601 duration math',
+    mark: 'TZ',
+    category: 'time',
+    load: () => import('../tools/dates'),
+  },
+  {
     slug: 'pdf',
     name: 'PDF Buddy',
     tagline: 'Merge, split, convert, compress, watermark, protect, and unlock PDFs — all client-side',
