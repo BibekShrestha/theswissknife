@@ -28,6 +28,7 @@ Buddy's pdf.js engine included.
 | CSV viewer | [/csv](https://theswissknife.com/csv) | Paste, drop or open a CSV/TSV and read it as a sortable, searchable, editable table — filter by column, group by value with counts and sums; export CSV, TSV, JSON or Markdown |
 | HTML table extractor | [/html-table](https://theswissknife.com/html-table) | Pull any HTML table into CSV, TSV, JSON or Markdown — colspan and rowspan handled |
 | UUID & ULID | [/uuid](https://theswissknife.com/uuid) | Generate UUID v4, v7 and ULID batches; inspect version, variant, embedded timestamp, clock sequence and node, and convert between UUID, ULID, hex, base64url and bytes |
+| YAML / JSON / TOML converter | [/convert](https://theswissknife.com/convert) | Convert between YAML 1.2, JSON and TOML 1.0 with auto-detect, 2/4 indent and key sorting; integers past 2^53 stay exact; errors give line and column, and dropped nulls, expanded anchors, lost comments and tags, TOML dates turned into strings and big integers in JSON output are listed as warnings |
 
 ## Develop
 
