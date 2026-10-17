@@ -165,7 +165,7 @@
 .run-btn {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
   padding: 8px 16px;
   border-radius: 8px;

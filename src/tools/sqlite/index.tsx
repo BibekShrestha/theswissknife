@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { ROW_CAP, type DbInfo, type Page, type ResultSet, type SchemaObject, type ScriptResult } from './engine'
 import { ResultGrid } from './ResultGrid'
@@ -383,7 +384,7 @@ export default function SqliteTool() {
         <main id="main-content" className="sqlite-start">
           <div className="sqlite-drop">
             <span className="material-symbols-outlined sqlite-drop-icon" aria-hidden>database</span>
-            <h1>Open a SQLite database</h1>
+            <h2>Open a SQLite database</h2>
             <p>Drop a <code>.db</code>, <code>.sqlite</code> or <code>.sqlite3</code> file here, or pick one. It is read in this tab by SQLite compiled to WebAssembly — nothing is uploaded.</p>
             <div className="sqlite-start-actions">
               <button type="button" className="sqlite-primary" onClick={() => fileInput.current?.click()} disabled={opening}>
@@ -536,7 +537,7 @@ export default function SqliteTool() {
       )}
 
       {dragging && <div className="sqlite-dropveil">Drop a SQLite file</div>}
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

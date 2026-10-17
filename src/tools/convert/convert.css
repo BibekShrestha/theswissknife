@@ -120,7 +120,7 @@
   background: var(--accent);
   border-color: var(--accent);
   border-radius: 50%;
-  color: #fff;
+  color: var(--on-accent);
   height: 36px;
   margin: 0 -1px;
   padding: 0;

@@ -14,7 +14,7 @@
 .sqlite-primary {
   background: var(--accent) !important;
   border-color: var(--accent) !important;
-  color: #fff !important;
+  color: var(--on-accent) !important;
 }
 .sqlite-primary:hover:not(:disabled) { background: var(--accent-hover) !important; }
 .sqlite-primary kbd { background: transparent; border: 0; color: inherit; font: 11px var(--font-mono); opacity: .85; }
@@ -54,7 +54,7 @@
   width: 100%;
 }
 .sqlite-app.dragging .sqlite-drop { border-color: var(--accent); }
-.sqlite-drop h1 { font-size: 20px; margin: 8px 0 10px; }
+.sqlite-drop h2 { font-size: 20px; margin: 8px 0 10px; }
 .sqlite-drop p { color: var(--muted); font-size: 13.5px; line-height: 1.6; margin: 0 0 18px; }
 .sqlite-drop-icon { color: var(--accent); font-size: 40px !important; }
 .sqlite-start-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 18px; }

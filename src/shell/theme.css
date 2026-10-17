@@ -20,11 +20,15 @@
   --panel-2: #efedea;
   --border: #e0ded8;
   --border-strong: #aaa69f;
+  /* Form-field outlines: ≥3:1 against bg, panel and panel-2 (WCAG 1.4.11). */
+  --control-border: #8a867f;
   --text: #1b1a18;
   --muted: #6b6862;
   --accent: #d92c20;
   --accent-hover: #b9251c;
   --accent-dim: #f8ddd8;
+  /* Text on an accent fill: white is 4.85:1 on the light accent. */
+  --on-accent: #ffffff;
   --ok: #1e7351;
   --warn: #9a5f00;
   --err: #c3261c;
@@ -47,11 +51,14 @@
   --panel-2: #242424;
   --border: #2b2b2a;
   --border-strong: #595754;
+  --control-border: #73706a;
   --text: #edece8;
   --muted: #a3a09a;
   --accent: #f0493e;
   --accent-hover: #ff6258;
   --accent-dim: #44231f;
+  /* White is only 3.67:1 on the brighter dark accent; near-black is 5.11:1. */
+  --on-accent: #121212;
   --ok: #58bd8b;
   --warn: #e0a94f;
   --err: #ff6b61;
@@ -130,7 +137,7 @@ select,
 input[type='text'],
 input:not([type]) {
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   padding: 5px 9px;
 }
@@ -187,7 +194,7 @@ code {
   z-index: 9999;
   padding: 8px 16px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   text-decoration: none;
   font-size: 13px;
@@ -370,6 +377,7 @@ code {
 .shell-brand {
   font-size: 17px;
   font-weight: 700;
+  margin: 0;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
@@ -475,7 +483,7 @@ code {
   background: var(--accent);
   border: 0;
   border-radius: 999px;
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   font: inherit;
   padding: 5px 14px;
@@ -512,7 +520,7 @@ code {
   align-items: center;
   background: var(--accent);
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--on-accent);
   display: inline-flex;
   flex: 0 0 auto;
   height: 30px;
@@ -926,8 +934,8 @@ code {
 .knife-blade-face > span { color: var(--accent); font: 10px var(--font-mono); }
 .knife-blade-face strong { font: 600 11px var(--font-mono); letter-spacing: .13em; }
 .knife-blade:hover { z-index: 20; }
-.knife-blade:hover .knife-blade-face, .knife-blade:focus-visible .knife-blade-face { background: var(--accent); border-color: var(--accent); color: #fff; transform: scaleX(1.04); }
-.knife-blade:hover .knife-blade-face > span { color: #fff; }
+.knife-blade:hover .knife-blade-face, .knife-blade:focus-visible .knife-blade-face { background: var(--accent); border-color: var(--accent); color: var(--on-accent); transform: scaleX(1.04); }
+.knife-blade:hover .knife-blade-face > span { color: var(--on-accent); }
 .knife-body { background: var(--text); border-radius: 16px; bottom: 24px; box-shadow: 0 18px 35px rgba(0,0,0,.2); color: var(--bg); height: 110px; left: 50%; padding: 42px 13px 0; position: absolute; transform: translateX(-50%); width: 56px; z-index: 40; }
 .knife-body-mark { height: 22px; left: 17px; position: absolute; top: 11px; width: 22px; }
 .knife-body > span { background: color-mix(in srgb, var(--bg) 22%, transparent); display: block; height: 1px; margin-bottom: 10px; }

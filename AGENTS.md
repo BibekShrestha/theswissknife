@@ -43,11 +43,14 @@ missing from any of them, including the README table.
   - `router.ts`: `Link`/`navigate`/`usePath`
   - `theme.ts`: `useTheme`
   - `ToolHeader.tsx`: the shared toolbar (menu, home mark, brand, ⌘K search,
-    GitHub, theme toggle). Pass `brand`, optional `localLabel`, optional
+    GitHub, theme toggle). Pass `brand` (rendered as the page's `<h1>`, so a
+    tool's own titles start at `<h2>`), optional `localLabel`, optional
     `beforeSwitcher` (tabs, badges) and `children` (action buttons after the
     spacer).
-  - `useToast.ts`: `{ toast, showToast }` — 4 s toast state; render it as
-    `<div className="shell-toast" role="status" aria-live="polite">`.
+  - `useToast.ts`: `{ toast, showToast }` — 4 s toast state.
+  - `Toast.tsx`: render the state as `<Toast message={toast} />`, always
+    mounted — a live region created together with its text often goes
+    unannounced.
   - `useCopy.ts`: `useCopy(showToast)` — clipboard helper with toast feedback.
 
   Everything else in `shell/` (App, Landing, ToolSidebar, CommandPalette,
@@ -76,7 +79,15 @@ missing from any of them, including the README table.
 - **Untrusted work goes in a worker with a deadline** when it can hang: jq runs
   in workers that are reloaded after a crash; regex runs in a worker that is
   terminated on timeout (`tools/regex/runner.ts`).
-- Use the CSS variables from `src/shell/theme.css` (both themes come free);
+- **Accessibility guards** (`src/shell/a11y.test.ts`): every tool has an
+  element with `id="main-content"` (the skip link's target), toasts go
+  through `<Toast>`, and icon spans are `aria-hidden` — their ligature text
+  ("content_copy") is otherwise read aloud, so put the label on the button.
+  Older offenders are listed in `src/shell/a11y-baseline.json`; counts may
+  only go down.
+- Use the CSS variables from `src/shell/theme.css` (both themes come free).
+  Text on an accent fill uses `--on-accent` (white fails contrast on the dark
+  accent); form-field outlines use `--control-border` (≥3:1 on every surface);
   prefix tool class names with the slug (`.jwt-…`) to avoid collisions —
   tool CSS is global once loaded. `html-table` uses `htable-`. jq predates the
   rule and still has unprefixed classes; don't copy that, and don't add new

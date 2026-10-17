@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { Grid, type Cursor } from './Grid'
 import { GroupPicker } from './GroupPicker'
@@ -804,11 +805,7 @@ export default function CsvTool() {
         />
       )}
       {dragging && <div className="csv-dropveil">Drop a CSV, TSV or text file</div>}
-      {toast && (
-        <div className="shell-toast" role="status" aria-live="polite">
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }

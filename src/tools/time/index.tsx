@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import {
   formatInZone,
@@ -181,7 +182,7 @@ export default function TimeTool() {
           </div>
         </section>
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

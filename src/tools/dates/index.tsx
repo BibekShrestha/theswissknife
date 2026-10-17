@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { Durations } from './Durations'
 import { Planner } from './Planner'
@@ -55,7 +56,7 @@ export default function DatesTool() {
           <Durations key={`d${generation}`} initial={durationsInitial} active={tab === 'durations'} copy={copy} />
         </div>
       </main>
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }

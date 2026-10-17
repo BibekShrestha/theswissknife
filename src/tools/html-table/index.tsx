@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useRef, useState, type ClipboardEvent } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
+import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { extractTables, type ExtractOptions } from './extract'
 import { formatHtml } from './format'
@@ -393,7 +394,7 @@ export default function HtmlTableTool() {
         </section>
       </main>
 
-      {toast && <div className="shell-toast" role="status" aria-live="polite">{toast}</div>}
+      <Toast message={toast} />
     </div>
   )
 }
