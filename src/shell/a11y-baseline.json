@@ -36,7 +36,7 @@
     "src/tools/redact/index.tsx": 9,
     "src/tools/regex/index.tsx": 5,
     "src/tools/ssl/index.tsx": 12,
-    "src/tools/time/index.tsx": 3,
+    "src/tools/time/index.tsx": 2,
     "src/tools/uuid/index.tsx": 4
   }
 }

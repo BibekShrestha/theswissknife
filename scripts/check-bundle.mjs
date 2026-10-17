@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { gzipSync } from 'node:zlib'
+import { cspProblems } from './csp-hash.mjs'
 
 const manifest = JSON.parse(readFileSync('dist/.vite/manifest.json', 'utf8'))
 const entry = manifest['index.html'] ?? manifest['src/main.tsx']
@@ -81,6 +82,13 @@ if (fontBytes > ICON_FONT_BUDGET_KIB * 1024) {
     `Icon font is ${(fontBytes / 1024).toFixed(1)} KiB, over its ${ICON_FONT_BUDGET_KIB} KiB budget — ` +
       'is src/shell/MaterialSymbolsOutlined.woff2 the full font again? Run `npm run icon-font`.',
   )
+}
+
+// The served pages, not just the source: a blocked theme script would make
+// every load paint unthemed until React starts.
+for (const page of ['dist/index.html', 'dist/404.html']) {
+  const problems = cspProblems(readFileSync(page, 'utf8'))
+  if (problems.length) throw new Error(`${page}: ${problems.join('; ')}`)
 }
 
 console.log(

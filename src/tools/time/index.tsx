@@ -107,7 +107,7 @@ export default function TimeTool() {
           <span>Right now</span>
           <strong>{Math.floor(now / 1000)}</strong>
           <code>{new Date(now).toISOString()}</code>
-          <button className="time-now-copy" onClick={() => void copy(String(Math.floor(now / 1000)), 'Epoch')} aria-label="Copy epoch time"><span className="material-symbols-outlined">content_copy</span></button>
+          <button className="time-now-copy" onClick={() => void copy(String(Math.floor(now / 1000)), 'Epoch')} aria-label="Copy epoch time"><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>
         </section>
 
         <section className="time-inputs">
