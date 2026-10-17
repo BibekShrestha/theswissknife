@@ -83,6 +83,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/time'),
   },
   {
+    slug: 'cron',
+    name: 'Cron explainer',
+    tagline: 'Read a cron expression in plain English and see its next run times in any time zone',
+    mark: '*/5',
+    category: 'time',
+    load: () => import('../tools/cron'),
+  },
+  {
     slug: 'pdf',
     name: 'PDF Buddy',
     tagline: 'Merge, split, convert, compress, watermark, protect, and unlock PDFs — all client-side',

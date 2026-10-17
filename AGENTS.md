@@ -141,6 +141,12 @@ the precache list built by `scripts/sw-manifest.ts`.
   (`codec.ts`).
 - `tools/time/` — Unix timestamps from seconds to nanoseconds, held as
   `bigint` nanoseconds so precision survives; local, UTC and any IANA zone.
+- `tools/cron/` — five-field cron explainer, no library: `parse.ts` (Vixie
+  semantics — day-of-month/day-of-week OR only when neither field starts
+  with `*`), `describe.ts` (English), `next.ts` (wall-clock search in an IANA
+  zone via `Intl.DateTimeFormat`; spring-forward gap times are skipped,
+  fall-back repeats run once at the first occurrence; a 400-year search bound
+  turns `0 0 30 2 *` into "never runs").
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
   (`lib/pdfjs.ts` loads it lazily and points it at its runtime-cached worker).
   13 sub-tools under `tools/`, each a lazy chunk.
