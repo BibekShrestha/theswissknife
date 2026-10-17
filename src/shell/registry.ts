@@ -43,6 +43,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/ssl'),
   },
   {
+    slug: 'hash',
+    name: 'Hash & HMAC',
+    tagline: 'SHA-1, SHA-256, SHA-384 and SHA-512 digests and HMACs of text or files, with checksum compare',
+    mark: '#',
+    category: 'security',
+    load: () => import('../tools/hash'),
+  },
+  {
     slug: 'regex',
     name: 'Regex lab',
     tagline: 'Match and replace with JavaScript regex in a local worker that stops runaway patterns',

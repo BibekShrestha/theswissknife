@@ -203,3 +203,8 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/html-table/` — parses pasted HTML with `DOMParser` (inert: no scripts
   run, nothing touches the live document), expands colspan/rowspan into a
   grid, exports CSV, TSV, JSON or Markdown.
+- `tools/hash/` — SHA-1/256/384/512 digests and HMACs via WebCrypto only
+  (no MD5: `crypto.subtle` lacks it, so don't advertise it). Files are read
+  whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)
+  ignores whitespace, matches hex case-insensitively and accepts Base64 or
+  Base64URL, padded or not.
