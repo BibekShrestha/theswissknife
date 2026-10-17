@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { gzipSync } from 'node:zlib'
 
 const manifest = JSON.parse(readFileSync('dist/.vite/manifest.json', 'utf8'))
@@ -64,6 +64,25 @@ if (!sw.includes(entry.file)) {
   throw new Error(`dist/sw.js does not reference the entry chunk ${entry.file}; precache list is wrong.`)
 }
 
+// Every page draws icons, so the icon font is precached with the shell. That is
+// only affordable because it is a subset (`npm run icon-font`); the full font is
+// 3.9 MB, and putting it back would make every install download it.
+const ICON_FONT_BUDGET_KIB = 64
+const core = JSON.parse(/"core":(\[[^\]]*\])/.exec(sw)?.[1] ?? '[]')
+const fonts = readdirSync('dist/assets').filter((file) => /^MaterialSymbolsOutlined-.*\.woff2$/.test(file))
+if (fonts.length !== 1) throw new Error(`Expected one icon font in dist/assets, found ${fonts.length}.`)
+const [font] = fonts
+const fontBytes = statSync(`dist/assets/${font}`).size
+if (!core.some((url) => url.endsWith(`/assets/${font}`))) {
+  throw new Error(`dist/sw.js does not precache the icon font ${font}; icons would be words offline.`)
+}
+if (fontBytes > ICON_FONT_BUDGET_KIB * 1024) {
+  throw new Error(
+    `Icon font is ${(fontBytes / 1024).toFixed(1)} KiB, over its ${ICON_FONT_BUDGET_KIB} KiB budget — ` +
+      'is src/shell/MaterialSymbolsOutlined.woff2 the full font again? Run `npm run icon-font`.',
+  )
+}
+
 console.log(
-  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB} KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB`,
+  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB} KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB · icon font ${(fontBytes / 1024).toFixed(1)} KiB precached`,
 )

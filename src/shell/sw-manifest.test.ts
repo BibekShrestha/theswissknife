@@ -21,12 +21,20 @@ const bundle: Record<string, BundleEntry> = {
     type: 'chunk',
     isEntry: true,
     imports: ['assets/rolldown-runtime-bbb.js'],
-    viteMetadata: { importedCss: ['assets/index-ccc.css'] },
+    // the icon font theme.css points at — a ~25 KB subset, so the shell's own
+    viteMetadata: {
+      importedCss: ['assets/index-ccc.css'],
+      importedAssets: ['assets/MaterialSymbolsOutlined-fff.woff2'],
+    },
   },
   'assets/rolldown-runtime-bbb.js': { type: 'chunk', imports: [] },
   'assets/index-ccc.css': { type: 'asset' },
   // dynamic: reachable only through registry.ts's load() thunk
-  'assets/jq-ddd.js': { type: 'chunk', imports: ['assets/rolldown-runtime-bbb.js'] },
+  'assets/jq-ddd.js': {
+    type: 'chunk',
+    imports: ['assets/rolldown-runtime-bbb.js'],
+    viteMetadata: { importedAssets: ['assets/jq-eee.wasm'] },
+  },
   'assets/jq-eee.wasm': { type: 'asset' },
   'assets/MaterialSymbolsOutlined-fff.woff2': { type: 'asset' },
 }
@@ -42,6 +50,7 @@ describe('buildSwManifest', () => {
       '/assets/index-aaa.js',
       '/assets/rolldown-runtime-bbb.js',
       '/assets/index-ccc.css',
+      '/assets/MaterialSymbolsOutlined-fff.woff2',
       '/manifest.webmanifest',
       '/icons/icon-192.png',
       '/icons/icon-512.png',

@@ -9,6 +9,7 @@
     "build": "tsc && vite build && cp dist/index.html dist/404.html && node scripts/check-bundle.mjs",
     "preview": "vite preview",
     "icons": "node scripts/gen-icons.mjs",
+    "icon-font": "node scripts/icon-font.ts",
     "test": "vitest run"
   },
   "dependencies": {
