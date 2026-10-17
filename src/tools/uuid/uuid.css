@@ -1,0 +1,120 @@
+.uuid-app {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  max-width: 1500px;
+  min-height: 100%;
+  padding: 14px 18px 20px;
+}
+
+.uuid-main { display: flex; flex: 1; flex-direction: column; gap: 14px; min-width: 0; }
+
+.uuid-tabs, .uuid-seg { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.uuid-tabs button, .uuid-seg button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
+.uuid-tabs button + button, .uuid-seg button + button { border-left: 1px solid var(--border); }
+.uuid-tabs button.on, .uuid-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+
+.uuid-controls {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 12px 14px;
+}
+
+.uuid-controls label { align-items: center; display: flex; gap: 8px; }
+.uuid-controls label > span { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.uuid-controls input[type='number'] { font: 13px var(--font-mono); width: 80px; }
+.uuid-check input:disabled + span { opacity: .5; }
+.uuid-controls p { color: var(--muted); font-size: 12px; margin: 0 0 0 auto; }
+.uuid-primary { align-items: center; background: var(--accent); border-color: var(--accent); color: #fff; display: inline-flex; gap: 6px; }
+.uuid-primary .material-symbols-outlined { font-size: 18px; }
+
+.uuid-pane {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.uuid-pane > header {
+  align-items: center;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
+.uuid-pane > header strong { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.uuid-pane > header > span { color: var(--muted); font: 10px var(--font-mono); margin-left: auto; }
+.uuid-pane > header button { align-items: center; display: inline-flex; font-size: 11px; gap: 4px; }
+.uuid-pane > header .material-symbols-outlined { font-size: 16px; }
+
+.uuid-pane textarea {
+  background: transparent;
+  border: 0;
+  flex: 1;
+  font: 13px/1.6 var(--font-mono);
+  min-height: 360px;
+  padding: 16px;
+  resize: none;
+  width: 100%;
+}
+
+.uuid-pane textarea:focus { outline-offset: -2px; }
+
+.uuid-inspect {
+  display: grid;
+  flex: 1;
+  gap: 14px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  min-height: 420px;
+}
+
+.uuid-results { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.uuid-empty, .uuid-count { color: var(--muted); font-size: 12px; margin: 0; }
+
+.uuid-card { background: var(--panel); border: 1px solid var(--border); min-width: 0; }
+.uuid-card.has-error { border-color: var(--err); }
+.uuid-card > header {
+  align-items: center;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  padding: 6px 10px;
+}
+.uuid-card > header strong { font-size: 13px; }
+.uuid-card > header code { font: 12px var(--font-mono); overflow-wrap: anywhere; }
+.uuid-line { color: var(--accent); font: 700 10px var(--font-mono); }
+
+.uuid-error { color: var(--err); font: 12.5px/1.5 var(--font-mono); padding: 10px 12px; }
+
+.uuid-fields, .uuid-forms { display: grid; gap: 4px; margin: 0; padding: 10px 12px; }
+.uuid-forms { border-top: 1px dashed var(--border); }
+.uuid-fields > div, .uuid-forms > div { align-items: baseline; display: grid; gap: 10px; grid-template-columns: 110px minmax(0, 1fr); }
+.uuid-fields dt, .uuid-forms dt { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.uuid-fields dd, .uuid-forms dd { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; min-width: 0; }
+.uuid-fields code, .uuid-forms code { font: 12.5px var(--font-mono); overflow-wrap: anywhere; }
+.uuid-fields small { color: var(--muted); font-size: 11.5px; }
+.uuid-forms dd { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.uuid-forms dd button { background: transparent; border: 0; color: var(--muted); padding: 0 2px; }
+.uuid-forms dd button:hover { color: var(--text); }
+.uuid-forms dd .material-symbols-outlined { font-size: 15px; }
+
+@media (max-width: 860px) {
+  .uuid-app { padding: 10px; }
+  .uuid-inspect { grid-template-columns: 1fr; }
+  .uuid-inspect .uuid-pane textarea { min-height: 200px; }
+  .uuid-controls p { margin-left: 0; width: 100%; }
+  .uuid-fields > div, .uuid-forms > div { grid-template-columns: 1fr; gap: 2px; }
+}
