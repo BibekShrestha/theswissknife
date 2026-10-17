@@ -146,4 +146,12 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/html-table'),
   },
+  {
+    slug: 'convert',
+    name: 'YAML / JSON / TOML converter',
+    tagline: 'Convert between YAML, JSON and TOML with exact big integers, line-and-column errors and a warning for anything lost',
+    mark: 'YJT',
+    category: 'data',
+    load: () => import('../tools/convert'),
+  },
 ]
