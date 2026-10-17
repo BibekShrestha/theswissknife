@@ -92,10 +92,25 @@ the precache list built by `scripts/sw-manifest.ts`.
   follows the entry chunk's *static* import graph only, so anything that leaks
   into the eager graph is downloaded by every visitor on first paint — a second
   reason the laziness rule matters.
-- **Don't precache the heavy assets.** The icon font (3.9 MB), jq wasm (929 KB),
-  pdf.js worker (1.3 MB) and sql.js wasm (658 KB) are runtime-cached on first
-  use. All of them are invisible to `dist/.vite/manifest.json`, which is why the list is built from
-  the Rollup bundle instead.
+- **Don't precache the heavy assets.** The jq wasm (929 KB), pdf.js worker
+  (1.3 MB) and sql.js wasm (658 KB) are runtime-cached on first use. All of
+  them are invisible to `dist/.vite/manifest.json`, which is why the list is
+  built from the Rollup bundle instead.
+- **The icon font is a subset, and precached.** Every page draws icons, so
+  `src/shell/MaterialSymbolsOutlined.woff2` holds only the ~160 ligatures the
+  source uses (~25 KB, axes pinned to `wght 400 / FILL 0 / GRAD 0`, `opsz`
+  kept) and rides in with the shell as an `importedAssets` entry of the entry
+  chunk's CSS. The full 3.9 MB font lives in `scripts/fonts/`, which is never
+  emitted. **Using an icon not yet in the subset fails `src/shell/icons.test.ts`**
+  (otherwise the browser just prints its name as a word): run
+  `npm run icon-font` and commit `scripts/fonts/` and the font. The names are
+  found by `scripts/icon-names.ts`: every Material Symbols ligature written as
+  a string literal or lone JSX word in a src file that renders the class or
+  mentions "icon" — so tables, ternaries and `{t.icon}` all count, but a name
+  assembled at runtime (`'arrow_' + side`) would not. `check-bundle.mjs` fails
+  if the font is not precached or exceeds 64 KiB. `font-display: block` stays:
+  with a precached 25 KB font the block period is negligible, and `swap` would
+  flash the names as words.
 - `src/shell/pwa.ts` registers the worker and renders the update prompt; it is
   imported lazily from `main.tsx` to stay out of the entry chunk, and is plain
   DOM rather than React for the same reason. Dev never registers a worker.
@@ -112,6 +127,10 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `npm run build` — tsc + vite build + 404.html copy (GitHub Pages fallback)
   + `check-bundle.mjs` (entry budget, one lazy chunk per registry slug, sw.js
   precache sanity)
+- `npm run icon-font` — rebuild the subset icon font from
+  `scripts/fonts/MaterialSymbolsOutlined-full.woff2` (one-shot; commit the
+  output). Needs Node >= 22.18 and Python 3 with `pip install fonttools brotli`
+  (`PYTHON=/path/to/venv/python` to pick the interpreter)
 - `npm run icons` — regenerate `public/icons/*.png` from the site mark
   (one-shot; commit the output — the build does not run it)
 

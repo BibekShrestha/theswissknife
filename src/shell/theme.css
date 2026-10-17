@@ -165,6 +165,9 @@ code {
      bespoke cache-busting in the service worker, and the old absolute path
      ignored BASE_URL and 404'd on any non-root deploy. */
   src: url('./MaterialSymbolsOutlined.woff2') format('woff2');
+  /* A ~25 KB subset (`npm run icon-font`), precached by the service worker,
+     so the block period is a few milliseconds — and `swap` would flash the
+     ligature names ("content_copy") as words before the icons. */
   font-display: block;
 }
 

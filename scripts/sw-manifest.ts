@@ -10,6 +10,8 @@
  * source-to-chunk entries, and misses the things that actually cost a user
  * their offline session — the jq wasm, the pdf.js worker, the icon font. The
  * Rollup bundle is every emitted file, so the precache list is derived there.
+ * The icon font is a ~25 KB subset (`npm run icon-font`) referenced from the
+ * shell's CSS, so it is precached with the shell as one of its importedAssets.
  */
 /**
  * Small content hash (cyrb53). Not cryptographic — it only has to change when
@@ -36,13 +38,17 @@ export interface BundleEntry {
   isEntry?: boolean
   /** Static imports only. Dynamic ones live in `dynamicImports` and are deliberately not walked. */
   imports?: readonly string[]
-  viteMetadata?: { importedCss?: Iterable<string> }
+  /**
+   * importedAssets are files the chunk's JS or CSS references by URL — for the
+   * entry chunk, the icon font that theme.css points at.
+   */
+  viteMetadata?: { importedCss?: Iterable<string>; importedAssets?: Iterable<string> }
 }
 
 export interface SwManifest {
   /** Changes whenever `core` or `assets` does; names the caches. */
   version: string
-  /** Precached during install — the shell, and nothing else. */
+  /** Precached during install — the shell (its chunks, CSS and the assets they reference), and nothing else. */
   core: string[]
   /** Every URL this build owns. Anything else in the runtime cache is stale. */
   assets: string[]
@@ -56,9 +62,14 @@ const withBase = (base: string, file: string) => `${base.replace(/\/$/, '')}/${f
  * is what keeps the install cheap and defers a tool's chunk, worker and wasm to
  * the first time someone actually opens it.
  */
-function eagerGraph(bundle: Record<string, BundleEntry>): { files: string[]; css: string[] } {
+function eagerGraph(bundle: Record<string, BundleEntry>): {
+  files: string[]
+  css: string[]
+  assets: string[]
+} {
   const files: string[] = []
   const css = new Set<string>()
+  const assets = new Set<string>()
   const seen = new Set<string>()
 
   const visit = (file: string) => {
@@ -67,13 +78,14 @@ function eagerGraph(bundle: Record<string, BundleEntry>): { files: string[]; css
     seen.add(file)
     files.push(file)
     for (const id of entry.viteMetadata?.importedCss ?? []) css.add(id)
+    for (const id of entry.viteMetadata?.importedAssets ?? []) assets.add(id)
     for (const imported of entry.imports ?? []) visit(imported)
   }
 
   for (const [file, entry] of Object.entries(bundle)) {
     if (entry.type === 'chunk' && entry.isEntry) visit(file)
   }
-  return { files, css: [...css] }
+  return { files, css: [...css], assets: [...assets] }
 }
 
 /**
@@ -91,7 +103,7 @@ export function buildSwManifest(
   extraCore: readonly string[] = [],
   fingerprint = '',
 ): SwManifest {
-  const { files, css } = eagerGraph(bundle)
+  const { files, css, assets: eagerAssets } = eagerGraph(bundle)
   if (files.length === 0) {
     // Loud failure: an empty precache list ships a service worker that caches nothing.
     throw new Error('sw-manifest: no entry chunk found in the bundle')
@@ -101,7 +113,11 @@ export function buildSwManifest(
   // HTML plugin also emits during generateBundle, so bundle['index.html'] may
   // not exist yet when this runs.
   const shell = base.endsWith('/') ? base : `${base}/`
-  const core = [shell, ...[...files, ...css].map((f) => withBase(base, f)), ...extraCore]
+  const core = [
+    shell,
+    ...[...files, ...css, ...eagerAssets].map((f) => withBase(base, f)),
+    ...extraCore,
+  ]
 
   const assets = [
     ...new Set([...core, ...Object.keys(bundle).map((f) => withBase(base, f))]),
