@@ -22,6 +22,7 @@ Buddy's pdf.js engine included.
 | Markdown preview & export | [/markdown](https://theswissknife.com/markdown) | Live GitHub-flavoured Markdown preview with footnotes, KaTeX math and mermaid diagrams; export one self-contained HTML file, or a PDF through the print dialog, with themes, paper sizes and a table of contents |
 | Unix time | [/time](https://theswissknife.com/time) | Convert seconds through nanoseconds into local, UTC and zoned time |
 | Cron explainer | [/cron](https://theswissknife.com/cron) | Explain five-field cron expressions (lists, ranges, steps, names, @macros) in plain English, flag the day-of-month / day-of-week OR rule, and list the next run times in any IANA time zone with DST gaps and repeats handled |
+| Dates & time zones | [/dates](https://theswissknife.com/dates) | Meeting planner: hour strips for several IANA zones (search by city or abbreviation, ambiguous ones flagged) aligned on the same instants across DST and 30/45-minute offsets, working-hours overlap, copy the time for every zone or download an .ics event. Durations: difference between two zoned date-times (exact totals, calendar breakdown, Mon–Fri business days, ISO 8601), and add or subtract an ISO 8601 duration with calendar vs exact results and month-end clamping shown |
 | PDF Buddy | [/pdf](https://theswissknife.com/pdf) | Merge, split, reorder, rotate, compress, watermark, number, protect and unlock PDFs |
 | Image converter | [/image](https://theswissknife.com/image) | Batch convert, resize and compress PNG/JPEG/WebP/GIF (SVG in), aim for a target file size |
 | QR code generator & scanner | [/qr](https://theswissknife.com/qr) | QR codes for text, URLs, Wi-Fi, email, SMS, contacts, locations and events; custom colours, shapes and logos, a scan check, PNG/SVG/JPEG/WebP export and batch ZIP. Scan reads every code in a chosen, dropped or pasted image (ZXing-C++, then the browser's own BarcodeDetector where it has one, then OpenCV's WeChat decoder) and lays out Wi-Fi, contact and event fields |
@@ -29,6 +30,7 @@ Buddy's pdf.js engine included.
 | HTML table extractor | [/html-table](https://theswissknife.com/html-table) | Pull any HTML table into CSV, TSV, JSON or Markdown — colspan and rowspan handled |
 | UUID & ULID | [/uuid](https://theswissknife.com/uuid) | Generate UUID v4, v7 and ULID batches; inspect version, variant, embedded timestamp, clock sequence and node, and convert between UUID, ULID, hex, base64url and bytes |
 | YAML / JSON / TOML converter | [/convert](https://theswissknife.com/convert) | Convert between YAML 1.2, JSON and TOML 1.0 with auto-detect, 2/4 indent and key sorting; integers past 2^53 stay exact; errors give line and column, and dropped nulls, expanded anchors, lost comments and tags, TOML dates turned into strings and big integers in JSON output are listed as warnings |
+| SQLite viewer | [/sqlite](https://theswissknife.com/sqlite) | Open a .db/.sqlite file or start empty: schema with row counts, paged sortable tables, multi-statement SQL in a worker that stops runaway queries; export results as CSV/JSON and the edited database as .sqlite — the original file is never changed |
 
 ## Develop
 

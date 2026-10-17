@@ -1,0 +1,127 @@
+.dates-app { display: flex; flex-direction: column; gap: 14px; margin: 0 auto; max-width: 1500px; min-height: 100%; padding: 14px 18px 20px; }
+.dates-main { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.dates-main code { font-family: var(--font-mono); }
+.dates-main [hidden] { display: none !important; }
+
+.dates-tabs { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.dates-tabs button { background: transparent; border: none; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
+.dates-tabs button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+
+.dates-label { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.dates-row { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.dates-row button { align-items: center; display: inline-flex; gap: 4px; }
+.dates-row .material-symbols-outlined { font-size: 18px; }
+.dates-muted { color: var(--muted); font-size: 12px; margin: 0; }
+.dates-small { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.dates-note { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: var(--radius); font-size: 12.5px; line-height: 1.5; margin: 0; padding: 8px 12px; }
+.dates-error { background: var(--err-bg); border: 1px solid var(--err); border-radius: var(--radius); color: var(--err); font-size: 12.5px; line-height: 1.5; margin: 0; padding: 8px 12px; }
+.dates-badge { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: var(--radius-sm); font-size: 10.5px; padding: 1px 6px; white-space: nowrap; }
+
+/* Planner */
+.dates-planner { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.dates-controls { background: var(--panel); border: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 14px 24px; padding: 12px 14px; }
+.dates-control { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.dates-control input[type='date'] { min-width: 0; }
+
+.dates-zones { background: var(--panel); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px 14px; }
+.dates-strips-scroll { overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 4px; }
+.dates-grid { cursor: pointer; display: grid; position: relative; user-select: none; -webkit-user-select: none; }
+.dates-strip-label { align-items: end; display: flex; grid-column: 1 / -1; min-width: 0; }
+.dates-strip-sticky { align-items: center; display: inline-flex; gap: 8px; left: 0; max-width: min(100%, calc(100vw - 48px)); padding: 0 2px 3px; position: sticky; white-space: nowrap; z-index: 2; }
+.dates-strip-sticky strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+.dates-strip-sticky .mono { color: var(--muted); font-size: 11px; }
+.dates-strip-sticky button { align-items: center; background: transparent; border: 1px solid transparent; cursor: pointer; display: inline-flex; height: 22px; justify-content: center; padding: 0; width: 22px; }
+.dates-strip-sticky button:hover:not(:disabled) { border-color: var(--border-strong); }
+.dates-strip-sticky button .material-symbols-outlined { font-size: 15px; }
+.dates-ref { border: 1px solid var(--accent); border-radius: var(--radius-sm); color: var(--accent); font: 9.5px var(--font-mono); letter-spacing: .06em; padding: 0 5px; text-transform: uppercase; }
+
+.dates-cell { align-items: center; background: var(--panel-2); border-left: 1px solid var(--border); color: var(--muted); display: flex; font: 11px var(--font-mono); justify-content: center; min-width: 0; overflow: hidden; }
+.dates-cell small { font-size: 8.5px; }
+.dates-cell-work { background: var(--accent-dim); color: var(--text); }
+.dates-cell-other { opacity: .72; }
+.dates-cell-midnight { border-left: 2px solid var(--text); }
+.dates-cell-day { font-size: 9.5px; font-weight: 700; }
+.dates-overlap { background: var(--ok); border-radius: 2px; margin-top: 3px; }
+.dates-sel { border: 2px solid var(--accent); border-radius: 3px; box-shadow: 0 0 0 1px var(--panel) inset; pointer-events: none; z-index: 1; }
+
+.dates-hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }
+.dates-legend { align-items: center; display: inline-flex; gap: 6px; margin-left: 10px; }
+.dates-swatch { border-radius: 2px; display: inline-block; height: 10px; width: 14px; }
+.dates-swatch-work { background: var(--accent-dim); border: 1px solid var(--border-strong); }
+.dates-swatch-overlap { background: var(--ok); margin-left: 6px; }
+.dates-transitions { font-size: 12px; line-height: 1.5; margin: 0; padding-left: 18px; }
+.dates-add { max-width: 520px; }
+
+.dates-meeting { background: var(--panel); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+.dates-meeting-head { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: space-between; }
+.dates-overlap-text { font-size: 13px; margin: 0; }
+.dates-times { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+.dates-times li { align-items: baseline; border: 1px solid var(--border); border-top-width: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 10px; }
+.dates-times li:first-child { border-top-width: 1px; }
+.dates-times-zone { font-weight: 600; min-width: 180px; }
+.dates-times-zone small { color: var(--muted); font-size: 10.5px; font-weight: 400; margin-left: 4px; }
+.dates-times-when { font-size: 13.5px; }
+.dates-times-off { color: var(--muted); font-size: 11.5px; }
+.dates-actions { gap: 8px; }
+.dates-title { flex: 1 1 220px; min-width: 0; }
+
+/* Picker */
+.dates-picker { position: relative; width: 100%; }
+.dates-picker-input { width: 100%; }
+.dates-picker-pop { background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow); left: 0; margin-top: 4px; max-height: 340px; overflow-y: auto; position: absolute; right: 0; z-index: 20; }
+.dates-picker-pop ul { list-style: none; margin: 0; padding: 4px; }
+.dates-picker-pop li { align-items: baseline; border-radius: var(--radius-sm); cursor: pointer; display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 6px 8px; }
+.dates-picker-pop li.on { background: var(--chip-on-bg); }
+.dates-picker-city { font-size: 13px; font-weight: 600; }
+.dates-picker-id { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.dates-picker-off { color: var(--muted); font-size: 11px; margin-left: auto; }
+.dates-picker-empty { color: var(--muted); cursor: default !important; font-size: 12px; }
+.dates-picker-abbr { border-bottom: 1px solid var(--border); font-size: 12px; line-height: 1.45; margin: 0; padding: 8px 10px; }
+.dates-picker-ambiguous { background: var(--warn-bg); }
+
+/* Durations */
+.dates-durations { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.dates-card { background: var(--panel); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px; }
+.dates-card h2, .dates-help h2 { font-size: 11px; font-weight: 700; letter-spacing: .06em; margin: 0; text-transform: uppercase; }
+.dates-pair { align-items: stretch; display: flex; flex-wrap: wrap; gap: 12px; }
+.dates-field { border: 1px solid var(--border); display: flex; flex: 1 1 280px; flex-direction: column; gap: 8px; margin: 0; min-width: 0; padding: 10px 12px; }
+.dates-field input[type='datetime-local'] { flex: 1 1 200px; min-width: 0; }
+.dates-swap { align-self: center; align-items: center; display: inline-flex; justify-content: center; }
+.dates-results { display: flex; flex-direction: column; gap: 10px; }
+.dates-stats { display: grid; gap: 8px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.dates-stat { background: var(--panel-2); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px; }
+.dates-stat strong { font-size: 17px; overflow-wrap: anywhere; }
+.dates-facts { display: grid; gap: 6px 14px; grid-template-columns: max-content minmax(0, 1fr); margin: 0; }
+.dates-facts dt { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; padding-top: 3px; text-transform: uppercase; }
+.dates-facts dd { align-items: center; display: flex; flex-wrap: wrap; font-size: 13.5px; gap: 4px 6px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.dates-facts dd button, .dates-iso-out button { align-items: center; background: transparent; border: 1px solid var(--border); display: inline-flex; height: 24px; justify-content: center; padding: 0; width: 26px; }
+.dates-facts dd button .material-symbols-outlined { font-size: 15px; }
+.dates-iso-out code { font-size: 14px; font-weight: 700; }
+.dates-iso-out small { color: var(--muted); font-size: 11px; }
+.dates-add-row { gap: 10px; }
+.dates-seg { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.dates-seg button { background: transparent; border: none; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 5px 14px; }
+.dates-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+.dates-iso { flex: 1 1 200px; font-size: 16px; min-width: 0; }
+.dates-examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.dates-examples button { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; padding: 3px 8px; }
+.dates-examples button code { font-size: 11px; }
+.dates-examples button.on { background: var(--chip-on-bg); border-color: var(--chip-on-border); }
+.dates-explain { font-size: 14px; margin: 0; }
+
+.dates-help { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dates-help > div { background: var(--panel); border: 1px solid var(--border); padding: 12px 14px; }
+.dates-help p { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 6px 0 0; }
+
+@media (max-width: 900px) {
+  .dates-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dates-help { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .dates-app { padding: 10px; }
+  .dates-times-zone { min-width: 0; width: 100%; }
+  .dates-legend { display: flex; margin: 4px 0 0; }
+  .dates-swap { transform: rotate(90deg); }
+  .dates-field { flex-basis: 100%; }
+}

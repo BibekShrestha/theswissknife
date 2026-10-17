@@ -92,9 +92,9 @@ the precache list built by `scripts/sw-manifest.ts`.
   follows the entry chunk's *static* import graph only, so anything that leaks
   into the eager graph is downloaded by every visitor on first paint — a second
   reason the laziness rule matters.
-- **Don't precache the heavy assets.** The icon font (3.9 MB), jq wasm (929 KB)
-  and pdf.js worker (1.3 MB) are runtime-cached on first use. All three are
-  invisible to `dist/.vite/manifest.json`, which is why the list is built from
+- **Don't precache the heavy assets.** The icon font (3.9 MB), jq wasm (929 KB),
+  pdf.js worker (1.3 MB) and sql.js wasm (658 KB) are runtime-cached on first
+  use. All of them are invisible to `dist/.vite/manifest.json`, which is why the list is built from
   the Rollup bundle instead.
 - `src/shell/pwa.ts` registers the worker and renders the update prompt; it is
   imported lazily from `main.tsx` to stay out of the entry chunk, and is plain
@@ -153,6 +153,21 @@ the precache list built by `scripts/sw-manifest.ts`.
   zone via `Intl.DateTimeFormat`; spring-forward gap times are skipped,
   fall-back repeats run once at the first occurrence; a 400-year search bound
   turns `0 0 30 2 *` into "never runs").
+- `tools/dates/` — meeting planner and date math, no library. `zone.ts` does
+  wall-clock ⇄ instant in IANA zones with `Intl.DateTimeFormat` only
+  (`resolveWall`: Temporal-style 'compatible' — gap times move forward,
+  repeated times take the earlier occurrence). `timeline.ts`: the planner
+  covers the reference (first) zone's calendar day in 15-minute slots
+  (every offset in use is a multiple of 15 min), so a 23/25-hour DST day
+  has 92/100 slots and other zones' rows line up on the same instants. `catalog.ts` adds city aliases,
+  current names for renamed ids (engines may list `Asia/Calcutta`) and
+  abbreviations, each with all its meanings (IST, CST, BST… are flagged
+  ambiguous). `duration.ts`: ISO 8601 parse/format, add (years/months with
+  month-end clamping, then days on the wall clock, then exact time) with an
+  exact (D = 24 h) alternative, calendar difference in the start zone,
+  business days (Mon–Fri, start date excluded). `ics.ts` writes RFC 5545 by
+  hand (UTC times, 75-octet folding). Fragment: `#zones=…` / `#d=…`; the
+  event title is never put in it.
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
   (`lib/pdfjs.ts` loads it lazily and points it at its runtime-cached worker).
   13 sub-tools under `tools/`, each a lazy chunk.
@@ -209,6 +224,17 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/html-table/` — parses pasted HTML with `DOMParser` (inert: no scripts
   run, nothing touches the live document), expands colspan/rowspan into a
   grid, exports CSV, TSV, JSON or Markdown.
+- `tools/sqlite/` — SQLite viewer on `sql.js` (pinned; its wasm is a `?url`
+  asset passed via `locateFile`, loaded inside `sqlite.worker.ts` only, so it
+  is runtime-cached, never precached). `runner.ts` copies the regex runner's
+  deadline pattern: requests are queued, each has a deadline
+  (`QUERY_TIMEOUT_MS`), and a timed-out worker is terminated and the next call
+  reopens the *original* bytes the runner keeps — edits are lost and the UI
+  says so. `engine.ts` is plain functions over a `Database` (tested against
+  the real wasm in Node); statements keep at most `ROW_CAP` rows. Identifiers
+  are always double-quoted (`quoteIdent`); schema columns come from
+  `pragma_table_xinfo(?)` with a bound name. `sqljs.d.ts` declares the API
+  instead of `@types/sql.js`, which would drag `@types/node` into the app.
 - `tools/hash/` — SHA-1/256/384/512 digests and HMACs via WebCrypto only
   (no MD5: `crypto.subtle` lacks it, so don't advertise it). Files are read
   whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)

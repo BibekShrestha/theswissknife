@@ -107,6 +107,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/cron'),
   },
   {
+    slug: 'dates',
+    name: 'Dates & time zones',
+    tagline: 'Plan a meeting across time zones with DST-aware hour strips, and do date differences and ISO 8601 duration math',
+    mark: 'TZ',
+    category: 'time',
+    load: () => import('../tools/dates'),
+  },
+  {
     slug: 'pdf',
     name: 'PDF Buddy',
     tagline: 'Merge, split, convert, compress, watermark, protect, and unlock PDFs — all client-side',
@@ -161,5 +169,13 @@ export const tools: ToolMeta[] = [
     mark: 'YJT',
     category: 'data',
     load: () => import('../tools/convert'),
+  },
+  {
+    slug: 'sqlite',
+    name: 'SQLite viewer',
+    tagline: 'Open a SQLite file in your browser — browse tables, run SQL, export CSV, JSON or the edited database',
+    mark: 'SQL',
+    category: 'data',
+    load: () => import('../tools/sqlite'),
   },
 ]
