@@ -146,7 +146,7 @@ export default function HashTool() {
               <div className="hash-step-head"><span className="hash-step">03</span><strong>Compare</strong></div>
               <input className="hash-input" value={expected} onChange={(event) => setExpected(event.target.value)} spellCheck={false} autoComplete="off" aria-label="Expected checksum" placeholder="Paste expected checksum (hex or Base64)" />
               <p className={`hash-compare is-${comparison.status}`} role="status">
-                {comparison.status === 'empty' && 'Hex is matched case-insensitively; whitespace is ignored.'}
+                {comparison.status === 'empty' && 'Paste a bare checksum or a sha256sum line. Hex is matched case-insensitively.'}
                 {comparison.status === 'invalid' && 'Not hex or Base64.'}
                 {comparison.status === 'none' && 'No match against any digest below.'}
                 {comparison.status === 'match' && `Matches ${comparison.matches.map((m) => `${m.id} (${m.encoding === 'hex' ? 'hex' : 'Base64'})`).join(', ')}`}

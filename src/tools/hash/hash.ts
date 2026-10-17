@@ -114,18 +114,30 @@ function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 /**
  * Compare an expected checksum against every computed row. Whitespace is
  * ignored; hex is matched case-insensitively; Base64/Base64URL with or
- * without padding. A string that is valid as both is tried both ways.
+ * without padding. A string that is valid as both is tried both ways. A
+ * whole checksum line also works: `sha256sum` output ("<hash>  file") is
+ * read by its first word, BSD style ("SHA256 (file) = <hash>") by its last.
  */
 export function compareDigest(expected: string, rows: DigestRow[]): CompareResult {
-  const clean = expected.replace(/\s+/g, '')
-  if (!clean) return { status: 'empty' }
-  const asHex = parseHex(clean)
-  const asBase64 = parseBase64(clean)
-  if (!asHex && !asBase64) return { status: 'invalid' }
+  const words = expected.trim().split(/\s+/)
+  // The shortest digest here (SHA-1) is 27 Base64 characters unpadded, so a
+  // shorter word cannot be one — that keeps "not a digest" invalid.
+  const lineWords = words.length > 1 ? [words[0], words[words.length - 1]].filter((w) => w.length >= 27) : []
+  const candidates = [...new Set([expected.replace(/\s+/g, ''), ...lineWords])]
+  if (!candidates[0]) return { status: 'empty' }
+  let parsed = false
   const matches: CompareMatch[] = []
-  for (const row of rows) {
-    if (asHex && equalBytes(asHex, row.bytes)) matches.push({ id: row.id, encoding: 'hex' })
-    else if (asBase64 && equalBytes(asBase64, row.bytes)) matches.push({ id: row.id, encoding: 'base64' })
+  for (const candidate of candidates) {
+    const asHex = parseHex(candidate)
+    const asBase64 = parseBase64(candidate)
+    if (!asHex && !asBase64) continue
+    parsed = true
+    for (const row of rows) {
+      if (matches.some((m) => m.id === row.id)) continue
+      if (asHex && equalBytes(asHex, row.bytes)) matches.push({ id: row.id, encoding: 'hex' })
+      else if (asBase64 && equalBytes(asBase64, row.bytes)) matches.push({ id: row.id, encoding: 'base64' })
+    }
   }
-  return matches.length ? { status: 'match', matches } : { status: 'none' }
+  if (matches.length) return { status: 'match', matches }
+  return parsed ? { status: 'none' } : { status: 'invalid' }
 }

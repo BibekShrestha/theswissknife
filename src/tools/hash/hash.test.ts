@@ -92,6 +92,15 @@ describe('compare', () => {
     expect(compareDigest('ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=', rows)).toEqual({ status: 'match', matches: [{ id: 'SHA-256', encoding: 'base64' }] })
   })
 
+  it('reads a checksum line from sha256sum or BSD shasum', async () => {
+    const rows = await digestAll(utf8('abc'))
+    const match = { status: 'match', matches: [{ id: 'SHA-256', encoding: 'hex' }] }
+    expect(compareDigest(`${sha256abc}  release.tar.gz`, rows)).toEqual(match)
+    expect(compareDigest(`${sha256abc} *release.tar.gz\n`, rows)).toEqual(match)
+    expect(compareDigest(`SHA256 (release.tar.gz) = ${sha256abc}`, rows)).toEqual(match)
+    expect(compareDigest(`${sha256abc.slice(0, 32)} ${sha256abc.slice(32)}`, rows)).toEqual(match)
+  })
+
   it('checks HMAC rows too', async () => {
     const rows = [...await digestAll(utf8('Hi There')), ...await hmacAll(new Uint8Array(20).fill(0x0b), utf8('Hi There'))]
     expect(compareDigest('b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7', rows)).toEqual({ status: 'match', matches: [{ id: 'HMAC-SHA-256', encoding: 'hex' }] })
