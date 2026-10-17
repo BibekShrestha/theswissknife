@@ -162,4 +162,12 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/convert'),
   },
+  {
+    slug: 'sqlite',
+    name: 'SQLite viewer',
+    tagline: 'Open a SQLite file in your browser — browse tables, run SQL, export CSV, JSON or the edited database',
+    mark: 'SQL',
+    category: 'data',
+    load: () => import('../tools/sqlite'),
+  },
 ]
