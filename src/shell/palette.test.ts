@@ -77,10 +77,11 @@ describe('rank', () => {
   })
 
   it('ranks a name hit above a tagline hit', () => {
-    // 'convert' is a word in the converter's name and only tagline text elsewhere
+    // 'convert' is the format converter's slug, a word in the image
+    // converter's name, and only tagline text elsewhere
     const hits = names('convert')
-    expect(hits[0]).toBe('Image converter')
-    expect(hits).toContain('Unix time')
+    expect(hits.slice(0, 2)).toEqual(['YAML / JSON / TOML converter', 'Image converter'])
+    expect(hits.indexOf('Unix time')).toBeGreaterThan(1)
   })
 
   it('keeps input order when scores tie', () => {

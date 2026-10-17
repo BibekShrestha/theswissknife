@@ -146,4 +146,20 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/html-table'),
   },
+  {
+    slug: 'uuid',
+    name: 'UUID & ULID',
+    tagline: 'Generate v4, v7 and ULID batches, or inspect any UUID or ULID — version, variant, embedded time, and conversions to ULID, hex and base64url',
+    mark: 'ID',
+    category: 'data',
+    load: () => import('../tools/uuid'),
+  },
+  {
+    slug: 'convert',
+    name: 'YAML / JSON / TOML converter',
+    tagline: 'Convert between YAML, JSON and TOML with exact big integers, line-and-column errors and a warning for anything lost',
+    mark: 'YJT',
+    category: 'data',
+    load: () => import('../tools/convert'),
+  },
 ]

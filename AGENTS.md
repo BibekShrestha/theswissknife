@@ -214,3 +214,19 @@ the precache list built by `scripts/sw-manifest.ts`.
   whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)
   ignores whitespace, matches hex case-insensitively and accepts Base64 or
   Base64URL, padded or not.
+- `tools/uuid/` — UUID/ULID generator and inspector, hand-written (no
+  libraries). `uuid.ts` parses every common UUID spelling, reads RFC 9562
+  version/variant, v1/v6 timestamps (bigint 100-ns ticks, 7 fractional
+  digits), clock sequence and node (multicast bit = random node), v7 ms, and
+  generates v4 and v7 (monotonic random, §6.2 method 2). `ulid.ts` is Crockford
+  base32 with I/L→1, O→0 and a monotonic generator. Randomness is only
+  `crypto.getRandomValues`; tests hold the RFC 9562 Appendix A vectors.
+- `tools/convert/` — YAML ⇄ JSON ⇄ TOML. `yaml` (YAML 1.2, merge keys on)
+  and `smol-toml` (TOML 1.0) are imported only here; JSON uses our own strict
+  parser (`parseJson`) for exact big integers, duplicate-key errors and
+  stable line/column. One value model: `bigint` = integer, `number` = float,
+  so `1.0` and `2^53 + 1` survive. Everything the trip loses is a `Note`:
+  TOML null keys are dropped and listed (null inside an array is refused —
+  dropping it would shift indices), anchors/merge keys are expanded,
+  comments and tags are not kept, TOML dates become strings, YAML 1.1
+  readings (`no`, `0755`, `1:20`) are hinted and quoted on output.
