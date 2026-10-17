@@ -12,8 +12,8 @@ import { Landing } from './Landing'
 import { tools, type ToolMeta } from './registry'
 import { ErrorBoundary } from './ErrorBoundary'
 import { emit, Link, usePath } from './router'
-import { isPaletteKey, onOpenPalette } from './palette'
-import { onOpenSidebar } from './sidebar'
+import { isPaletteKey, onOpenPalette, openPalette, suggestForPath } from './palette'
+import { onOpenSidebar, openSidebar } from './sidebar'
 import { ToolSidebar } from './ToolSidebar'
 
 const cache = new Map<string, LazyExoticComponent<ComponentType>>()
@@ -31,15 +31,61 @@ function toolComponent(tool: ToolMeta) {
 }
 
 function NotFound({ path }: { path: string }) {
+  const suggestions = suggestForPath(tools, path)
   return (
-    <div className="shell-notfound">
+    <main id="main-content" className="shell-notfound">
       <h1>404</h1>
       <p>
         No tool lives at <code>/{path}</code>.
       </p>
-      <Link to="/" className="shell-home-btn">
-        <span className="material-symbols-outlined" aria-hidden>arrow_back</span> All tools
-      </Link>
+      {suggestions.length > 0 && (
+        <p className="shell-notfound-suggest">
+          Did you mean{' '}
+          {suggestions.map((tool, i) => (
+            <span key={tool.slug}>
+              {i > 0 && (i === suggestions.length - 1 ? ' or ' : ', ')}
+              <Link to={`/${tool.slug}`}>{tool.name}</Link>
+            </span>
+          ))}
+          ?
+        </p>
+      )}
+      <div className="shell-notfound-actions">
+        <button type="button" onClick={openPalette}>
+          <span className="material-symbols-outlined" aria-hidden>search</span> Search tools
+        </button>
+        <Link to="/" className="shell-home-btn">
+          <span className="material-symbols-outlined" aria-hidden>arrow_back</span> All tools
+        </Link>
+      </div>
+    </main>
+  )
+}
+
+/**
+ * Shown while a tool's chunk downloads. It waits 150 ms so a cached chunk
+ * doesn't flash a placeholder, then draws a toolbar in the tool's place so
+ * the page has its menu (and a name) while the rest arrives.
+ */
+function ToolLoading({ tool }: { tool: ToolMeta }) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(true), 150)
+    return () => clearTimeout(timer)
+  }, [])
+  if (!visible) return null
+  return (
+    <div className="tool-loading" role="status">
+      <header className="shell-toolbar">
+        <button type="button" className="shell-menu-toggle" onClick={openSidebar} aria-label="Open tool index">
+          <span className="material-symbols-outlined" aria-hidden>menu</span>
+        </button>
+        <div className="shell-tool-identity">
+          <div className="shell-brand"><span className="tool-loading-mark" aria-hidden>{tool.mark}</span> {tool.name}</div>
+          <span>Loading…</span>
+        </div>
+      </header>
+      <div className="tool-loading-body" aria-hidden><i /><i /><i /></div>
     </div>
   )
 }
@@ -90,8 +136,10 @@ export default function App() {
       <div className="shell-workspace">
         <ToolSidebar path={path} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="shell-tool-canvas">
-          <ErrorBoundary>
-            <Suspense fallback={<div className="tool-loading" role="status">Loading {tool.name}…</div>}>
+          {/* Keyed per tool so one tool's crash screen doesn't follow you to the
+              next; a failed chunk is evicted so a later visit fetches it again. */}
+          <ErrorBoundary key={tool.slug} onError={() => cache.delete(tool.slug)}>
+            <Suspense fallback={<ToolLoading tool={tool} />}>
               <Tool />
             </Suspense>
           </ErrorBoundary>

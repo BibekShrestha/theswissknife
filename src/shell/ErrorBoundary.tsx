@@ -4,6 +4,7 @@ import { Link } from './router'
 interface Props {
   children: ReactNode
   fallback?: ReactNode
+  onError?: (error: Error) => void
 }
 
 interface State {
@@ -25,6 +26,14 @@ function sanitizeMessage(message: string): string {
     .trim()
 }
 
+/**
+ * A tab left open across a deploy asks for chunk names that no longer exist.
+ * Browsers word that failure differently; all of them name the import.
+ */
+export function isStaleChunkError(error: Error): boolean {
+  return /dynamically imported module|importing a module script failed|error loading dynamically imported module|failed to fetch dynamically/i.test(error.message)
+}
+
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
 
@@ -34,6 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Tool error:', error, info.componentStack)
+    this.props.onError?.(error)
   }
 
   render() {
@@ -42,15 +52,23 @@ export class ErrorBoundary extends Component<Props, State> {
       // A tool that has never been opened is not in the offline cache, so its
       // lazy chunk fails to load. That is not a crash — say so.
       const offline = !navigator.onLine
+      const stale = !offline && isStaleChunkError(this.state.error)
       const message = sanitizeMessage(this.state.error.message)
       return (
-        <div className="shell-error">
-          <h1>{offline ? 'Offline' : 'Something went wrong'}</h1>
+        <div className="shell-error" role="alert">
+          <h1>{offline ? 'Offline' : stale ? 'A newer version is available' : 'Something went wrong'}</h1>
           <pre>
             {offline
               ? "This tool hasn't been downloaded yet. Open it once while online and it will work offline from then on."
-              : message || 'An unexpected error occurred.'}
+              : stale
+                ? 'The site was updated since this tab opened, so this tool\'s old files are gone. Reload to get the current version.'
+                : message || 'An unexpected error occurred.'}
           </pre>
+          {stale && (
+            <button type="button" className="shell-reload-btn" onClick={() => window.location.reload()}>
+              <span className="material-symbols-outlined" aria-hidden>refresh</span> Reload
+            </button>
+          )}
           <Link to="/" className="shell-home-btn">
             <span className="material-symbols-outlined" aria-hidden>arrow_back</span> All tools
           </Link>

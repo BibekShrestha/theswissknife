@@ -98,3 +98,19 @@ export function rank(commands: Command[], query: string): Command[] {
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((row) => row.command)
 }
+
+/**
+ * Tools whose name or slug matches a word of a mistyped path — "jwt-decoder"
+ * suggests JWT, "pdfs" PDF Buddy. Taglines are ignored so a stray word doesn't match half the
+ * site.
+ */
+export function suggestForPath<T extends ToolMeta>(list: T[], path: string, limit = 3): T[] {
+  const byName = toCommands(list).slice(1).map((command) => ({ ...command, hint: '' }))
+  const seen = new Set<string>()
+  for (const word of path.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2)) {
+    for (const command of rank(byName, word)) seen.add(command.to.slice(1))
+    // "pdfs" or "jwtdecode": the word starts with a slug.
+    for (const tool of list) if (tool.slug.length >= 2 && word.startsWith(tool.slug)) seen.add(tool.slug)
+  }
+  return list.filter((tool) => seen.has(tool.slug)).slice(0, limit)
+}

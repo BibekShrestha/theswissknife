@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPaletteKey, rank, toCommands, type KeyLike } from './palette'
+import { isPaletteKey, rank, suggestForPath, toCommands, type KeyLike } from './palette'
 import { tools } from './registry'
 
 const press = (key: string, extra: Partial<KeyLike> = {}): KeyLike => ({ key, ...extra })
@@ -99,5 +99,22 @@ describe('rank', () => {
 
   it('ignores case and surrounding space', () => {
     expect(names('  JQ  ')[0]).toBe('jq playground')
+  })
+})
+
+describe('suggestForPath', () => {
+  const slugs = (path: string) => suggestForPath(tools, path).map((tool) => tool.slug)
+
+  it('suggests tools named by a word of the path', () => {
+    expect(slugs('jwt-decoder')).toContain('jwt')
+    expect(slugs('pdfs/merge')).toContain('pdf')
+  })
+
+  it('ignores taglines and one-letter words', () => {
+    expect(slugs('a-the')).toEqual([])
+  })
+
+  it('caps the list at three', () => {
+    expect(suggestForPath(tools, 'c-co-con-conv').length).toBeLessThanOrEqual(3)
   })
 })

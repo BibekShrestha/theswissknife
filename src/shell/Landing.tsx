@@ -195,7 +195,7 @@ export function Landing() {
           </div>
           <footer className="landing-foot">
             <span>Everything runs in your browser. Nothing is uploaded.</span>
-            <span>Open source · PWA · offline-ready</span>
+            <span>Open source · works offline for tools you've opened</span>
           </footer>
         </main>
       </div>
