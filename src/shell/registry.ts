@@ -43,6 +43,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/ssl'),
   },
   {
+    slug: 'hash',
+    name: 'Hash & HMAC',
+    tagline: 'SHA-1, SHA-256, SHA-384 and SHA-512 digests and HMACs of text or files, with checksum compare',
+    mark: '#',
+    category: 'security',
+    load: () => import('../tools/hash'),
+  },
+  {
     slug: 'regex',
     name: 'Regex lab',
     tagline: 'Match and replace with JavaScript regex in a local worker that stops runaway patterns',
@@ -67,6 +75,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/codec'),
   },
   {
+    slug: 'diff',
+    name: 'Diff',
+    tagline: 'Compare text or JSON line by line with word highlights, and export a unified patch',
+    mark: '±',
+    category: 'text',
+    load: () => import('../tools/diff'),
+  },
+  {
     slug: 'markdown',
     name: 'Markdown preview & export',
     tagline: 'Live Markdown preview with math and diagrams — export one self-contained HTML file or a PDF',
@@ -81,6 +97,14 @@ export const tools: ToolMeta[] = [
     mark: 'UTC',
     category: 'time',
     load: () => import('../tools/time'),
+  },
+  {
+    slug: 'cron',
+    name: 'Cron explainer',
+    tagline: 'Read a cron expression in plain English and see its next run times in any time zone',
+    mark: '*/5',
+    category: 'time',
+    load: () => import('../tools/cron'),
   },
   {
     slug: 'pdf',

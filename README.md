@@ -14,11 +14,14 @@ Buddy's pdf.js engine included.
 | jq playground | [/jq](https://theswissknife.com/jq) | Real jq 1.8.2 (WebAssembly) with every CLI flag, input-aware autocomplete, examples, shareable links |
 | JWT decode & generate | [/jwt](https://theswissknife.com/jwt) | Decode, verify and sign JWTs (HS/RS/PS/ES/EdDSA) via WebCrypto |
 | SSL certificate verifier | [/ssl](https://theswissknife.com/ssl) | Inspect X.509 certificates, check expiry and hostname coverage, and verify supplied chain signatures locally |
+| Hash & HMAC | [/hash](https://theswissknife.com/hash) | SHA-1/256/384/512 digests and HMACs (text, hex or Base64 key) of UTF-8 text or a local file via WebCrypto, in hex or Base64; paste an expected checksum (or a `sha256sum` line) to see which one matches |
 | Regex lab | [/regex](https://theswissknife.com/regex) | Match and replace with JavaScript regular expressions in a worker that is stopped if a pattern backtracks catastrophically |
 | Text redactor | [/redact](https://theswissknife.com/redact) | Mask text with block characters, pick what to hide, share the scheme as a link |
 | Codec studio | [/codec](https://theswissknife.com/codec) | Encode and decode Base64, URLs, HTML entities and UTF-8 hex |
+| Diff | [/diff](https://theswissknife.com/diff) | Compare text or JSON (keys sorted, so order and formatting don't count) with word-level highlights; copy or download a unified diff |
 | Markdown preview & export | [/markdown](https://theswissknife.com/markdown) | Live GitHub-flavoured Markdown preview with footnotes, KaTeX math and mermaid diagrams; export one self-contained HTML file, or a PDF through the print dialog, with themes, paper sizes and a table of contents |
 | Unix time | [/time](https://theswissknife.com/time) | Convert seconds through nanoseconds into local, UTC and zoned time |
+| Cron explainer | [/cron](https://theswissknife.com/cron) | Explain five-field cron expressions (lists, ranges, steps, names, @macros) in plain English, flag the day-of-month / day-of-week OR rule, and list the next run times in any IANA time zone with DST gaps and repeats handled |
 | PDF Buddy | [/pdf](https://theswissknife.com/pdf) | Merge, split, reorder, rotate, compress, watermark, number, protect and unlock PDFs |
 | Image converter | [/image](https://theswissknife.com/image) | Batch convert, resize and compress PNG/JPEG/WebP/GIF (SVG in), aim for a target file size |
 | QR code generator & scanner | [/qr](https://theswissknife.com/qr) | QR codes for text, URLs, Wi-Fi, email, SMS, contacts, locations and events; custom colours, shapes and logos, a scan check, PNG/SVG/JPEG/WebP export and batch ZIP. Scan reads every code in a chosen, dropped or pasted image (ZXing-C++, then the browser's own BarcodeDetector where it has one, then OpenCV's WeChat decoder) and lays out Wi-Fi, contact and event fields |

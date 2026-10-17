@@ -139,8 +139,20 @@ the precache list built by `scripts/sw-manifest.ts`.
   does. `lib/share.ts` normalises anything arriving from a link.
 - `tools/codec/` — Base64, URL, HTML-entity and UTF-8 hex encode/decode
   (`codec.ts`).
+- `tools/diff/` — line diff with hand-written linear-space Myers
+  (`myers.ts`, tested minimal against a brute-force LCS). Runs in
+  `diff.worker.ts` behind `runner.ts`'s deadline (O(ND) blows up on large,
+  unrelated inputs). JSON mode re-prints both sides with sorted keys; big
+  integers keep their digits via JSON.parse source text. `patch.ts` writes
+  `diff -u` output, including `\ No newline at end of file`.
 - `tools/time/` — Unix timestamps from seconds to nanoseconds, held as
   `bigint` nanoseconds so precision survives; local, UTC and any IANA zone.
+- `tools/cron/` — five-field cron explainer, no library: `parse.ts` (Vixie
+  semantics — day-of-month/day-of-week OR only when neither field starts
+  with `*`), `describe.ts` (English), `next.ts` (wall-clock search in an IANA
+  zone via `Intl.DateTimeFormat`; spring-forward gap times are skipped,
+  fall-back repeats run once at the first occurrence; a 400-year search bound
+  turns `0 0 30 2 *` into "never runs").
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
   (`lib/pdfjs.ts` loads it lazily and points it at its runtime-cached worker).
   13 sub-tools under `tools/`, each a lazy chunk.
@@ -197,3 +209,8 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/html-table/` — parses pasted HTML with `DOMParser` (inert: no scripts
   run, nothing touches the live document), expands colspan/rowspan into a
   grid, exports CSV, TSV, JSON or Markdown.
+- `tools/hash/` — SHA-1/256/384/512 digests and HMACs via WebCrypto only
+  (no MD5: `crypto.subtle` lacks it, so don't advertise it). Files are read
+  whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)
+  ignores whitespace, matches hex case-insensitively and accepts Base64 or
+  Base64URL, padded or not.
