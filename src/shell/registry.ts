@@ -67,6 +67,14 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/codec'),
   },
   {
+    slug: 'diff',
+    name: 'Diff',
+    tagline: 'Compare text or JSON line by line with word highlights, and export a unified patch',
+    mark: '±',
+    category: 'text',
+    load: () => import('../tools/diff'),
+  },
+  {
     slug: 'markdown',
     name: 'Markdown preview & export',
     tagline: 'Live Markdown preview with math and diagrams — export one self-contained HTML file or a PDF',

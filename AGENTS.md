@@ -139,6 +139,12 @@ the precache list built by `scripts/sw-manifest.ts`.
   does. `lib/share.ts` normalises anything arriving from a link.
 - `tools/codec/` — Base64, URL, HTML-entity and UTF-8 hex encode/decode
   (`codec.ts`).
+- `tools/diff/` — line diff with hand-written linear-space Myers
+  (`myers.ts`, tested minimal against a brute-force LCS). Runs in
+  `diff.worker.ts` behind `runner.ts`'s deadline (O(ND) blows up on large,
+  unrelated inputs). JSON mode re-prints both sides with sorted keys; big
+  integers keep their digits via JSON.parse source text. `patch.ts` writes
+  `diff -u` output, including `\ No newline at end of file`.
 - `tools/time/` — Unix timestamps from seconds to nanoseconds, held as
   `bigint` nanoseconds so precision survives; local, UTC and any IANA zone.
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
