@@ -214,3 +214,10 @@ the precache list built by `scripts/sw-manifest.ts`.
   whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)
   ignores whitespace, matches hex case-insensitively and accepts Base64 or
   Base64URL, padded or not.
+- `tools/uuid/` — UUID/ULID generator and inspector, hand-written (no
+  libraries). `uuid.ts` parses every common UUID spelling, reads RFC 9562
+  version/variant, v1/v6 timestamps (bigint 100-ns ticks, 7 fractional
+  digits), clock sequence and node (multicast bit = random node), v7 ms, and
+  generates v4 and v7 (monotonic random, §6.2 method 2). `ulid.ts` is Crockford
+  base32 with I/L→1, O→0 and a monotonic generator. Randomness is only
+  `crypto.getRandomValues`; tests hold the RFC 9562 Appendix A vectors.

@@ -146,4 +146,12 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/html-table'),
   },
+  {
+    slug: 'uuid',
+    name: 'UUID & ULID',
+    tagline: 'Generate v4, v7 and ULID batches, or inspect any UUID or ULID — version, variant, embedded time, and conversions to ULID, hex and base64url',
+    mark: 'ID',
+    category: 'data',
+    load: () => import('../tools/uuid'),
+  },
 ]

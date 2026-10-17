@@ -27,6 +27,7 @@ Buddy's pdf.js engine included.
 | QR code generator & scanner | [/qr](https://theswissknife.com/qr) | QR codes for text, URLs, Wi-Fi, email, SMS, contacts, locations and events; custom colours, shapes and logos, a scan check, PNG/SVG/JPEG/WebP export and batch ZIP. Scan reads every code in a chosen, dropped or pasted image (ZXing-C++, then the browser's own BarcodeDetector where it has one, then OpenCV's WeChat decoder) and lays out Wi-Fi, contact and event fields |
 | CSV viewer | [/csv](https://theswissknife.com/csv) | Paste, drop or open a CSV/TSV and read it as a sortable, searchable, editable table — filter by column, group by value with counts and sums; export CSV, TSV, JSON or Markdown |
 | HTML table extractor | [/html-table](https://theswissknife.com/html-table) | Pull any HTML table into CSV, TSV, JSON or Markdown — colspan and rowspan handled |
+| UUID & ULID | [/uuid](https://theswissknife.com/uuid) | Generate UUID v4, v7 and ULID batches; inspect version, variant, embedded timestamp, clock sequence and node, and convert between UUID, ULID, hex, base64url and bytes |
 
 ## Develop
 
