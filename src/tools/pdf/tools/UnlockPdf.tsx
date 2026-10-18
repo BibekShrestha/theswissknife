@@ -4,12 +4,14 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { unlockPdf } from '../ops/security'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function UnlockPdf() {
   const [files, setFiles] = useState<File[]>([])
   const [password, setPassword] = useState('')
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<Uint8Array | null>(null)
+  const [note, setNote] = useState('')
   const [error, setError] = useState('')
 
   async function handleUnlock() {
@@ -17,9 +19,12 @@ export function UnlockPdf() {
     setProcessing(true)
     setError('')
     setResult(null)
+    setNote('')
 
     try {
-      setResult(await unlockPdf(await readBytes(files[0]), password))
+      const unlocked = await unlockPdf(await readBytes(files[0]), password)
+      setResult(unlocked.bytes)
+      setNote(unlocked.note ?? '')
     } catch (e) {
       setError(describeError(e))
     } finally {
@@ -29,15 +34,7 @@ export function UnlockPdf() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#fce7f3' }}>
-          <span className="material-symbols-outlined" style={{ color: '#db2777' }}>lock_open</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Unlock PDF</h2>
-          <p>Remove password from a protected PDF</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="lock_open" color="#db2777" title="Unlock PDF" description="Remove password from a protected PDF" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
@@ -49,14 +46,17 @@ export function UnlockPdf() {
       </div>
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleUnlock}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Unlocking...' : 'Unlock PDF'}
       </button>
 
       <ErrorText message={error} />
 
       {result && (
-        <ProcessedPdfActions fileName="unlocked.pdf" outputBytes={result} />
+        <>
+          {note && <p className="pdf-notes">{note}</p>}
+          <ProcessedPdfActions fileName="unlocked.pdf" outputBytes={result} />
+        </>
       )}
     </div>
   )

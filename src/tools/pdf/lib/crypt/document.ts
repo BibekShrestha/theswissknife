@@ -121,11 +121,23 @@ function bytesOf(dict: PDFDict, key: string): Uint8Array | undefined {
   return v instanceof PDFString || v instanceof PDFHexString ? stringBytes(v) : undefined
 }
 
+/** Why a file under a security handler other than /Standard cannot be unlocked here, naming the handler. */
+function otherHandlerMessage(filter: PDFObject | undefined, subFilter: PDFObject | undefined): string {
+  const handler = filter instanceof PDFName ? filter.decodeText() : undefined
+  const sub = subFilter instanceof PDFName ? subFilter.decodeText() : ''
+  if (handler === 'Adobe.PubSec' || /^adbe\.pkcs7\./.test(sub)) {
+    return 'This PDF uses certificate (public-key) encryption, which only its recipients can open — it cannot be unlocked with a password.'
+  }
+  if (handler === 'Adobe.APS') {
+    return 'This PDF is protected by Adobe LiveCycle Rights Management (Adobe.APS), a DRM system whose keys come from its policy server — it cannot be unlocked with a password.'
+  }
+  if (!handler) return 'This PDF’s encryption names no security handler, so it cannot be unlocked.'
+  return `This PDF uses the “${handler}” security handler, a third-party or DRM scheme this tool does not support — it cannot be unlocked with a password.`
+}
+
 function readParams(enc: PDFDict, context: PDFContext): SecurityParams {
   const filter = enc.lookup(name('Filter'))
-  if (filter !== name('Standard')) {
-    throw new PdfSecurityError('unsupported', 'This PDF uses certificate (public-key) encryption, which only its recipients can open — it cannot be unlocked with a password.')
-  }
+  if (filter !== name('Standard')) throw new PdfSecurityError('unsupported', otherHandlerMessage(filter, enc.lookup(name('SubFilter'))))
   const v = num(enc, 'V') ?? 0
   const r = num(enc, 'R') ?? 0
   const o = bytesOf(enc, 'O')
@@ -178,18 +190,35 @@ export function isEncrypted(context: PDFContext): boolean {
   return context.trailerInfo.Encrypt !== undefined
 }
 
-/**
- * Returns the file decrypted, with /Encrypt removed. An empty password opens
- * documents that only carry an owner password (permission restrictions).
- */
+/** The file decrypted, with /Encrypt removed (see decryptPdfReport). */
 export async function decryptPdf(bytes: Uint8Array, password: string): Promise<Uint8Array> {
+  return (await decryptPdfReport(bytes, password)).bytes
+}
+
+export interface DecryptResult {
+  bytes: Uint8Array
+  /**
+   * 'without-password': the file opens with the empty user password — it
+   * only restricted permissions — whatever password was given (a wrong
+   * owner password is no reason to refuse such a file).
+   */
+  opened: 'password' | 'without-password'
+}
+
+/** Returns the file decrypted, with /Encrypt removed, and how it was opened. */
+export async function decryptPdfReport(bytes: Uint8Array, password: string): Promise<DecryptResult> {
   const first = await parsePdf(bytes, { unpackObjectStreams: false })
   const encRef = first.trailerInfo.Encrypt
   const enc = encRef instanceof PDFRef ? first.lookup(encRef) : encRef
   if (!enc) throw new PdfSecurityError('not-encrypted', 'This PDF is not password-protected — there is nothing to unlock.')
   if (!(enc instanceof PDFDict)) throw new PdfSecurityError('unsupported', 'This PDF’s encryption dictionary is damaged.')
   const params = readParams(enc, first)
-  const fileKey = await authenticate(params, password)
+  let fileKey = password ? await authenticate(params, password) : null
+  let opened: DecryptResult['opened'] = 'password'
+  if (!fileKey) {
+    fileKey = await authenticate(params, '')
+    opened = 'without-password'
+  }
   if (!fileKey) {
     throw new PdfSecurityError('wrong-password', password ? 'Wrong password for this PDF.' : 'This PDF needs a password to open — enter it above.')
   }
@@ -208,7 +237,7 @@ export async function decryptPdf(bytes: Uint8Array, password: string): Promise<U
   } })
   if (encRef instanceof PDFRef) context.delete(encRef)
   context.trailerInfo.Encrypt = undefined
-  return PDFWriter.forContext(context, 50).serializeToBuffer()
+  return { bytes: await PDFWriter.forContext(context, 50).serializeToBuffer(), opened }
 }
 
 /** A stream that opts out of encryption with /Filter [/Crypt] /DecodeParms << /Name /Identity >> (or no name). */

@@ -315,7 +315,7 @@ describe('Protect PDF / Unlock PDF (see lib/crypt for the cipher suites)', () =>
   it('protects with a password that unlock then removes', async () => {
     const out = await protectPdf(await makeRichPdf(), 'hunter2')
     await expect(loadPdf(out)).rejects.toThrow(ENCRYPTED_MESSAGE)
-    const back = await PDFDocument.load(await unlockPdf(out, 'hunter2'))
+    const back = await PDFDocument.load((await unlockPdf(out, 'hunter2')).bytes)
     expect(back.getTitle()).toBe('Rich fixture')
     expect(back.getForm().getTextField('name').getText()).toBe('Ada')
   })
