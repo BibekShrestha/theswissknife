@@ -192,7 +192,7 @@ export default function DecodeView({
       </span>
     ) : verify.state === 'unsupported' ? (
       <span className={`sig-badge ${verify.unsecured ? 'err' : 'warn'}`} title={verify.message}>
-        <span className="material-symbols-outlined" aria-hidden>{verify.unsecured ? 'gpp_bad' : 'warning'}</span> {verify.message}
+        <span className="material-symbols-outlined" aria-hidden>{verify.unsecured ? 'gpp_maybe' : 'warning'}</span> {verify.message}
       </span>
     ) : verify.state === 'checking' ? (
       <span className="sig-badge muted">verifying…</span>
