@@ -273,7 +273,10 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/csv/` — hand-written RFC 4180 parser that reports ragged rows and
   unterminated quotes rather than dropping them; `decode.ts` guesses UTF-8 /
   UTF-16 / Windows-1252 and shows the guess; `virtual.ts` windows the grid in
-  both axes for very large files.
+  both axes for very large files. "Query with SQL" re-serialises every row
+  (edits included, filters/sort ignored) as comma CSV and `sendTo('sqlite')`s
+  it, with the header choice as RFC 4180's `header=present|absent` MIME
+  parameter.
 - `tools/html-table/` — parses pasted HTML with `DOMParser` (inert: no scripts
   run, nothing touches the live document), expands colspan/rowspan into a
   grid, exports CSV, TSV, JSON or Markdown.
@@ -288,6 +291,19 @@ the precache list built by `scripts/sw-manifest.ts`.
   are always double-quoted (`quoteIdent`); schema columns come from
   `pragma_table_xinfo(?)` with a bound name. `sqljs.d.ts` declares the API
   instead of `@types/sql.js`, which would drag `@types/node` into the app.
+  `importer.ts` turns CSV/TSV/JSON/JSONL into tables (copies of the CSV
+  tool's `parse.ts`/`decode.ts` live here as `csvparse.ts`/`decode.ts`): a
+  column is INTEGER/REAL only if every value reads back as that number;
+  leading zeros, integers past 2^53 (JSON too, via reviver source +
+  `JSON.rawJSON` where the engine has them) and ISO dates stay TEXT with a
+  note; nested JSON is stored as JSON text; ragged rows are padded/widened
+  and counted. The worker's `analyze` plans a file, `import` runs all files
+  in one SAVEPOINT with prepared inserts in ~100 ms slices, posting progress
+  and yielding a macrotask so a `cancel` message can get in — cancel or any
+  error rolls the batch back. Imports are exempt from `QUERY_TIMEOUT_MS`:
+  the runner restarts their deadline on every progress report
+  (`IMPORT_STALL_MS`). `/sqlite` takes a `takeHandoff('sqlite')` payload on
+  mount and offers it as an import into a new in-memory database.
 - `tools/hash/` — SHA-1/256/384/512 digests and HMACs via WebCrypto only
   (no MD5: `crypto.subtle` lacks it, so don't advertise it). Files are read
   whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)

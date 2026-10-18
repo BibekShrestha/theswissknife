@@ -7,6 +7,7 @@ import {
   useState,
   type DragEvent,
 } from 'react'
+import { sendTo } from '../../shell/handoff'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
@@ -21,7 +22,7 @@ import {
   parseCsv,
   type ParseResult,
 } from './parse'
-import { FILE_META, serialize, type Format } from './serialize'
+import { FILE_META, quoteField, serialize, type Format } from './serialize'
 import {
   columnName,
   columnTypes,
@@ -359,6 +360,24 @@ export default function CsvTool() {
     showToast(`Saved ${link.download}`)
   }
 
+  /**
+   * Hands the whole file — every row, edits included; search, filters and sort
+   * are views, not data — to the SQLite viewer as comma-separated CSV, so the
+   * delimiter and quote settings chosen here are already applied. Rows keep
+   * their own lengths, so the importer can still report ragged ones, and the
+   * header choice travels as RFC 4180's header= MIME parameter.
+   */
+  const queryWithSql = () => {
+    const csvText = rows
+      .map((row) => (row.length === 1 && row[0] === '' ? '""' : row.map((cell) => quoteField(cell, ',', '"')).join(',')))
+      .join('\r\n')
+    sendTo('sqlite', {
+      name: `${baseName}.csv`,
+      text: `${csvText}\r\n`,
+      type: `text/csv; charset=utf-8; header=${hasHeaderRow ? 'present' : 'absent'}`,
+    })
+  }
+
   /* ---- derived display ----------------------------------------------- */
 
   const needle = caseSensitive ? deferredQuery : deferredQuery.toLowerCase()
@@ -413,6 +432,14 @@ export default function CsvTool() {
         </button>
         <button onClick={() => fileRef.current?.click()} aria-label="Open a CSV file" title="Open a .csv or .tsv file">
           <span className="material-symbols-outlined">folder_open</span>
+        </button>
+        <button
+          onClick={queryWithSql}
+          disabled={!hasData}
+          aria-label="Query with SQL"
+          title="Open this file in the SQLite viewer as a table — every row, edits included"
+        >
+          <span className="material-symbols-outlined" aria-hidden>database</span>
         </button>
         <input
           ref={fileRef}
