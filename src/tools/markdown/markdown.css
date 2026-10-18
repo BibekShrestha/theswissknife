@@ -126,6 +126,20 @@
 .md-gutter:focus-visible::after,
 .md-work.is-dragging .md-gutter::after { background: var(--accent); }
 
+.md-render-issue {
+  align-items: flex-start;
+  background: var(--err-bg);
+  border-bottom: 1px solid var(--err);
+  display: flex;
+  flex: none;
+  font-size: 12.5px;
+  gap: 12px;
+  line-height: 1.5;
+  padding: 8px 12px;
+}
+.md-render-issue p { flex: 1; margin: 0; }
+.md-render-issue strong { color: var(--err); }
+
 .md-frame { background: #fff; border: 0; display: block; flex: 1; min-height: 0; width: 100%; }
 
 /* ---- status bar -------------------------------------------------------------- */
@@ -160,16 +174,20 @@
   .md-tabs button + button { border-left: 1px solid var(--border); }
   .md-tabs button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
 
-  .md-work { grid-template-columns: minmax(0, 1fr); }
+  .md-work { grid-template-columns: minmax(0, 1fr); position: relative; }
   .md-gutter { display: none; }
   /* Hidden off-layout rather than display:none, so the frame keeps its
-     document and can still be printed from the Edit tab. */
+     document and can still be printed from the Edit tab. Pinned to the
+     work area's left edge: left at its static position (after the padding)
+     plus width: 100% would stick out past the page and scroll it sideways. */
   .md-work[data-tab='edit'] .md-preview-pane,
   .md-work[data-tab='preview'] .md-edit-pane {
     height: 0;
+    left: 0;
     min-height: 0;
     overflow: hidden;
     position: absolute;
+    top: 0;
     visibility: hidden;
     width: 100%;
   }

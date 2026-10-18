@@ -1,4 +1,5 @@
 import { escapeHtml } from '../render/highlight'
+import { disarmHtml } from './links'
 
 /**
  * The standalone export: one .html file with every style inlined, so it opens
@@ -7,11 +8,15 @@ import { escapeHtml } from '../render/highlight'
  *
  * The file carries a CSP of its own. The preview frame never runs script, but
  * an exported file is opened in an ordinary tab where it would — so a raw
- * `<script>` someone pasted into the Markdown stays inert there too. Images
- * stay allowed from anywhere: they are the author's content, not ours.
+ * `<script>` (or `javascript:` link) someone pasted into the Markdown stays
+ * inert there too. Images stay allowed from anywhere: they are the author's
+ * content, not ours. The body is also disarmed (links.ts): no meta refresh,
+ * no <base>, no form that submits anywhere, no script URLs — and the CSP's
+ * form-action and base-uri say the same for browsers that read them.
+ * Ordinary links still work; they open in a new tab.
  */
 
-export const EXPORT_CSP = "default-src 'none'; img-src * data: blob:; style-src 'unsafe-inline'; font-src data:"
+export const EXPORT_CSP = "default-src 'none'; img-src * data: blob:; style-src 'unsafe-inline'; font-src data:; form-action 'none'; base-uri 'none'"
 
 export interface ExportInput {
   title: string
@@ -36,7 +41,7 @@ ${css}
 </head>
 <body>
 <main id="doc">
-${body}
+${disarmHtml(body)}
 </main>
 </body>
 </html>

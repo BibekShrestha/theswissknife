@@ -225,8 +225,10 @@ the precache list built by `scripts/sw-manifest.ts`.
   (`resolveWall`: Temporal-style 'compatible' — gap times move forward,
   repeated times take the earlier occurrence). `timeline.ts`: the planner
   covers the reference (first) zone's calendar day in 15-minute slots
-  (every offset in use is a multiple of 15 min), so a 23/25-hour DST day
-  has 92/100 slots and other zones' rows line up on the same instants. `catalog.ts` adds city aliases,
+  (every modern offset is a multiple of 15 min), so a 23/25-hour DST day
+  has 92/100 slots and other zones' rows line up on the same instants; a
+  day the zone skipped (Apia 2011-12-30) is `missing`, and local-mean-time
+  rows are flagged `offGrid`. `catalog.ts` adds city aliases,
   current names for renamed ids (engines may list `Asia/Calcutta`) and
   abbreviations, each with all its meanings (IST, CST, BST… are flagged
   ambiguous). `duration.ts`: ISO 8601 parse/format, add (years/months with
@@ -303,8 +305,16 @@ the precache list built by `scripts/sw-manifest.ts`.
   with **no `allow-scripts`** (pasted `<script>`/`onerror` stay inert, so no
   sanitizer). The frame is the preview, the print source (PDF = the browser's
   print dialog) and, via `buildHtml`, the export — one stylesheet from
-  `doc/docTheme.ts` for all three. KaTeX and mermaid are `import()`-only
-  (guarded by `lazy.test.ts`) and run in the parent, injecting markup. The
+  `doc/docTheme.ts` for all three. marked runs in `render/render.worker.ts`
+  behind `render/runner.ts` (regex-style deadline, `RENDER_TIMEOUT_MS`; a busy
+  render finishes, only the latest waiting one runs next) — it is quadratic
+  on some inputs and overflows its stack on deep nesting, and the saved
+  document must never brick the tool. KaTeX and mermaid are `import()`-only
+  (guarded by `lazy.test.ts`) and run in the parent, injecting markup; their
+  placeholder regexes must stay linear. `doc/links.ts` disarms everything
+  entering the frame or leaving the tool (external links → new tab,
+  script/data URLs dropped, meta/base/form actions removed); `frame.ts`
+  rebuilds the frame if it is ever navigated anyway. The
   frame pins `<base href="about:srcdoc">` or `#anchors` navigate it away.
   Remote images are blocked in preview/PDF by the site CSP; the exported file
   carries its own script-free CSP that allows them.

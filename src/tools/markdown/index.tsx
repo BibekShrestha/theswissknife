@@ -1,15 +1,18 @@
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { buildHtml, fileBase } from './doc/buildHtml'
 import { buildCss, MARGINS, PAPERS, THEMES, type DocSettings } from './doc/docTheme'
-import { absolutizeUrls, FRAME_SANDBOX, frameScroller, frameSkeleton, scrollFraction, writeFrame } from './doc/frame'
+import { absolutizeUrls, FRAME_SANDBOX, frameIsLive, frameScroller, frameSkeleton, scrollFraction, writeFrame } from './doc/frame'
+import { disarmHtml } from './doc/links'
 import type { MarkdownEditorHandle } from './editor/MarkdownEditor'
 import { inlineKatexFonts, loadKatex, loadKatexCss, renderMath } from './render/math'
 import { applyDiagrams, pendingDiagrams, renderDiagrams } from './render/mermaid'
-import { renderMarkdown, stats } from './render/render'
+import type { Counts } from './render/job'
+import type { RenderResult } from './render/render'
+import { createRenderRunner } from './render/runner'
 import { buildToc } from './render/toc'
 import { SAMPLE } from './sample'
 import { loadState, saveState } from './state/persist'
@@ -33,6 +36,11 @@ function download(blob: Blob, name: string) {
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 
+/** Shown until the worker's first render arrives. */
+const EMPTY: RenderResult = { html: '', headings: [], title: '', hasMath: false, hasMermaid: false, missingFootnotes: [] }
+const RENDER_DEBOUNCE_MS = 120
+const spawnRenderer = () => new Worker(new URL('./render/render.worker.ts', import.meta.url), { type: 'module' })
+
 export default function MarkdownTool() {
   const initial = useMemo(() => loadState(SAMPLE), [])
   const [doc, setDoc] = useState(initial.doc)
@@ -48,12 +56,23 @@ export default function MarkdownTool() {
   const [diagramTick, setDiagramTick] = useState(0)
   const [diagramsBusy, setDiagramsBusy] = useState(false)
   const [busy, setBusy] = useState<'' | 'html' | 'print'>('')
+  const [rendered, setRendered] = useState<{ result: RenderResult, counts: Counts } | null>(null)
+  const [renderIssue, setRenderIssue] = useState<{ timedOut: boolean, message: string } | null>(null)
+  const [rendering, setRendering] = useState(false)
+  // A new key rebuilds the frame; frameGen counts loads of our own document.
+  const [frameKey, setFrameKey] = useState(0)
+  const [frameGen, setFrameGen] = useState(0)
 
   const frameRef = useRef<HTMLIFrameElement>(null)
   const editorRef = useRef<MarkdownEditorHandle>(null)
   const workRef = useRef<HTMLElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const scrollLock = useRef<'editor' | 'frame' | null>(null)
+  const runnerRef = useRef<ReturnType<typeof createRenderRunner> | null>(null)
+  const seqRef = useRef(0)
+  const appliedRef = useRef(0)
+  const firstRender = useRef(true)
+  const rebuilds = useRef(0)
   const { toast, showToast } = useToast()
   const copy = useCopy(showToast)
 
@@ -66,9 +85,45 @@ export default function MarkdownTool() {
   }, [doc, settings, split, sync])
 
   // ---- render -------------------------------------------------------------
-  const deferred = useDeferredValue(doc)
-  const result = useMemo(() => renderMarkdown(deferred, { highlight: settings.highlight }), [deferred, settings.highlight])
-  const counts = useMemo(() => stats(deferred), [deferred])
+  // marked runs in a worker with a deadline (render/runner.ts): some inputs
+  // make it quadratic and deep nesting overflows its stack, and neither may
+  // freeze or crash the tab — the saved document would do it again on load.
+  // The preview keeps the last good render while the next one is in flight.
+  useEffect(() => {
+    const runner = createRenderRunner(spawnRenderer)
+    runnerRef.current = runner
+    return () => {
+      runner.dispose()
+      runnerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const delay = firstRender.current ? 0 : RENDER_DEBOUNCE_MS
+    firstRender.current = false
+    const timer = setTimeout(() => {
+      const runner = runnerRef.current
+      if (!runner) return
+      const seq = ++seqRef.current
+      setRendering(true)
+      void runner.run({ source: doc, highlight: settings.highlight }).then((outcome) => {
+        if (seq === seqRef.current) setRendering(false)
+        if (!outcome || seq < appliedRef.current) return
+        appliedRef.current = seq
+        if (outcome.ok) {
+          setRendered({ result: outcome.result, counts: outcome.counts })
+          setRenderIssue(null)
+        } else {
+          setRenderIssue({ timedOut: outcome.timedOut, message: outcome.message })
+        }
+      })
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [doc, settings.highlight])
+
+  const result = rendered?.result ?? EMPTY
+  // Words come with the render (counting runs in the worker too); characters are live.
+  const counts = { ...(rendered?.counts ?? { words: 0, minutes: 0 }), chars: doc.length }
 
   useEffect(() => {
     if (!result.hasMath || katex) return
@@ -107,9 +162,32 @@ export default function MarkdownTool() {
   const extraCss = useMemo(() => result.hasMath ? absolutizeUrls(katexCss, location.origin) : '', [result.hasMath, katexCss])
   const title = result.title
 
+  // ---- frame health ---------------------------------------------------------
+  // Should a click ever navigate the frame (every link is meant to open in a
+  // new tab), the site's CSP turns it into an error page that can no longer
+  // be written to or printed. Rebuild it from the skeleton instead.
+  const rebuildFrame = useCallback(() => {
+    if (rebuilds.current >= 3) return
+    rebuilds.current++
+    setFrameReady(false)
+    setFrameKey((k) => k + 1)
+  }, [])
+
+  const onFrameLoad = () => {
+    const frame = frameRef.current
+    if (!frame) return
+    if (frameIsLive(frame)) {
+      rebuilds.current = 0
+      setFrameReady(true)
+      setFrameGen((n) => n + 1)
+    } else if (frame.contentDocument?.URL !== 'about:blank') {
+      rebuildFrame()
+    }
+  }
+
   useEffect(() => {
-    if (frameReady && frameRef.current) writeFrame(frameRef.current, { title, body, css, extraCss })
-  }, [frameReady, title, body, css, extraCss])
+    if (frameReady && frameRef.current && !writeFrame(frameRef.current, { title, body, css, extraCss })) rebuildFrame()
+  }, [frameReady, frameGen, title, body, css, extraCss, rebuildFrame])
 
   // ---- scroll sync ----------------------------------------------------------
   const syncFrom = useCallback((source: 'editor' | 'frame') => {
@@ -128,8 +206,11 @@ export default function MarkdownTool() {
     if (!frameReady || !win) return
     const onScroll = () => syncFrom('frame')
     win.addEventListener('scroll', onScroll, { passive: true })
-    return () => win.removeEventListener('scroll', onScroll)
-  }, [frameReady, syncFrom])
+    return () => {
+      // A frame that navigated away is cross-origin now: touching it throws.
+      try { win.removeEventListener('scroll', onScroll) } catch { /* that document is gone anyway */ }
+    }
+  }, [frameReady, frameGen, syncFrom])
 
   // ---- splitter ---------------------------------------------------------------
   useEffect(() => {
@@ -186,6 +267,11 @@ export default function MarkdownTool() {
   const print = async () => {
     const frame = frameRef.current
     if (!frame?.contentWindow) return
+    if (!frameIsLive(frame)) {
+      rebuildFrame()
+      showToast('The preview was reset — try Print again in a moment')
+      return
+    }
     setBusy('print')
     try {
       if (tab !== 'preview') setTab('preview')
@@ -202,7 +288,7 @@ export default function MarkdownTool() {
   }
 
   const saveMd = () => download(new Blob([doc], { type: 'text/markdown;charset=utf-8' }), `${fileBase(title)}.md`)
-  const copyHtml = async () => copy(await finalBody(), 'HTML')
+  const copyHtml = async () => copy(disarmHtml(await finalBody()), 'HTML')
 
   const remoteImages = /<img src="https?:/i.test(result.html)
   const paper = PAPERS.find((p) => p.id === settings.paper)!
@@ -211,8 +297,8 @@ export default function MarkdownTool() {
     <div className="md-app">
       <ToolHeader brand={<><span className="material-symbols-outlined" aria-hidden>markdown</span> Markdown preview &amp; export</>} localLabel="local, no-upload">
         <button className={setupOpen ? 'on' : ''} aria-expanded={setupOpen} onClick={() => setSetupOpen((v) => !v)} title="Theme, paper, margins, contents"><span className="material-symbols-outlined" aria-hidden>tune</span><span className="md-btn-label">Page setup</span></button>
-        <button onClick={() => void exportHtml()} disabled={busy !== ''} title="Download one self-contained .html file"><span className="material-symbols-outlined" aria-hidden>{busy === 'html' ? 'hourglass_top' : 'download'}</span><span className="md-btn-label">Export HTML</span></button>
-        <button className="md-primary" onClick={() => void print()} disabled={busy !== ''} title="Print, or Save as PDF from the dialog"><span className="material-symbols-outlined" aria-hidden>picture_as_pdf</span><span className="md-btn-label">Print / PDF</span></button>
+        <button onClick={() => void exportHtml()} disabled={busy !== '' || !rendered} title="Download one self-contained .html file"><span className="material-symbols-outlined" aria-hidden>{busy === 'html' ? 'hourglass_top' : 'download'}</span><span className="md-btn-label">Export HTML</span></button>
+        <button className="md-primary" onClick={() => void print()} disabled={busy !== '' || !rendered} title="Print, or Save as PDF from the dialog"><span className="material-symbols-outlined" aria-hidden>picture_as_pdf</span><span className="md-btn-label">Print / PDF</span></button>
       </ToolHeader>
       <input ref={fileRef} type="file" accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain" hidden onChange={(e) => { void openFile(e.target.files?.[0]); e.target.value = '' }} />
 
@@ -312,19 +398,31 @@ export default function MarkdownTool() {
           <header className="md-pane-head">
             <span className="md-step">02</span><strong>Preview</strong>
             <span className="md-hint">{THEMES.find((t) => t.id === settings.theme)!.name} · {paper.name}{settings.landscape ? ' landscape' : ''}</span>
+            {rendering && <span className="md-working">rendering…</span>}
             {diagramsBusy && <span className="md-working">rendering diagrams…</span>}
             <label className="md-sync" title="Scroll the preview with the editor">
               <input type="checkbox" checked={sync} onChange={(e) => setSync(e.target.checked)} /> Sync scroll
             </label>
             <button className="md-pane-btn" onClick={() => void copyHtml()} title="Copy the rendered HTML" aria-label="Copy the rendered HTML"><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>
           </header>
+          {renderIssue && (
+            <div className="md-render-issue" role="alert">
+              <p>
+                <strong>{renderIssue.timedOut ? 'Preview paused.' : 'This document could not be rendered.'}</strong>{' '}
+                {renderIssue.timedOut ? renderIssue.message : `The Markdown parser failed (${renderIssue.message}). Very deep nesting — thousands of > or list levels — is the usual cause.`}
+                {rendered ? ' The preview, print and export show the last version that rendered.' : ''}
+              </p>
+              <button className="md-link" onClick={() => { setDoc(''); editorRef.current?.focus() }}>Clear document</button>
+            </div>
+          )}
           <iframe
+            key={frameKey}
             ref={frameRef}
             className="md-frame"
             title="Document preview"
             sandbox={FRAME_SANDBOX}
             srcDoc={frameSkeleton()}
-            onLoad={() => setFrameReady(true)}
+            onLoad={onFrameLoad}
           />
         </section>
       </main>
