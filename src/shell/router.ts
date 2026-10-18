@@ -8,7 +8,15 @@ import { createElement, useSyncExternalStore, type AnchorHTMLAttributes, type Mo
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '')
 
 const listeners = new Set<() => void>()
-export const emit = () => listeners.forEach((fn) => fn())
+/**
+ * Also announced on window as 'shell:route' (detail: the new path) for code
+ * that lives in tool chunks and must not pull the router's state into them —
+ * handoff.ts drops a payload the user walked away from.
+ */
+export const emit = () => {
+  listeners.forEach((fn) => fn())
+  window.dispatchEvent(new CustomEvent('shell:route', { detail: currentPath() }))
+}
 
 function subscribe(fn: () => void) {
   listeners.add(fn)

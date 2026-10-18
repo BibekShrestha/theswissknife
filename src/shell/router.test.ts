@@ -9,6 +9,20 @@ const at = (path: string) => {
   return currentPath()
 }
 
+describe('route changes', () => {
+  it('drop a handed-off payload once the user leaves its target', async () => {
+    const { sendTo, takeHandoff } = await import('./handoff')
+    const { navigate } = await import('./router')
+    sendTo('sqlite', { name: 'x.csv', text: 'secret' })
+    navigate('/jq')
+    navigate('/sqlite')
+    expect(takeHandoff('sqlite')).toBeNull()
+
+    sendTo('sqlite', { name: 'x.csv', text: 'secret' })
+    expect(takeHandoff('sqlite')).toEqual({ name: 'x.csv', text: 'secret' })
+  })
+})
+
 describe('currentPath', () => {
   it('reads tool slugs with or without a trailing slash', () => {
     expect(at('/')).toBe('')

@@ -14,7 +14,6 @@ import { Landing } from './Landing'
 import { tools, type ToolMeta } from './registry'
 import { describeError, ErrorBoundary, isCssLoadError } from './ErrorBoundary'
 import { useModalFocus } from './focus'
-import { releaseHandoff } from './handoff'
 import { emit, Link, usePath } from './router'
 import { isPaletteKey, onOpenPalette, openPalette, suggestForPath } from './palette'
 import { openSidebar, setSidebarOpen, useSidebarOpen } from './sidebar'
@@ -183,11 +182,7 @@ export default function App() {
 
   // The ⌘K buttons in the headers reach the palette through this.
   useEffect(() => onOpenPalette(() => setPaletteOpen(true)), [])
-  useEffect(() => {
-    setSidebarOpen(false)
-    // Data handed to a tool is dropped once the user goes anywhere else.
-    releaseHandoff(path)
-  }, [path])
+  useEffect(() => setSidebarOpen(false), [path])
 
   let content: ReactNode
   if (!path) {

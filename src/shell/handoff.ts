@@ -5,8 +5,8 @@ import { navigate } from './router'
  * opens the file in the SQLite viewer). One payload, held in memory only —
  * never in the URL or storage, since it is the user's data — and consumed by
  * the first `takeHandoff` for its slug. It is also dropped when the user goes
- * anywhere other than the target (App calls `releaseHandoff` on every route
- * change) and after HANDOFF_TTL_MS, so a target that failed to load cannot
+ * anywhere other than the target (every route change reaches
+ * `releaseHandoff`, see the listener below) and after HANDOFF_TTL_MS, so a target that failed to load cannot
  * pick it up on some later visit. A reload leaves nothing behind either.
  */
 export interface Handoff {
@@ -46,4 +46,11 @@ export function takeHandoff(slug: string): Handoff | null {
 /** Drops a pending payload unless `path` (the route now showing) is its target. */
 export function releaseHandoff(path: string): void {
   if (slot && slot.to !== path) clear()
+}
+
+// The router announces every route change on window (router.ts emit). Read
+// from the event rather than imported, so this module adds nothing to the
+// entry chunk and still works where a test mocks the router down to navigate.
+if (typeof window !== 'undefined') {
+  window.addEventListener('shell:route', (event) => releaseHandoff(String((event as CustomEvent).detail)))
 }
