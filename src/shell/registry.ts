@@ -127,6 +127,13 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/qr'),
   },
   {
+    slug: 'exif',
+    name: 'Photo metadata viewer & stripper',
+    mark: 'EXIF',
+    category: 'image',
+    load: () => import('../tools/exif'),
+  },
+  {
     slug: 'csv',
     name: 'CSV viewer',
     mark: 'CSV',
