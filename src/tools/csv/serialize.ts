@@ -4,7 +4,7 @@
  * a file before you hand it on.
  */
 
-import { columnName, parseNumber, type ColumnType } from './view'
+import { columnName, parseFlag, parseNumber, type ColumnType } from './view'
 
 export type Format = 'csv' | 'tsv' | 'json' | 'json-rows' | 'markdown'
 
@@ -46,40 +46,77 @@ export function toDelimited(rows: string[][], width: number, delimiter: string, 
   for (const row of rows) {
     const fields: string[] = []
     for (let c = 0; c < width; c++) fields.push(quoteField(row[c] ?? '', delimiter, quote))
-    lines.push(fields.join(delimiter))
+    // A lone empty field would be a blank line, which readers skip.
+    lines.push(width === 1 && fields[0] === '' && quote ? quote + quote : fields.join(delimiter))
   }
   return lines.join('\n')
 }
 
-/** Duplicate headers would silently overwrite each other in a JSON object. */
+/**
+ * Duplicate headers would silently overwrite each other in a JSON object.
+ * Every header that is the first of its name keeps it; later duplicates get
+ * the first free `_n` suffix — free of every real header too, so `a,a,a_2`
+ * cannot turn into two `a_2` keys.
+ */
 export function uniqueKeys(headers: string[], width: number): string[] {
-  const seen = new Map<string, number>()
-  const keys: string[] = []
-  for (let c = 0; c < width; c++) {
-    const base = (headers[c] ?? '').trim() || columnName(c)
-    const count = seen.get(base) ?? 0
-    seen.set(base, count + 1)
-    keys.push(count === 0 ? base : `${base}_${count + 1}`)
-  }
-  return keys
+  const bases = Array.from({ length: width }, (_, c) => (headers[c] ?? '').trim() || columnName(c))
+  const taken = new Set<string>()
+  const first: boolean[] = bases.map((base) => (taken.has(base) ? false : (taken.add(base), true)))
+  return bases.map((base, c) => {
+    if (first[c]) return base
+    let n = 2
+    while (taken.has(`${base}_${n}`)) n++
+    const key = `${base}_${n}`
+    taken.add(key)
+    return key
+  })
+}
+
+/** Beyond ~15 significant digits a double silently rounds the value. */
+const MAX_SIGNIFICANT_DIGITS = 15
+
+/**
+ * A number-typed value as a JSON number — only when the number survives the
+ * trip. Leading zeros ("02134" is a zip code), more digits than a double
+ * holds, values that overflow to Infinity and -0 stay strings. Digit
+ * grouping and trailing zeros do convert: that loses formatting, not value.
+ */
+function toNumber(value: string): number | null {
+  const parsed = parseNumber(value)
+  if (parsed === null || !Number.isFinite(parsed) || Object.is(parsed, -0)) return null
+  const mantissa = value.trim().replace(/^[+-]/, '').replace(/,/g, '').replace(/[eE].*$/, '')
+  if (/^0\d/.test(mantissa)) return null
+  const digits = mantissa.replace('.', '').replace(/^0+/, '')
+  if (digits.length > MAX_SIGNIFICANT_DIGITS) return null
+  return parsed
 }
 
 export function toScalar(value: string, type: ColumnType): string | number | boolean | null {
   if (value === '') return null
   if (type === 'number') {
-    const parsed = parseNumber(value)
+    const parsed = toNumber(value)
     if (parsed !== null) return parsed
   }
   if (type === 'boolean') {
-    const lower = value.trim().toLowerCase()
-    if (lower === 'true' || lower === 'yes' || lower === 't' || lower === 'y') return true
-    if (lower === 'false' || lower === 'no' || lower === 'f' || lower === 'n') return false
+    // Every spelling the column typer accepts — 1/0 included — so one
+    // column never exports a mix of booleans and strings.
+    const flag = parseFlag(value)
+    if (flag !== null) return flag
   }
   return value
 }
 
+/** Markdown renders inline HTML, so markup in a cell is escaped, not passed on. */
+export const markdownCell = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\|/g, '\\|')
+    .replace(/\r\n|\r|\n/g, '<br>')
+
 export function toMarkdown(rows: string[][], width: number, headers: string[] | null): string {
-  const escape = (value: string) => value.replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>')
+  const escape = markdownCell
   const head = headers ?? Array.from({ length: width }, (_, c) => columnName(c))
   const lines = [
     `| ${Array.from({ length: width }, (_, c) => escape(head[c] ?? '')).join(' | ')} |`,
@@ -118,7 +155,8 @@ export function serialize(rows: string[][], options: SerializeOptions): string {
   const keys = uniqueKeys(headers ?? [], width)
   return JSON.stringify(
     rows.map((row) => {
-      const object: Record<string, unknown> = {}
+      // No prototype: a "__proto__" header must become a key, not a prototype.
+      const object: Record<string, unknown> = Object.create(null)
       for (let c = 0; c < width; c++) object[keys[c]] = cell(row[c] ?? '', c)
       return object
     }),

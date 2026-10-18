@@ -115,6 +115,27 @@ export default function CsvTool() {
   const copy = useCopy(showToast)
   const fileRef = useRef<HTMLInputElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const editsRef = useRef(edits)
+  editsRef.current = edits
+
+  /**
+   * Edits live in the parsed rows, not in the text, so anything that re-reads
+   * the text — a parse option, typing in the source, new data — drops them.
+   * That is asked first, never done quietly; on yes the count resets with
+   * them. Returns whether to go ahead.
+   */
+  const confirmDiscard = useCallback((what: string) => {
+    const count = editsRef.current
+    if (count === 0) return true
+    const ok = window.confirm(
+      `${what} re-reads the text and discards your ${count} cell edit${count === 1 ? '' : 's'} — the text does not contain them. Copy or download the table first to keep them.`,
+    )
+    if (ok) {
+      editsRef.current = 0
+      setEdits(0)
+    }
+    return ok
+  }, [])
 
   // Re-parsing a large paste on every keystroke would stutter; deferring keeps
   // typing smooth and lets React drop superseded work.
@@ -226,13 +247,18 @@ export default function CsvTool() {
         showToast(`${file.name} is ${formatBytes(file.size)} — larger than a browser tab can hold`)
         return
       }
+      if (!confirmDiscard(`Opening ${file.name}`)) return
       const buffer = await file.arrayBuffer()
       const { text: decoded, encoding, fromBom } = decodeBytes(new Uint8Array(buffer))
       load(decoded, { name: file.name, bytes: file.size, encoding, fromBom })
       showToast(`${file.name} · ${formatBytes(file.size)} · ${ENCODING_LABELS[encoding]}`)
     },
-    [load, showToast],
+    [confirmDiscard, load, showToast],
   )
+
+  const loadSample = () => {
+    if (confirmDiscard('Loading the sample')) load(SAMPLE, null)
+  }
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -248,15 +274,20 @@ export default function CsvTool() {
       // field. The target is not always an Element (document, window).
       const target = event.target
       if (target instanceof Element && target.closest(TYPING)) return
+      // Nor does a paste aimed at the grid replace the file under it: cells
+      // are edited by double-clicking, and Cmd+V there is far more likely a
+      // slip than a request to throw the table away.
+      if (target instanceof Element && target.closest('.csv-grid')) return
       const pasted = event.clipboardData?.getData('text/plain')
       if (!pasted?.trim()) return
       event.preventDefault()
+      if (!confirmDiscard('Pasting')) return
       load(pasted, null)
       showToast(`Pasted ${formatBytes(new Blob([pasted]).size)} from the clipboard`)
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-  }, [load, showToast])
+  }, [confirmDiscard, load, showToast])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -327,6 +358,8 @@ export default function CsvTool() {
   )
 
   const onEdit = (row: number, column: number, value: string) => {
+    // Leaving a cell as it was is not an edit, and is not counted as one.
+    if ((rows[row]?.[column] ?? '') === value) return
     setParsed((prev) => {
       if ((prev.rows[row]?.[column] ?? '') === value) return prev
       const next = prev.rows.slice()
@@ -425,22 +458,31 @@ export default function CsvTool() {
           aria-label="Show the pasted text"
           title="Paste or edit the raw CSV"
         >
-          <span className="material-symbols-outlined">content_paste</span>
+          <span className="material-symbols-outlined" aria-hidden>content_paste</span>
         </button>
-        <button onClick={() => load(SAMPLE, null)} aria-label="Load sample CSV" title="Load a sample CSV">
-          <span className="material-symbols-outlined">table_view</span>
+        <button onClick={loadSample} aria-label="Load sample CSV" title="Load a sample CSV">
+          <span className="material-symbols-outlined" aria-hidden>table_view</span>
         </button>
         <button onClick={() => fileRef.current?.click()} aria-label="Open a CSV file" title="Open a .csv or .tsv file">
-          <span className="material-symbols-outlined">folder_open</span>
+          <span className="material-symbols-outlined" aria-hidden>folder_open</span>
         </button>
         <button
           onClick={queryWithSql}
           disabled={!hasData}
           aria-label="Query with SQL"
-          title="Open this file in the SQLite viewer as a table — every row, edits included"
+          aria-describedby={hasData ? undefined : 'csv-sql-hint'}
+          title={
+            hasData
+              ? 'Open this file in the SQLite viewer as a table — every row, edits included'
+              : 'Paste, drop or open a CSV first — then it opens in the SQLite viewer'
+          }
         >
           <span className="material-symbols-outlined" aria-hidden>database</span>
         </button>
+        {/* A disabled button shows no tooltip; this says why it is disabled. */}
+        <span id="csv-sql-hint" className="csv-sr-only">
+          Paste, drop or open a CSV first
+        </span>
         <input
           ref={fileRef}
           type="file"
@@ -467,10 +509,17 @@ export default function CsvTool() {
               {parsing && <span className="csv-parsing">parsing…</span>}
               {hasData && (
                 <button onClick={() => setSourceOpen(false)} aria-label="Close the paste pane">
-                  <span className="material-symbols-outlined">close</span>
+                  <span className="material-symbols-outlined" aria-hidden>close</span>
                 </button>
               )}
             </header>
+            {edits > 0 && (
+              <p className="csv-source-edits" role="note">
+                This is the text as it came in — your {edits} cell edit{edits === 1 ? ' is' : 's are'} in
+                the grid and in copies and downloads, not here. Changing this text re-reads it and
+                discards {edits === 1 ? 'it' : 'them'}.
+              </p>
+            )}
             {text.length > EDITABLE_CHARS ? (
               <p className="csv-source-large">
                 {origin?.name ?? 'The text'} is {formatBytes(origin?.bytes ?? text.length)} — too large
@@ -481,19 +530,22 @@ export default function CsvTool() {
                 className="csv-textarea mono"
                 value={text}
                 onChange={(event) => {
+                  if (!confirmDiscard('Editing the text')) return
                   setText(event.target.value)
                   setOrigin(null)
                 }}
                 spellCheck={false}
                 aria-label="CSV text"
-                placeholder={'name,role,started\nAda,engineer,2024-01-09\nGrace,compiler,2023-06-21'}
+                placeholder={
+                  'Paste CSV or TSV text here — the first line usually names the columns, then one record per line.\n\nNothing here yet: Load sample fills in an example.'
+                }
               />
             )}
             <footer>
-              <button onClick={() => load(SAMPLE, null)}>Load sample</button>
+              <button onClick={loadSample}>Load sample</button>
               <button onClick={() => fileRef.current?.click()}>Open a file…</button>
               <div className="spacer" />
-              <button onClick={() => load('', null)} disabled={!text}>
+              <button onClick={() => confirmDiscard('Clearing') && load('', null)} disabled={!text}>
                 Clear
               </button>
             </footer>
@@ -561,7 +613,7 @@ export default function CsvTool() {
                     aria-label="Stop grouping"
                     title="Stop grouping"
                   >
-                    <span className="material-symbols-outlined">close</span>
+                    <span className="material-symbols-outlined" aria-hidden>close</span>
                   </button>
                 )}
               </div>
@@ -571,7 +623,7 @@ export default function CsvTool() {
                   aria-label={allCollapsed ? 'Expand every group' : 'Collapse every group'}
                   title={allCollapsed ? 'Expand every group' : 'Collapse every group'}
                 >
-                  <span className="material-symbols-outlined">{allCollapsed ? 'unfold_more' : 'unfold_less'}</span>
+                  <span className="material-symbols-outlined" aria-hidden>{allCollapsed ? 'unfold_more' : 'unfold_less'}</span>
                 </button>
               )}
 
@@ -608,7 +660,7 @@ export default function CsvTool() {
               </select>
               <select
                 value={delimiterChoice}
-                onChange={(event) => setDelimiterChoice(event.target.value)}
+                onChange={(event) => confirmDiscard('Changing the separator') && setDelimiterChoice(event.target.value)}
                 aria-label="Delimiter"
                 title="The character that separates fields"
               >
@@ -623,9 +675,10 @@ export default function CsvTool() {
                 className={optionsOpen ? 'on' : ''}
                 aria-pressed={optionsOpen}
                 onClick={() => setOptionsOpen((open) => !open)}
+                aria-label="Parsing options"
                 title="Parsing options"
               >
-                <span className="material-symbols-outlined">tune</span>
+                <span className="material-symbols-outlined" aria-hidden>tune</span>
               </button>
 
               <select
@@ -644,10 +697,10 @@ export default function CsvTool() {
                 aria-label="Copy the rows on screen"
                 title="Copy what is on screen — sort order, search and edits included"
               >
-                <span className="material-symbols-outlined">content_copy</span>
+                <span className="material-symbols-outlined" aria-hidden>content_copy</span>
               </button>
               <button onClick={download} aria-label="Download the rows on screen" title="Download">
-                <span className="material-symbols-outlined">download</span>
+                <span className="material-symbols-outlined" aria-hidden>download</span>
               </button>
             </div>
 
@@ -662,7 +715,7 @@ export default function CsvTool() {
                       aria-label={`Remove the filter on ${columnLabel(filter.column)}`}
                       title="Remove this filter"
                     >
-                      <span className="material-symbols-outlined">close</span>
+                      <span className="material-symbols-outlined" aria-hidden>close</span>
                     </button>
                   </span>
                 ))}
@@ -678,7 +731,7 @@ export default function CsvTool() {
               <div className="csv-options">
                 <label>
                   <span>Quote</span>
-                  <select value={quote} onChange={(event) => setQuote(event.target.value)}>
+                  <select value={quote} onChange={(event) => confirmDiscard('Changing the quote') && setQuote(event.target.value)}>
                     <option value={'"'}>double "</option>
                     <option value={"'"}>single '</option>
                     <option value="">none</option>
@@ -686,18 +739,26 @@ export default function CsvTool() {
                 </label>
                 <label>
                   <span>Comments</span>
-                  <select value={comment} onChange={(event) => setComment(event.target.value)}>
+                  <select value={comment} onChange={(event) => confirmDiscard('Changing comment handling') && setComment(event.target.value)}>
                     <option value="">keep every line</option>
                     <option value="#">skip # lines</option>
                     <option value="//">skip // lines</option>
                   </select>
                 </label>
                 <label className="csv-check">
-                  <input type="checkbox" checked={skipEmptyLines} onChange={(event) => setSkipEmptyLines(event.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={skipEmptyLines}
+                    onChange={(event) => confirmDiscard('Changing blank-line handling') && setSkipEmptyLines(event.target.checked)}
+                  />
                   <span>Skip blank lines</span>
                 </label>
                 <label className="csv-check">
-                  <input type="checkbox" checked={trim} onChange={(event) => setTrim(event.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={trim}
+                    onChange={(event) => confirmDiscard('Changing trimming') && setTrim(event.target.checked)}
+                  />
                   <span>Trim fields</span>
                 </label>
                 <label className="csv-check">

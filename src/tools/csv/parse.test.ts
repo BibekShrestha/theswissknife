@@ -54,7 +54,8 @@ describe('parseCsv', () => {
   })
 
   it('trims fields on request, without touching quoted content', () => {
-    expect(parse('a , b \n" c ", d', { trim: true }).rows).toEqual([['a', 'b'], ['c', 'd']])
+    // The spaces inside the quotes were quoted on purpose; only those outside go.
+    expect(parse('a , b \n" c ", d', { trim: true }).rows).toEqual([['a', 'b'], [' c ', 'd']])
   })
 
   /**
@@ -125,5 +126,29 @@ describe('detectDelimiter', () => {
     const both = 'a,b;c\nd,e;f\ng,h;i'
     const detection = detectDelimiter(both)
     expect([detection.delimiter, ...detection.alternatives].sort()).toEqual([',', ';'])
+  })
+})
+
+describe('trim fields (CSV-7)', () => {
+  const trimmed = (text: string) => parse(text, { trim: true }).rows
+
+  it('recognises a quoted field after leading spaces', () => {
+    expect(trimmed('a, "b,c"')).toEqual([['a', 'b,c']])
+    expect(trimmed('a,\t"b,c" ,d')).toEqual([['a', 'b,c', 'd']])
+  })
+
+  it('never trims inside the quotes', () => {
+    expect(trimmed('" padded ",x')).toEqual([[' padded ', 'x']])
+    expect(trimmed('  "  both  "  ')).toEqual([['  both  ']])
+  })
+
+  it('leaves leading spaces alone when trim is off', () => {
+    expect(parse('a, "b"').rows).toEqual([['a', ' "b"']])
+  })
+})
+
+describe('quoted empty rows (CSV-9)', () => {
+  it('keeps an explicitly quoted empty field in a single-column file', () => {
+    expect(parse('name\n""\nAda\n\nGrace').rows).toEqual([['name'], [''], ['Ada'], ['Grace']])
   })
 })

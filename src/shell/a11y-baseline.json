@@ -3,8 +3,6 @@
   "unhiddenIcons": {
     "src/tools/codec/index.tsx": 4,
     "src/tools/convert/index.tsx": 5,
-    "src/tools/csv/ColumnFilter.tsx": 1,
-    "src/tools/csv/index.tsx": 10,
     "src/tools/diff/index.tsx": 7,
     "src/tools/hash/index.tsx": 4,
     "src/tools/html-table/index.tsx": 6,
