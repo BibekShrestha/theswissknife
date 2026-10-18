@@ -51,10 +51,44 @@ const CORPUS = [
   '\\q{a}', '[\\q{a}', '[\\q{a]', '[a&&b',
 ]
 
+/**
+ * The parser targets ES2025. Engines older than that (Node 22's V8 12.4 in CI;
+ * Safari before 26) reject two of its additions — duplicate named groups in
+ * different alternatives, and inline modifiers like `(?i:…)` — so on such an
+ * engine a pattern using one of them is expected to differ: the parser accepts
+ * it, the engine doesn't (and the UI shows the engine's verdict first). Engines
+ * that have both features still check every pattern.
+ */
+const canCompile = (pattern: string) => {
+  try {
+    new RegExp(pattern)
+    return true
+  } catch {
+    return false
+  }
+}
+const ENGINE = { duplicateNames: canCompile('(?<a>x)|(?<a>y)'), modifiers: canCompile('(?i:a)') }
+
+function needsNewerEngine(pattern: string): boolean {
+  if (!ENGINE.modifiers && /\(\?[imsx]*-?[imsx]*:/.test(pattern.replace(/\\./g, ''))) return true
+  if (!ENGINE.duplicateNames) {
+    const names = [...pattern.matchAll(/\(\?<([A-Za-z_$][\w$]*)>/g)].map((m) => m[1])
+    if (new Set(names).size < names.length) return true
+  }
+  return false
+}
+
+/** Parser and engine disagree, beyond what an older engine explains. */
+function disagrees(pattern: string, flags: string): boolean {
+  const parsed = parseRegex(pattern, flags).ok
+  const engine = engineAccepts(pattern, flags)
+  return parsed !== engine && !(parsed && !engine && needsNewerEngine(pattern))
+}
+
 describe('parser validity agrees with the engine', () => {
   for (const flags of MODES) {
     it(`on the corpus (flags "${flags}")`, () => {
-      const disagreements = CORPUS.filter((pattern) => parseRegex(pattern, flags).ok !== engineAccepts(pattern, flags))
+      const disagreements = CORPUS.filter((pattern) => disagrees(pattern, flags))
       expect(disagreements.map((pattern) => `${JSON.stringify(pattern)}: engine ${engineAccepts(pattern, flags) ? 'accepts' : 'rejects'}`)).toEqual([])
     })
   }
@@ -84,7 +118,7 @@ describe('parser validity agrees with the engine', () => {
     it(`on 6,000 fuzzed patterns (flags "${flags}")`, () => {
       const disagreements: string[] = []
       for (const pattern of fuzz(6000, 7 + flags.length)) {
-        if (parseRegex(pattern, flags).ok !== engineAccepts(pattern, flags)) {
+        if (disagrees(pattern, flags)) {
           disagreements.push(`${JSON.stringify(pattern)}: engine ${engineAccepts(pattern, flags) ? 'accepts' : 'rejects'}`)
         }
       }

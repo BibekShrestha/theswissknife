@@ -23,9 +23,14 @@ describe('JavaScript regex engine', () => {
     expect(result.matches[0].captures[0]).toMatchObject({ index: 1, name: 'word', text: 'FOO', start: 0, end: 3 })
   })
 
-  it('names groups by number even when two share a span or a name', () => {
+  it('names groups by number even when two share a span', () => {
     const same = evaluateJavascript(request({ pattern: '(?<outer>(?<inner>a))', flags: '', subject: 'a' }))
     expect(same.matches[0].captures.map((c) => c.name)).toEqual(['outer', 'inner'])
+  })
+
+  // Duplicate named groups are ES2025; engines before it (Node 22 in CI) reject the pattern.
+  const duplicateNames = (() => { try { new RegExp('(?<n>a)|(?<n>b)'); return true } catch { return false } })()
+  it.skipIf(!duplicateNames)('names groups by number when two alternatives share a name', () => {
     const dup = evaluateJavascript(request({ pattern: '(?<n>a)|(?<n>b)', flags: 'g', subject: 'ab' }))
     expect(dup.matches[1].captures).toMatchObject([{ index: 1, name: 'n', text: null }, { index: 2, name: 'n', text: 'b' }])
   })
