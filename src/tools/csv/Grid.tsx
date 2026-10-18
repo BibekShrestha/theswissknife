@@ -234,13 +234,13 @@ export function Grid(props: GridProps) {
   const totalWidth = GUTTER_WIDTH + (offsets[offsets.length - 1] ?? 0)
   // Past the browser's height limit the body is capped and the scrollbar
   // scaled: `virtualTop` is where the reader is in the full list, and rows are
-  // drawn `shift` px higher than their real offset so they land in view.
+  // drawn rowLift px higher than their real offset so they land in view.
   const bodyTotal = order.length * ROW_HEIGHT
   const bodyHeight = bodyHeightFor(order.length, ROW_HEIGHT)
   const scaled = bodyTotal > bodyHeight
   const bodyViewport = Math.max(ROW_HEIGHT, viewport.height - HEADER_HEIGHT)
   const virtualTop = toVirtualTop(scroll.top, bodyTotal, bodyHeight, bodyViewport)
-  const shift = virtualTop - scroll.top
+  const rowLift = virtualTop - scroll.top
   const idBase = useId()
   const cellId = (index: number, column: number) => `${idBase}-r${index}-c${column}`
 
@@ -491,7 +491,7 @@ export function Grid(props: GridProps) {
                   key={rowIndex}
                   group={group}
                   index={index}
-                  top={index * ROW_HEIGHT - shift}
+                  top={index * ROW_HEIGHT - rowLift}
                   id={cellId(index, -1)}
                   width={totalWidth}
                   viewWidth={viewport.width}
@@ -515,7 +515,7 @@ export function Grid(props: GridProps) {
                 className={`csv-row${selectedRow ? ' on' : ''}`}
                 role="row"
                 aria-rowindex={index + (headers ? 2 : 1)}
-                style={{ top: index * ROW_HEIGHT - shift, width: totalWidth }}
+                style={{ top: index * ROW_HEIGHT - rowLift, width: totalWidth }}
               >
                 <div className="csv-gutter csv-cell" style={{ width: GUTTER_WIDTH }} role="rowheader">
                   {groups ? rowIndex - bodyStart + 1 : index + 1}
