@@ -1,4 +1,4 @@
-import { b64urlDecodeBytes, b64urlEncodeBytes, b64urlEncodeString } from './jwt'
+import { b64DecodeLenient, b64urlDecodeBytes, b64urlEncodeBytes, b64urlEncodeString } from './jwt'
 
 /**
  * WebCrypto signing/verification for the JWS algorithms browsers can do.
@@ -19,6 +19,33 @@ export const ALGS = [
 export type Alg = (typeof ALGS)[number]
 
 export const isHmac = (alg: Alg) => alg.startsWith('HS')
+
+/**
+ * The alg a token's header declares, if this page can check it. JWS alg
+ * names are case-sensitive, and "none" means there is nothing to verify.
+ */
+export function declaredAlg(header: Record<string, unknown>): { ok: true; alg: Alg } | { ok: false; reason: string } {
+  const alg = header.alg
+  if ((ALGS as readonly unknown[]).includes(alg)) return { ok: true, alg: alg as Alg }
+  if (alg === undefined) return { ok: false, reason: 'header has no "alg" — not verified' }
+  if (typeof alg !== 'string') return { ok: false, reason: '"alg" is not a string — not verified' }
+  if (alg.toLowerCase() === 'none') return { ok: false, reason: `alg "${alg}" — unsecured token, nothing to verify` }
+  const near = ALGS.find((a) => a.toLowerCase() === alg.toLowerCase())
+  if (near) return { ok: false, reason: `alg "${alg}" is not ${near} (alg is case-sensitive) — not verified` }
+  return { ok: false, reason: `alg "${alg}" is not supported here — not verified` }
+}
+
+/** Why a header cannot be signed with `alg`, or null when they agree. */
+export function headerAlgProblem(header: Record<string, unknown>, alg: Alg): string | null {
+  if (header.alg === alg) return null
+  if (header.alg === undefined) return `Header has no "alg" — add "alg": "${alg}".`
+  return `Header "alg" is ${JSON.stringify(header.alg)} but the selected algorithm is ${alg} — they must match.`
+}
+
+/** An HMAC secret is used byte for byte (spaces included); PEM/JWK text is trimmed. */
+export function hasKeyMaterial(alg: Alg, text: string): boolean {
+  return isHmac(alg) ? text.length > 0 : text.trim().length > 0
+}
 
 const HASH: Record<string, string> = { '256': 'SHA-256', '384': 'SHA-384', '512': 'SHA-512' }
 const CURVE: Record<string, string> = { '256': 'P-256', '384': 'P-384', '512': 'P-521' }
@@ -69,7 +96,7 @@ function pemToBytes(pem: string): Uint8Array {
 }
 
 async function importHmacKey(secret: string, secretIsB64: boolean, alg: Alg, usage: KeyUsage) {
-  const raw = secretIsB64 ? b64urlDecodeBytes(secret) : new TextEncoder().encode(secret)
+  const raw = secretIsB64 ? b64DecodeLenient(secret) : new TextEncoder().encode(secret)
   if (raw.length === 0) throw new Error('Secret is empty.')
   return crypto.subtle.importKey('raw', raw as BufferSource, spec(alg).importParams, false, [usage])
 }
@@ -139,7 +166,25 @@ export async function generateKeyMaterial(alg: Alg): Promise<GeneratedKey> {
   }
 }
 
-export type VerifyResult = { state: 'valid' } | { state: 'invalid' } | { state: 'error'; message: string }
+/**
+ * The SPKI public key for a pasted private key (PKCS#8 PEM or private JWK),
+ * imported for `alg` — so it throws when the key does not fit the alg.
+ */
+export async function derivePublicPem(alg: Alg, privateText: string): Promise<string> {
+  assertSecureContext()
+  if (isHmac(alg)) throw new Error('HMAC has no public key.')
+  const trimmed = privateText.trim()
+  const params = spec(alg).importParams
+  const priv = trimmed.startsWith('{')
+    ? await crypto.subtle.importKey('jwk', JSON.parse(trimmed) as JsonWebKey, params, true, ['sign'])
+    : await crypto.subtle.importKey('pkcs8', pemToBytes(trimmed) as BufferSource, params, true, ['sign'])
+  const { kty, crv, x, y, n, e } = await crypto.subtle.exportKey('jwk', priv)
+  const publicJwk = Object.fromEntries(Object.entries({ kty, crv, x, y, n, e }).filter(([, v]) => v !== undefined))
+  const pub = await crypto.subtle.importKey('jwk', publicJwk as JsonWebKey, params, true, ['verify'])
+  return pemFromDer(new Uint8Array(await crypto.subtle.exportKey('spki', pub)), 'PUBLIC KEY')
+}
+
+export type VerifyResult ={ state: 'valid' } | { state: 'invalid' } | { state: 'error'; message: string }
 
 export async function verifyJws(
   alg: Alg,

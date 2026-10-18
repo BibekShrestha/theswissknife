@@ -175,9 +175,15 @@ the precache list built by `scripts/sw-manifest.ts`.
   URL fragment. Engine quirks are in README.md's "jq engine notes" (argv ~1 MB
   crash guard, `$ARGS` emulation, `--args` unusable in-wasm).
 - `tools/jwt/` — JWT decode/verify/sign via WebCrypto (HS/RS/PS/ES/EdDSA).
-- `tools/ssl/` — `x509.ts` is a hand-written DER/X.509 parser; chain signatures
-  (RSA, ECDSA, Ed25519) are verified with WebCrypto against certificates the
-  user supplies — nothing is fetched.
+- `tools/ssl/` — `x509.ts` is a hand-written DER/X.509 parser (strict DER
+  lengths, duplicate extensions and impossible dates rejected); chain
+  signatures (RSA PKCS#1, RSA-PSS, ECDSA, Ed25519) are verified with WebCrypto
+  against certificates the user supplies — nothing is fetched. `checkChain`
+  also requires every issuer to be a CA (basicConstraints, keyCertSign,
+  pathLen), valid today, and named as the child's issuer; any failure turns
+  the verdict red. Hostnames match DNS SANs and IP SANs as bytes — the Common
+  Name is never used (browsers ignore it). No trust store, revocation or
+  Public Suffix List, and the limits copy says so.
 - `tools/regex/` — JavaScript regex match/replace. Every evaluation — matches
   and the Tests tab's cases, each with its own runner and worker — runs in
   `regex.worker.ts` via `runner.ts`, which terminates the worker after
@@ -363,8 +369,10 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/hash/` — SHA-1/256/384/512 digests and HMACs via WebCrypto only
   (no MD5: `crypto.subtle` lacks it, so don't advertise it). Files are read
   whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)
-  ignores whitespace, matches hex case-insensitively and accepts Base64 or
-  Base64URL, padded or not.
+  ignores whitespace, matches hex case-insensitively (also `AB:CD:…`
+  fingerprints and a `0x` prefix) and accepts Base64 or Base64URL, padded or
+  not. Results are tied to the input they came from, so a stale digest or
+  match is never shown while new input hashes.
 - `tools/uuid/` — UUID/ULID generator and inspector, hand-written (no
   libraries). `uuid.ts` parses every common UUID spelling, reads RFC 9562
   version/variant, v1/v6 timestamps (bigint 100-ns ticks, 7 fractional

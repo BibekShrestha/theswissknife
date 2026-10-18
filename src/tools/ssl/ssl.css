@@ -64,6 +64,7 @@
 .ssl-verdict { align-items: center; border: 1px solid; display: flex; gap: 12px; padding: 13px 16px; }
 .ssl-verdict.ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
 .ssl-verdict.bad { background: var(--err-bg); border-color: var(--err); color: var(--err); }
+.ssl-verdict.partial { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
 .ssl-verdict > .material-symbols-outlined { font-size: 28px; }
 .ssl-verdict > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ssl-verdict > div strong { font-size: 13px; }
@@ -102,6 +103,9 @@
 .ssl-chain-status.ok { color: var(--ok); }
 .ssl-chain-status.bad { color: var(--err); }
 .ssl-chain-status.neutral { color: var(--muted); }
+.ssl-chain-notes { color: var(--muted); font-size: var(--fs-xs); grid-column: 2 / -1; list-style: disc; margin: 0; padding: 0 0 0 var(--sp-4); }
+.ssl-chain-notes li { border: 0; display: list-item; padding: 0; }
+.ssl-chain-notes li.bad { color: var(--err); }
 
 .ssl-limits { align-items: flex-start; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); display: flex; gap: 10px; padding: 11px 13px; }
 .ssl-limits > span { color: var(--accent); font-size: 18px; }

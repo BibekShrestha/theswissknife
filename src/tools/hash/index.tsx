@@ -5,7 +5,7 @@ import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import {
   compareDigest, decodeKey, digestAll, encodeDigest, hmacAll, utf8,
-  type DigestRow, type KeyEncoding, type OutputEncoding,
+  type DigestRow, type KeyEncoding, type KeyResult, type OutputEncoding,
 } from './hash'
 import './hash.css'
 
@@ -27,8 +27,9 @@ export default function HashTool() {
   const [keyEncoding, setKeyEncoding] = useState<KeyEncoding>('utf8')
   const [output, setOutput] = useState<OutputEncoding>('hex')
   const [expected, setExpected] = useState('')
-  const [rows, setRows] = useState<DigestRow[]>([])
-  const [error, setError] = useState('')
+  // each result remembers the input it was computed for, so a digest (and a
+  // "match") is never shown next to different input while that one hashes
+  const [result, setResult] = useState<{ data: Uint8Array; key: KeyResult | null; rows: DigestRow[]; error: string } | null>(null)
   const [dragging, setDragging] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast, showToast } = useToast()
@@ -43,15 +44,19 @@ export default function HashTool() {
       try {
         const plain = await digestAll(data)
         const macs = keyResult?.bytes && keyResult.bytes.length > 0 ? await hmacAll(keyResult.bytes, data) : []
-        if (!cancelled) { setRows([...plain, ...macs]); setError('') }
+        if (!cancelled) setResult({ data, key: keyResult, rows: [...plain, ...macs], error: '' })
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+        if (!cancelled) setResult({ data, key: keyResult, rows: [], error: err instanceof Error ? err.message : String(err) })
       }
     }
     void run()
     return () => { cancelled = true }
   }, [data, keyResult])
 
+  const current = result && result.data === data && result.key === keyResult ? result : null
+  const computing = !current
+  const error = current?.error ?? ''
+  const rows = useMemo(() => current?.rows ?? [], [current])
   const comparison = useMemo(() => compareDigest(expected, rows), [expected, rows])
   const matched = new Set(comparison.status === 'match' ? comparison.matches.map((m) => m.id) : [])
 
@@ -85,7 +90,7 @@ export default function HashTool() {
       <div className={`hash-row${isMatch ? ' is-match' : ''}`} key={row.id}>
         <span className="hash-alg">{row.id}{isMatch && <span className="hash-badge">match</span>}</span>
         <code className="hash-value">{value}</code>
-        <button onClick={() => void copy(value, row.id)} aria-label={`Copy ${row.id}`} title={`Copy ${row.id}`}><span className="material-symbols-outlined">content_copy</span></button>
+        <button onClick={() => void copy(value, row.id)} aria-label={`Copy ${row.id}`} title={`Copy ${row.id}`}><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>
       </div>
     )
   })
@@ -96,7 +101,7 @@ export default function HashTool() {
         brand={<><span className="tool-mark-accent">#</span> Hash &amp; HMAC</>}
         localLabel="WebCrypto · local"
       >
-        <button onClick={() => { setFile(null); setText(SAMPLE) }} aria-label="Reset to sample" title="Reset to sample text"><span className="material-symbols-outlined">auto_fix_high</span></button>
+        <button onClick={() => { setFile(null); setText(SAMPLE) }} aria-label="Reset to sample" title="Reset to sample text"><span className="material-symbols-outlined" aria-hidden>auto_fix_high</span></button>
       </ToolHeader>
 
       <main id="main-content" className="hash-main">
@@ -105,8 +110,8 @@ export default function HashTool() {
             <header>
               <div><span className="hash-step">01</span><strong>Input</strong></div>
               <span>{file ? `${file.name} · ${formatBytes(file.size)}` : `${text.length.toLocaleString()} chars · ${formatBytes(data.length)} UTF-8`}</span>
-              <button onClick={() => fileRef.current?.click()} aria-label="Choose file" title="Hash a file"><span className="material-symbols-outlined">upload_file</span></button>
-              <button onClick={() => { setFile(null); setText('') }} disabled={!file && !text} aria-label="Clear" title="Clear"><span className="material-symbols-outlined">close</span></button>
+              <button onClick={() => fileRef.current?.click()} aria-label="Choose file" title="Hash a file"><span className="material-symbols-outlined" aria-hidden>upload_file</span></button>
+              <button onClick={() => { setFile(null); setText('') }} disabled={!file && !text} aria-label="Clear" title="Clear"><span className="material-symbols-outlined" aria-hidden>close</span></button>
               <input ref={fileRef} type="file" hidden onChange={(event) => { void openFile(event.target.files?.[0]); event.target.value = '' }} />
             </header>
             <div
@@ -147,9 +152,9 @@ export default function HashTool() {
               <div className="hash-step-head"><span className="hash-step">03</span><strong>Compare</strong></div>
               <input className="hash-input" value={expected} onChange={(event) => setExpected(event.target.value)} spellCheck={false} autoComplete="off" aria-label="Expected checksum" placeholder="Paste expected checksum (hex or Base64)" />
               <p className={`hash-compare is-${comparison.status}`} role="status">
-                {comparison.status === 'empty' && 'Paste a bare checksum or a sha256sum line. Hex is matched case-insensitively.'}
+                {comparison.status === 'empty' && 'Paste a bare checksum, an AB:CD:… fingerprint or a sha256sum line. Hex is matched case-insensitively.'}
                 {comparison.status === 'invalid' && 'Not hex or Base64.'}
-                {comparison.status === 'none' && 'No match against any digest below.'}
+                {comparison.status === 'none' && (computing ? 'Hashing…' : error ? 'No digests to compare.' : 'No match against any digest below.')}
                 {comparison.status === 'match' && `Matches ${comparison.matches.map((m) => `${m.id} (${m.encoding === 'hex' ? 'hex' : 'Base64'})`).join(', ')}`}
               </p>
             </div>
@@ -164,7 +169,7 @@ export default function HashTool() {
               <button className={output === 'base64' ? 'on' : ''} aria-pressed={output === 'base64'} onClick={() => setOutput('base64')}>Base64</button>
             </div>
           </header>
-          {error ? <div className="hash-error" role="alert">{error}</div> : (
+          {error ? <div className="hash-error" role="alert">{error}</div> : computing ? <div className="hash-note hash-computing" role="status">Computing…</div> : (
             <div className="hash-rows">
               {renderRows(plainRows)}
               {macRows.length > 0 && renderRows(macRows)}

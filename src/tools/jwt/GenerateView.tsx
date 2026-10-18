@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ALGS, generateKeyMaterial, isHmac, signJws, type Alg } from './crypto'
+import {
+  ALGS, declaredAlg, derivePublicPem, generateKeyMaterial, hasKeyMaterial, headerAlgProblem, isHmac, signJws, type Alg,
+} from './crypto'
+import { minifyJson, setTopLevel } from './jsontext'
 import { describeTimeClaims } from './jwt'
 import { Card, ColoredToken, JsonEditor } from './ui'
 
@@ -37,32 +40,53 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
     return () => clearInterval(t)
   }, [])
 
-  const hasKey = isHmac(alg) ? secret.length > 0 : privateKey.trim().length > 0
+  const hasKey = hasKeyMaterial(alg, isHmac(alg) ? secret : privateKey)
 
   // ---- claim helpers -----------------------------------------------------
   const mergeClaims = (patch: Record<string, unknown>) => {
     try {
-      const p = JSON.parse(payloadJson) as Record<string, unknown>
-      setPayloadJson(JSON.stringify({ ...p, ...patch }, null, 2))
+      // edit the text in place so no other claim's value is re-serialised
+      let next = payloadJson
+      for (const [k, v] of Object.entries(patch)) next = setTopLevel(next, k, JSON.stringify(v))
+      setPayloadJson(next)
     } catch {
-      setError('Payload is not valid JSON — fix it before adding claims.')
+      setError('Payload is not a valid JSON object — fix it before adding claims.')
     }
   }
 
   const onAlgChange = (next: Alg) => {
     setAlg(next)
-    // key material rarely transfers between families — clear generated pair
-    if (isHmac(next) !== isHmac(alg)) {
-      setPublicPem('')
-    }
     try {
-      const h = JSON.parse(headerJson) as Record<string, unknown>
-      h.alg = next
-      setHeaderJson(JSON.stringify(h, null, 2))
+      setHeaderJson(setTopLevel(headerJson, 'alg', JSON.stringify(next)))
     } catch {
       setHeaderJson(JSON.stringify({ alg: next, typ: 'JWT' }, null, 2))
     }
   }
+
+  // the header's alg drives the dropdown, so the two cannot disagree
+  const onHeaderChange = (v: string) => {
+    setHeaderJson(v)
+    try {
+      const h = JSON.parse(v) as Record<string, unknown>
+      const declared = h && typeof h === 'object' ? declaredAlg(h) : null
+      if (declared?.ok) setAlg(declared.alg)
+    } catch {
+      // not valid JSON yet — the signing effect reports it
+    }
+  }
+
+  // ---- public key, always derived from the current private key and alg ---
+  useEffect(() => {
+    let live = true
+    setPublicPem('')
+    if (!isHmac(alg) && privateKey.trim()) {
+      derivePublicPem(alg, privateKey).then(
+        (pem) => { if (live) setPublicPem(pem) },
+        () => {},
+      )
+    }
+    return () => { live = false }
+  }, [alg, privateKey])
 
   const generateKey = async () => {
     setGenerating(true)
@@ -72,10 +96,8 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
       if (key.kind === 'secret') {
         setSecret(key.secret)
         setSecretIsB64(true)
-        setPublicPem('')
       } else {
         setPrivateKey(key.privatePem)
-        setPublicPem(key.publicPem)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -93,11 +115,28 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
     }
     let h: string
     let p: string
+    let header: unknown
+    let payload: unknown
     try {
-      h = JSON.stringify(JSON.parse(headerJson))
-      p = JSON.stringify(JSON.parse(payloadJson))
+      header = JSON.parse(headerJson)
+      payload = JSON.parse(payloadJson)
+      h = minifyJson(headerJson)
+      p = minifyJson(payloadJson)
     } catch {
+      setToken('')
       setError('Header or payload is not valid JSON.')
+      return
+    }
+    const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+    if (!isObj(header) || !isObj(payload)) {
+      setToken('')
+      setError('Header and payload must be JSON objects.')
+      return
+    }
+    const mismatch = headerAlgProblem(header, alg)
+    if (mismatch) {
+      setToken('')
+      setError(mismatch)
       return
     }
     setError(null)
@@ -131,7 +170,7 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
   const nowSec = () => Math.floor(Date.now() / 1000)
 
   return (
-    <main id="main-content" className="jwt-panes">
+    <div className="jwt-panes">
       <div className="jwt-col">
         <Card tone="p" title="claims (payload)">
           <JsonEditor value={payloadJson} onChange={setPayloadJson} minRows={7} ariaLabel="Payload JSON" />
@@ -154,7 +193,7 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
         </Card>
 
         <Card tone="h" title="header">
-          <JsonEditor value={headerJson} onChange={setHeaderJson} minRows={3} ariaLabel="Header JSON" />
+          <JsonEditor value={headerJson} onChange={onHeaderChange} minRows={3} ariaLabel="Header JSON" />
         </Card>
 
         <Card
@@ -169,21 +208,22 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
           <div className="jwt-form">
             <label className="jwt-form-row">
               <span className="jwt-form-label">alg</span>
-              <select value={alg} onChange={(e) => onAlgChange(e.target.value as Alg)}>
+              <select value={alg} onChange={(e) => onAlgChange(e.target.value as Alg)} aria-label="Signing algorithm">
                 {ALGS.map((a) => (
                   <option key={a}>{a}</option>
                 ))}
               </select>
             </label>
             {isHmac(alg) ? (
-              <label className="jwt-form-row">
-                <span className="jwt-form-label">secret</span>
+              <div className="jwt-form-row">
+                <span className="jwt-form-label" aria-hidden>secret</span>
                 <input
                   className="mono"
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
                   placeholder="enter or generate a secret"
                   spellCheck={false}
+                  aria-label="HMAC secret"
                 />
                 <label className="jwt-check">
                   <input
@@ -193,7 +233,7 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
                   />
                   base64url
                 </label>
-              </label>
+              </div>
             ) : (
               <div className="jwt-keys single">
                 <textarea
@@ -202,6 +242,7 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
                   onChange={(e) => setPrivateKey(e.target.value)}
                   placeholder={'Private key to sign with\n-----BEGIN PRIVATE KEY----- or JWK — or click Generate keypair'}
                   spellCheck={false}
+                  aria-label="Private key to sign with"
                 />
               </div>
             )}
@@ -214,7 +255,7 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
         <Card
           title="generated token"
           fill
-          actions={<button onClick={() => void onCopy(token, 'Token')} disabled={!token} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>}
+          actions={<button onClick={() => void onCopy(token, 'Token')} disabled={!token} aria-label="Copy"><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>}
         >
           {token ? (
             <>
@@ -250,12 +291,12 @@ export default function GenerateView({ onCopy }: { onCopy: (text: string, what: 
         {publicPem && (
           <Card
             title="public key (share this to verify)"
-            actions={<button onClick={() => void onCopy(publicPem, 'Public key')} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>}
+            actions={<button onClick={() => void onCopy(publicPem, 'Public key')} aria-label="Copy"><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>}
           >
             <textarea className="jwt-pubkey mono" value={publicPem} readOnly spellCheck={false} aria-label="Generated public key" />
           </Card>
         )}
       </div>
-    </main>
+    </div>
   )
 }

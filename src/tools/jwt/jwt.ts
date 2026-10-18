@@ -1,5 +1,7 @@
 /** JWT parsing and claim helpers — pure functions, no crypto here. */
 
+import { duplicateKeys } from './jsontext'
+
 export function b64urlEncodeBytes(bytes: Uint8Array): string {
   let bin = ''
   const CHUNK = 0x8000
@@ -13,12 +15,28 @@ export function b64urlEncodeString(s: string): string {
   return b64urlEncodeBytes(new TextEncoder().encode(s))
 }
 
-export function b64urlDecodeBytes(s: string): Uint8Array {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/')
-  const bin = atob(b64)
+function binToBytes(bin: string): Uint8Array {
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
   return bytes
+}
+
+/**
+ * Strict base64url (RFC 7515 §2): URL-safe alphabet, no padding, no
+ * whitespace, and the unused trailing bits must be zero — so exactly one
+ * spelling decodes to a given byte string.
+ */
+export function b64urlDecodeBytes(s: string): Uint8Array {
+  if (!/^[A-Za-z0-9_-]*$/.test(s) || s.length % 4 === 1) throw new Error('Not valid base64url.')
+  const bytes = binToBytes(atob(s.replace(/-/g, '+').replace(/_/g, '/')))
+  if (b64urlEncodeBytes(bytes) !== s) throw new Error('Not canonical base64url.')
+  return bytes
+}
+
+/** Lenient decode for a user's HMAC secret: base64 or base64url, padding optional. */
+export function b64DecodeLenient(s: string): Uint8Array {
+  const clean = s.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '')
+  return binToBytes(atob(clean))
 }
 
 export function b64urlDecodeString(s: string): string {
@@ -26,13 +44,19 @@ export function b64urlDecodeString(s: string): string {
 }
 
 export interface ParsedJwt {
+  /** The decoded JSON text exactly as it appears in the token. */
   headerJson: string
   payloadJson: string
   header: Record<string, unknown>
   payload: Record<string, unknown>
+  headerDuplicates: string[]
+  payloadDuplicates: string[]
   signatureB64: string
   signingInput: string
 }
+
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
 
 export function parseJwt(token: string): ParsedJwt | { error: string } {
   const trimmed = token.trim()
@@ -54,19 +78,35 @@ export function parseJwt(token: string): ParsedJwt | { error: string } {
   } catch {
     return { error: 'Payload is not valid base64url.' }
   }
-  let header: Record<string, unknown>
-  let payload: Record<string, unknown>
+  let header: unknown
+  let payload: unknown
   try {
-    header = JSON.parse(headerJson) as Record<string, unknown>
+    header = JSON.parse(headerJson)
   } catch {
     return { error: 'Header is not valid JSON.' }
   }
   try {
-    payload = JSON.parse(payloadJson) as Record<string, unknown>
+    payload = JSON.parse(payloadJson)
   } catch {
     return { error: 'Payload is not valid JSON.' }
   }
-  return { headerJson, payloadJson, header, payload, signatureB64: s, signingInput: `${h}.${p}` }
+  if (!isObject(header)) return { error: 'Header must be a JSON object.' }
+  if (!isObject(payload)) return { error: 'Payload must be a JSON object.' }
+  try {
+    b64urlDecodeBytes(s)
+  } catch {
+    return { error: 'Signature is not valid base64url.' }
+  }
+  return {
+    headerJson,
+    payloadJson,
+    header,
+    payload,
+    headerDuplicates: duplicateKeys(headerJson),
+    payloadDuplicates: duplicateKeys(payloadJson),
+    signatureB64: s,
+    signingInput: `${h}.${p}`,
+  }
 }
 
 export interface ClaimTime {
@@ -85,14 +125,17 @@ export function describeTimeClaims(payload: Record<string, unknown>, nowMs: numb
   for (const claim of ['exp', 'iat', 'nbf'] as const) {
     const v = payload[claim]
     if (typeof v !== 'number' || !Number.isFinite(v)) continue
-    const deltaSec = Math.round(v - nowMs / 1000)
+    const deltaSec = v - nowMs / 1000
+    // ECMAScript dates stop at ±8.64e15 ms; past that there is no ISO form.
+    const inRange = Math.abs(v * 1000) <= 8.64e15
     out.push({
       claim,
       label: CLAIM_LABELS[claim],
       epoch: v,
-      iso: new Date(v * 1000).toISOString(),
-      relative: relativeTime(deltaSec),
-      problem: (claim === 'exp' && deltaSec < 0) || (claim === 'nbf' && deltaSec > 0),
+      iso: inRange ? new Date(v * 1000).toISOString() : 'out of range',
+      relative: inRange ? relativeTime(deltaSec) : 'out of range',
+      // RFC 7519: expired once now >= exp; not yet valid while now < nbf
+      problem: (claim === 'exp' && deltaSec <= 0) || (claim === 'nbf' && deltaSec > 0),
     })
   }
   return out
@@ -109,7 +152,7 @@ function relativeTime(deltaSec: number): string {
   ]
   for (const [size, name] of units) {
     if (abs >= size) {
-      const n = Math.round(abs / size)
+      const n = Math.floor(abs / size)
       return deltaSec < 0 ? `${n}${name} ago` : `in ${n}${name}`
     }
   }
