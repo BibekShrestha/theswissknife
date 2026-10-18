@@ -5,6 +5,7 @@ import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { extractTables, type ExtractOptions } from './extract'
 import { formatHtml } from './format'
+import { pickPaste } from './paste'
 import { cleanGrid, FILE_META, serialize, type Format, type Grid } from './serialize'
 import './html-table.css'
 
@@ -111,17 +112,23 @@ export default function HtmlTableTool() {
   /**
    * Copying a table in a browser puts real markup on the clipboard as
    * text/html — take that flavour so "copy table → paste here" just works.
+   * HTML source copied from an editor is the exception (see pickPaste); the
+   * toast says which one was used.
    */
   const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
-    const rich = event.clipboardData.getData('text/html')
-    if (!rich) return
+    const choice = pickPaste(event.clipboardData.getData('text/html'), event.clipboardData.getData('text/plain'))
+    if (!choice) return
     event.preventDefault()
     const el = sourceRef.current
     const start = el?.selectionStart ?? html.length
     const end = el?.selectionEnd ?? html.length
-    setHtml(html.slice(0, start) + rich + html.slice(end))
+    setHtml(html.slice(0, start) + choice.text + html.slice(end))
     setPicked(0)
-    showToast('Pasted rich HTML from the clipboard')
+    showToast(
+      choice.flavour === 'html'
+        ? 'Pasted the copied table’s HTML (text/html)'
+        : 'Pasted the HTML source as plain text (text/plain)',
+    )
   }
 
   /** Re-indent the source in place. Pasted markup is usually one long line. */
@@ -166,10 +173,10 @@ export default function HtmlTableTool() {
           aria-label="Load sample table"
           title="Load a sample table"
         >
-          <span className="material-symbols-outlined">table_view</span>
+          <span className="material-symbols-outlined" aria-hidden>table_view</span>
         </button>
         <button onClick={() => fileRef.current?.click()} aria-label="Open an HTML file" title="Open an .html file">
-          <span className="material-symbols-outlined">folder_open</span>
+          <span className="material-symbols-outlined" aria-hidden>folder_open</span>
         </button>
         <input
           ref={fileRef}
@@ -197,12 +204,12 @@ export default function HtmlTableTool() {
                 onClick={prettify}
                 disabled={!html.trim()}
                 aria-label="Prettify HTML"
-                title="Prettify — re-indent the source without changing the markup"
+                title="Prettify — re-indent the source; the extracted tables stay the same"
               >
-                <span className="material-symbols-outlined">format_indent_increase</span>
+                <span className="material-symbols-outlined" aria-hidden>format_indent_increase</span>
               </button>
               <button onClick={() => setHtml('')} disabled={!html} aria-label="Clear source">
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined" aria-hidden>close</span>
               </button>
             </header>
             <textarea
@@ -266,10 +273,10 @@ export default function HtmlTableTool() {
                   : '—'}
               </span>
               <button onClick={() => void copy(output, 'Output')} disabled={!output} aria-label="Copy output">
-                <span className="material-symbols-outlined">content_copy</span>
+                <span className="material-symbols-outlined" aria-hidden>content_copy</span>
               </button>
               <button onClick={download} disabled={!output} aria-label="Download output">
-                <span className="material-symbols-outlined">download</span>
+                <span className="material-symbols-outlined" aria-hidden>download</span>
               </button>
             </header>
 

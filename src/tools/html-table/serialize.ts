@@ -55,12 +55,17 @@ export function headerNames({ rows, headerRowCount }: Grid): string[] {
     }
     names.push(parts.join(' ') || `column_${c + 1}`)
   }
-  // Duplicate keys would silently overwrite each other in an object.
-  const seen = new Map<string, number>()
-  return names.map((name) => {
-    const n = (seen.get(name) ?? 0) + 1
-    seen.set(name, n)
-    return n === 1 ? name : `${name}_${n}`
+  // Duplicate keys would silently overwrite each other in an object. The
+  // first of each name keeps it; later ones take the first free `_n`, free
+  // of every real header too — `a, a, a_2` must not become two `a_2`s.
+  const taken = new Set<string>()
+  const first = names.map((name) => (taken.has(name) ? false : (taken.add(name), true)))
+  return names.map((name, c) => {
+    if (first[c]) return name
+    let n = 2
+    while (taken.has(`${name}_${n}`)) n++
+    taken.add(`${name}_${n}`)
+    return `${name}_${n}`
   })
 }
 
@@ -99,7 +104,15 @@ function csvField(v: string, delimiter: string): string {
 /** TSV has no quoting convention, so tabs and newlines become spaces. */
 const tsvField = (v: string) => v.replace(/[\t\r\n]+/g, ' ')
 
-const mdCell = (v: string) => v.replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ').trim()
+/** Markdown renders inline HTML, so markup in a cell is escaped, not passed on. */
+const mdCell = (v: string) =>
+  v
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\|/g, '\\|')
+    .replace(/[\r\n]+/g, ' ')
+    .trim()
 
 function markdown({ rows, headerRowCount }: Grid): string {
   if (rows.length === 0) return ''

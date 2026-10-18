@@ -6,10 +6,18 @@
  * `</div>` disappears, `<tbody>` shows up uninvited — and this button rewrites
  * the user's own source, so it must never change what the markup says. Working
  * from tokens lets us move whitespace between tags and nothing else: tag and
- * attribute names keep their case (SVG needs that), attribute values are copied
- * byte for byte, missing end tags are never invented, and the content of
- * whitespace-sensitive elements is passed through untouched.
+ * attribute names keep their case (SVG needs that), attribute values keep
+ * their exact value, missing end tags are never invented, and the content of
+ * raw-text and whitespace-sensitive elements is passed through untouched.
+ *
+ * Whitespace is only ever added or removed next to a block element (the
+ * BLOCK list the extractor also uses), where it does not render and where
+ * extraction turns the boundary into a line break anyway; text keeps every
+ * space it had. regressions.test.ts holds a corpus proving extraction gives
+ * the same cells before and after.
  */
+
+import { BLOCK, HTML_SPACE } from './blocks'
 
 export interface FormatOptions {
   /** Spaces per nesting level. */
@@ -23,16 +31,13 @@ const VOID = new Set([
   'param', 'source', 'track', 'wbr',
 ])
 
-/** Content copied through verbatim — reindenting it would change what it means. */
-const VERBATIM = new Set(['script', 'style', 'pre', 'textarea', 'title'])
-
-/** Elements that flow with the text around them instead of taking their own line. */
-const INLINE = new Set([
-  'a', 'abbr', 'b', 'bdi', 'bdo', 'big', 'br', 'button', 'cite', 'code', 'data',
-  'del', 'dfn', 'em', 'font', 'i', 'img', 'input', 'ins', 'kbd', 'label', 'mark',
-  'meter', 'nobr', 'output', 'progress', 'q', 'rp', 'rt', 'ruby', 's', 'samp',
-  'select', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'tt', 'u', 'var',
-  'wbr',
+/**
+ * Content copied through verbatim: the raw-text elements, whose body is not
+ * markup at all (`<xmp><b>` is the text "<b>"), and whitespace-sensitive ones.
+ */
+const VERBATIM = new Set([
+  'script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext',
+  'pre', 'textarea', 'title', 'listing',
 ])
 
 /** A start tag here implies the end of an open `<p>` (HTML's optional end tags). */
@@ -63,7 +68,9 @@ const IMPLIED_END: Record<string, string[]> = {
 }
 
 /** `\s` would also match &nbsp; (U+00A0) and eat a character of content. */
-const SPACE_RUN = /[ \t\r\n\f]+/g
+const EDGE_SPACE = new RegExp(`^${HTML_SPACE}+|${HTML_SPACE}+$`, 'g')
+const trimSpace = (s: string) => s.replace(EDGE_SPACE, '')
+const hasContent = (s: string) => trimSpace(s) !== ''
 
 const lower = (s: string) => s.toLowerCase()
 const isNameStart = (ch: string) => /[a-zA-Z]/.test(ch)
@@ -142,9 +149,16 @@ function parseOpenTag(src: string, start: number): { token: Token; next: number 
         attr += `=${src.slice(i, stop)}`
         i = stop
       } else {
+        // An unquoted value can hold a quote character (`title=a"b`); pick
+        // the quote it does not contain, or escape it — same value either way.
         const valueStart = i
         while (i < len && !/[\s>]/.test(src[i])) i++
-        attr += `="${src.slice(valueStart, i)}"`
+        const value = src.slice(valueStart, i)
+        attr += !value.includes('"')
+          ? `="${value}"`
+          : !value.includes("'")
+            ? `='${value}'`
+            : `="${value.replace(/"/g, '&quot;')}"`
       }
     } else {
       i = afterName
@@ -308,19 +322,27 @@ function buildTree(tokens: Token[]): Node[] {
   return root
 }
 
-const collapse = (s: string) => s.replace(SPACE_RUN, ' ')
+const isBlock = (node: Node) => node.k === 'el' && BLOCK.has(lower(node.name))
 
-function isInline(node: Node): boolean {
+/**
+ * Whether a sibling list has inline content — text or an inline element.
+ * A comment among such content stays in the flow: putting it on its own line
+ * would add whitespace to the text on either side.
+ */
+const flowing = (nodes: Node[]) =>
+  nodes.some((node) => (node.k === 'text' ? hasContent(node.text) : node.k === 'el' && !isBlock(node)))
+
+function isInline(node: Node, inFlow: boolean): boolean {
   if (node.k === 'text') return true
-  if (node.k === 'raw') return false
-  return node.verbatim === undefined && INLINE.has(lower(node.name))
+  if (node.k === 'raw') return inFlow
+  return !isBlock(node)
 }
 
 /** One-line form of a run of nodes — used both to test the fit and to emit it. */
 function flatten(nodes: Node[]): string {
   let out = ''
   for (const node of nodes) {
-    if (node.k === 'text') out += collapse(node.text)
+    if (node.k === 'text') out += node.text
     else if (node.k === 'raw') out += node.text
     else if (node.verbatim !== undefined) out += node.open + node.verbatim + (node.close ?? '')
     else if (node.void) out += node.open
@@ -337,17 +359,18 @@ interface Ctx {
 
 function renderNodes(nodes: Node[], depth: number, ctx: Ctx) {
   const pad = ' '.repeat(ctx.indent * depth)
+  const inFlow = flowing(nodes)
   let run: Node[] = []
 
   const flushRun = () => {
     if (run.length === 0) return
-    const line = flatten(run).trim()
+    const line = trimSpace(flatten(run))
     if (line) ctx.out.push(pad + line)
     run = []
   }
 
   for (const node of nodes) {
-    if (isInline(node)) {
+    if (isInline(node, inFlow)) {
       run.push(node)
       continue
     }
@@ -361,7 +384,7 @@ function renderNode(node: Node, depth: number, ctx: Ctx) {
   const pad = ' '.repeat(ctx.indent * depth)
 
   if (node.k === 'text') {
-    const line = collapse(node.text).trim()
+    const line = trimSpace(node.text)
     if (line) ctx.out.push(pad + line)
     return
   }
@@ -377,8 +400,9 @@ function renderNode(node: Node, depth: number, ctx: Ctx) {
     ctx.out.push(pad + node.open + (node.close ?? ''))
     return
   }
-  if (node.children.every(isInline)) {
-    const line = pad + node.open + flatten(node.children).trim() + (node.close ?? '')
+  const inFlow = flowing(node.children)
+  if (node.children.every((child) => isInline(child, inFlow))) {
+    const line = pad + node.open + trimSpace(flatten(node.children)) + (node.close ?? '')
     if (line.length <= ctx.printWidth && !line.includes('\n')) {
       ctx.out.push(line)
       return

@@ -59,8 +59,9 @@ describe('formatHtml', () => {
 
   it('quotes bare attribute values and preserves attribute name case', () => {
     expect(formatHtml('<img src=a.png width=10 alt>')).toBe('<img src="a.png" width="10" alt>')
+    // <svg> flows inline, so no whitespace is added inside it.
     expect(formatHtml('<svg viewBox="0 0 2 2"><path d="M0 0"/></svg>')).toBe(
-      '<svg viewBox="0 0 2 2">\n  <path d="M0 0" />\n</svg>',
+      '<svg viewBox="0 0 2 2"><path d="M0 0" /></svg>',
     )
   })
 
@@ -71,8 +72,9 @@ describe('formatHtml', () => {
     )
   })
 
-  it('leaves non-breaking spaces and entities alone', () => {
-    expect(formatHtml('<td>a b &amp;  c</td>')).toBe('<td>a b &amp; c</td>')
+  it('leaves non-breaking spaces, entities and the spaces in text alone', () => {
+    // Collapsing the double space would change what extraction reads with Tidy space off.
+    expect(formatHtml('<td>a b &amp;  c</td>')).toBe('<td>a b &amp;  c</td>')
   })
 
   it('keeps comments and the doctype on their own lines', () => {
