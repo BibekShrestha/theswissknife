@@ -178,11 +178,25 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/ssl/` — `x509.ts` is a hand-written DER/X.509 parser; chain signatures
   (RSA, ECDSA, Ed25519) are verified with WebCrypto against certificates the
   user supplies — nothing is fetched.
-- `tools/regex/` — JavaScript regex match/replace. Every evaluation runs in
+- `tools/regex/` — JavaScript regex match/replace. Every evaluation — matches
+  and the Tests tab's cases, each with its own runner and worker — runs in
   `regex.worker.ts` via `runner.ts`, which terminates the worker after
   `REGEX_TIMEOUT_MS` and spawns a fresh one, so catastrophic backtracking costs
-  an error message, not a frozen tab. `pcre2/` holds a scripted PCRE2 wasm
-  build that is **not** wired in yet (see its README).
+  an error message, not a frozen tab. Nothing user-supplied runs on the main
+  thread. `syntax/parser.ts` is a hand-written ES2025 parser (Annex B, modifiers,
+  duplicate named groups, v-flag class sets); its validity is fuzzed against
+  the engine in `parser.test.ts`, so keep that test green when touching it —
+  only `\p{…}` names are looked up by compiling `\p{Name}` alone. It feeds the
+  Explain tab (`explain.ts`), the nested-quantifier / overlapping-alternative
+  warning (`redos.ts`), and group names for results. The subject is a lazy
+  CodeMirror chunk (`editor/`) that decorates only the visible range;
+  `highlight.ts` keeps UTF-16 indices (CodeMirror's unit too) and widens
+  ranges that split a surrogate pair without u/v. Share links are
+  `#r=<base64url(deflate-raw(json))>` (`share.ts`, same approach as redact):
+  pattern, flags, operation and replacement always; subject and test cases
+  only when ticked; inflation is capped. `copyjs.ts` writes literal and
+  constructor forms. `pcre2/` holds a scripted PCRE2 wasm build that is
+  **not** wired in yet (see its README).
 - `tools/redact/` — masks text with a block character. Segments by grapheme
   (`Intl.Segmenter`), so a family emoji is one block rather than seven, and
   reports what each space setting still leaks (word lengths above all).

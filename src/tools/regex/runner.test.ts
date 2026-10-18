@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { evaluateJavascript } from './javascript'
-import { createRegexRunner, type WorkerLike } from './runner'
-import type { RegexRequest, RegexWorkerMessage } from './types'
+import { evaluateJavascript, evaluateTests } from './javascript'
+import { createRegexRunner, createTestsRunner, type WorkerLike } from './runner'
+import type { RegexRequest, RegexWorkerMessage, TestsRequest } from './types'
 
 const request: Omit<RegexRequest, 'id'> = { engines: ['javascript'], pattern: 'o', flags: 'g', subject: 'foo', operation: 'match', replacement: '' }
 
@@ -10,10 +10,12 @@ function fakeWorker(hang = false) {
   const worker: WorkerLike & { terminated: boolean } = {
     onmessage: null,
     terminated: false,
-    postMessage(req: RegexRequest) {
+    postMessage(req: RegexRequest | TestsRequest) {
       if (hang) return
       queueMicrotask(() => {
-        const data: RegexWorkerMessage = { type: 'result', id: req.id, result: evaluateJavascript(req) }
+        const data: RegexWorkerMessage = req.kind === 'tests'
+          ? { type: 'tests', id: req.id, result: evaluateTests(req) }
+          : { type: 'result', id: req.id, result: evaluateJavascript(req) }
         worker.onmessage?.({ data } as MessageEvent<RegexWorkerMessage>)
       })
     },
@@ -64,5 +66,23 @@ describe('regex runner', () => {
     expect(hung.terminated).toBe(true)
     expect(latest.matches).toHaveLength(1)
     runner.dispose()
+  })
+})
+
+describe('tests runner', () => {
+  it('runs cases in the worker', async () => {
+    const runner = createTestsRunner(() => fakeWorker(), 1000)
+    const result = await runner.run({ kind: 'tests', pattern: '^a', flags: '', cases: [{ text: 'ab', expect: 'match', full: false }] })
+    expect(result.results).toEqual([{ pass: true, matched: true, match: { start: 0, end: 1, text: 'a' } }])
+  })
+
+  it('stops cases that run past the deadline', async () => {
+    vi.useFakeTimers()
+    const hung = fakeWorker(true)
+    const runner = createTestsRunner(() => hung, 1000)
+    const pending = runner.run({ kind: 'tests', pattern: '(a+)+b', flags: '', cases: [{ text: 'a'.repeat(40), expect: 'match', full: false }] })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect((await pending).error).toMatch(/Stopped after 1 s/)
+    expect(hung.terminated).toBe(true)
   })
 })

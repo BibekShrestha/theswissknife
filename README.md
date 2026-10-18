@@ -15,7 +15,7 @@ Buddy's pdf.js engine included.
 | JWT decode & generate | [/jwt](https://theswissknife.com/jwt) | Decode, verify and sign JWTs (HS/RS/PS/ES/EdDSA) via WebCrypto |
 | SSL certificate verifier | [/ssl](https://theswissknife.com/ssl) | Inspect X.509 certificates, check expiry and hostname coverage, and verify supplied chain signatures locally |
 | Hash & HMAC | [/hash](https://theswissknife.com/hash) | SHA-1/256/384/512 digests and HMACs (text, hex or Base64 key) of UTF-8 text or a local file via WebCrypto, in hex or Base64; paste an expected checksum (or a `sha256sum` line) to see which one matches |
-| Regex lab | [/regex](https://theswissknife.com/regex) | Match and replace with JavaScript regular expressions in a worker that is stopped if a pattern backtracks catastrophically |
+| Regex lab | [/regex](https://theswissknife.com/regex) | JavaScript regular expressions with matches and capture groups highlighted in the text, should-match / should-not-match test cases, a plain-language explanation that warns about nested quantifiers, share links and copy as JS — every run in a worker that is stopped if a pattern backtracks catastrophically |
 | Text redactor | [/redact](https://theswissknife.com/redact) | Mask text with block characters, pick what to hide, share the scheme as a link |
 | Codec studio | [/codec](https://theswissknife.com/codec) | Encode and decode Base64, URLs, HTML entities and UTF-8 hex |
 | Diff | [/diff](https://theswissknife.com/diff) | Compare text or JSON (keys sorted, so order and formatting don't count) with word-level highlights; copy or download a unified diff |
