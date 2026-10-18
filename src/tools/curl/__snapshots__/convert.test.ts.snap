@@ -1,0 +1,1667 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`outputs per target > Chrome bash: $'…' body with a quote, ! and newlines → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("PUT", "https://api.example.com/notes", strings.NewReader("It's done!\\nSecond line — ok"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("content-type", "text/plain;charset=UTF-8")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Chrome bash: $'…' body with a quote, ! and newlines → JavaScript 1`] = `
+"const response = await fetch('https://api.example.com/notes', {
+  method: 'PUT',
+  headers: {
+    'content-type': 'text/plain;charset=UTF-8',
+  },
+  body: 'It\\'s done!\\nSecond line — ok',
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Chrome bash: $'…' body with a quote, ! and newlines → Python requests 1`] = `
+"import requests
+
+headers = {
+    'content-type': 'text/plain;charset=UTF-8',
+}
+
+data = 'It\\'s done!\\nSecond line — ok'.encode('utf-8')
+
+response = requests.put(
+    'https://api.example.com/notes',
+    headers=headers,
+    data=data,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Chrome bash: $'…' body with a quote, ! and newlines → Raw HTTP/1.1 1`] = `
+"PUT /notes HTTP/1.1
+Host: api.example.com
+Accept: */*
+content-type: text/plain;charset=UTF-8
+Content-Length: 29
+
+It's done!
+Second line — ok"
+`;
+
+exports[`outputs per target > Chrome bash: $'…' body with a quote, ! and newlines → curl (bash) 1`] = `
+"curl https://api.example.com/notes \\
+  -X PUT \\
+  -H 'content-type: text/plain;charset=UTF-8' \\
+  --data-raw $'It\\'s done\\x21\\nSecond line — ok'
+"
+`;
+
+exports[`outputs per target > Chrome bash: GET with cookies and a token in the query → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+)
+
+func main() {
+	req, err := http.NewRequest("GET", "https://app.example.com/api/v1/me?include=teams&access_token=at_demo_0a1b2c3d4e", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("accept", "application/json, text/plain, */*")
+	req.Header.Set("accept-language", "en-US,en;q=0.9")
+	req.Header.Set("Cookie", "sid=demo-session-7f3e9a; prefs=compact")
+	req.Header.Set("priority", "u=1, i")
+	req.Header.Set("referer", "https://app.example.com/settings")
+	req.Header.Set("sec-ch-ua", "\\"Chromium\\";v=\\"129\\", \\"Not=A?Brand\\";v=\\"8\\"")
+	req.Header.Set("sec-ch-ua-mobile", "?0")
+	req.Header.Set("sec-fetch-mode", "cors")
+	req.Header.Set("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Chrome bash: GET with cookies and a token in the query → JavaScript 1`] = `
+"// In a browser, fetch() silently drops forbidden headers: cookie, referer, sec-ch-ua, sec-ch-ua-mobile, sec-fetch-mode
+const response = await fetch('https://app.example.com/api/v1/me?include=teams&access_token=at_demo_0a1b2c3d4e', {
+  headers: {
+    'accept': 'application/json, text/plain, */*',
+    'accept-language': 'en-US,en;q=0.9',
+    'Cookie': 'sid=demo-session-7f3e9a; prefs=compact',
+    'priority': 'u=1, i',
+    'referer': 'https://app.example.com/settings',
+    'sec-ch-ua': '"Chromium";v="129", "Not=A?Brand";v="8"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-fetch-mode': 'cors',
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+  },
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Chrome bash: GET with cookies and a token in the query → Python requests 1`] = `
+"import requests
+
+headers = {
+    'accept': 'application/json, text/plain, */*',
+    'accept-language': 'en-US,en;q=0.9',
+    'Cookie': 'sid=demo-session-7f3e9a; prefs=compact',
+    'priority': 'u=1, i',
+    'referer': 'https://app.example.com/settings',
+    'sec-ch-ua': '"Chromium";v="129", "Not=A?Brand";v="8"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-fetch-mode': 'cors',
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+}
+
+response = requests.get(
+    'https://app.example.com/api/v1/me?include=teams&access_token=at_demo_0a1b2c3d4e',
+    headers=headers,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Chrome bash: GET with cookies and a token in the query → Raw HTTP/1.1 1`] = `
+"GET /api/v1/me?include=teams&access_token=at_demo_0a1b2c3d4e HTTP/1.1
+Host: app.example.com
+accept: application/json, text/plain, */*
+accept-language: en-US,en;q=0.9
+Cookie: sid=demo-session-7f3e9a; prefs=compact
+priority: u=1, i
+referer: https://app.example.com/settings
+sec-ch-ua: "Chromium";v="129", "Not=A?Brand";v="8"
+sec-ch-ua-mobile: ?0
+sec-fetch-mode: cors
+user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36
+
+"
+`;
+
+exports[`outputs per target > Chrome bash: GET with cookies and a token in the query → curl (bash) 1`] = `
+"curl 'https://app.example.com/api/v1/me?include=teams&access_token=at_demo_0a1b2c3d4e' \\
+  -H 'accept: application/json, text/plain, */*' \\
+  -H 'accept-language: en-US,en;q=0.9' \\
+  -H 'Cookie: sid=demo-session-7f3e9a; prefs=compact' \\
+  -H 'priority: u=1, i' \\
+  -H 'referer: https://app.example.com/settings' \\
+  -H 'sec-ch-ua: "Chromium";v="129", "Not=A?Brand";v="8"' \\
+  -H 'sec-ch-ua-mobile: ?0' \\
+  -H 'sec-fetch-mode: cors' \\
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
+"
+`;
+
+exports[`outputs per target > Chrome bash: POST JSON with a bearer token → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://api.example.com/graphql", strings.NewReader(\`{"operationName":"Orders","variables":{"first":20,"after":null},"query":"query Orders { orders { id } }"}\`))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("accept", "*/*")
+	req.Header.Set("authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.ZGVtby1zaWduYXR1cmU")
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("origin", "https://app.example.com")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Chrome bash: POST JSON with a bearer token → JavaScript 1`] = `
+"// In a browser, fetch() silently drops forbidden headers: origin
+const response = await fetch('https://api.example.com/graphql', {
+  method: 'POST',
+  headers: {
+    'accept': '*/*',
+    'authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.ZGVtby1zaWduYXR1cmU',
+    'content-type': 'application/json',
+    'origin': 'https://app.example.com',
+  },
+  body: JSON.stringify({
+    "operationName": "Orders",
+    "variables": {
+      "first": 20,
+      "after": null,
+    },
+    "query": "query Orders { orders { id } }",
+  }),
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Chrome bash: POST JSON with a bearer token → Python requests 1`] = `
+"import requests
+import json
+
+headers = {
+    'accept': '*/*',
+    'authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.ZGVtby1zaWduYXR1cmU',
+    'content-type': 'application/json',
+    'origin': 'https://app.example.com',
+}
+
+json_data = {
+    'operationName': 'Orders',
+    'variables': {
+        'first': 20,
+        'after': None,
+    },
+    'query': 'query Orders { orders { id } }',
+}
+
+response = requests.post(
+    'https://api.example.com/graphql',
+    headers=headers,
+    data=json.dumps(json_data, separators=(',', ':')),
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Chrome bash: POST JSON with a bearer token → Raw HTTP/1.1 1`] = `
+"POST /graphql HTTP/1.1
+Host: api.example.com
+accept: */*
+authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.ZGVtby1zaWduYXR1cmU
+content-type: application/json
+origin: https://app.example.com
+Content-Length: 105
+
+{"operationName":"Orders","variables":{"first":20,"after":null},"query":"query Orders { orders { id } }"}"
+`;
+
+exports[`outputs per target > Chrome bash: POST JSON with a bearer token → curl (bash) 1`] = `
+"curl https://api.example.com/graphql \\
+  -H 'accept: */*' \\
+  -H 'authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.ZGVtby1zaWduYXR1cmU' \\
+  -H 'content-type: application/json' \\
+  -H 'origin: https://app.example.com' \\
+  --data-raw '{"operationName":"Orders","variables":{"first":20,"after":null},"query":"query Orders { orders { id } }"}'
+"
+`;
+
+exports[`outputs per target > Chrome bash: multipart upload copied as raw data → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://upload.example.com/files", strings.NewReader("------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name=\\"title\\"\\r\\n\\r\\nQuarterly report\\r\\n------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name=\\"upload_token\\"\\r\\n\\r\\nut_demo_55aa66bb\\r\\n------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name=\\"file\\"; filename=\\"q3.csv\\"\\r\\nContent-Type: text/csv\\r\\n\\r\\n\\r\\n------WebKitFormBoundaryX3bYq9--\\r\\n"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("accept", "*/*")
+	req.Header.Set("content-type", "multipart/form-data; boundary=----WebKitFormBoundaryX3bYq9")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Chrome bash: multipart upload copied as raw data → JavaScript 1`] = `
+"const response = await fetch('https://upload.example.com/files', {
+  method: 'POST',
+  headers: {
+    'accept': '*/*',
+    'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryX3bYq9',
+  },
+  body: '------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="title"\\r\\n\\r\\nQuarterly report\\r\\n------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="upload_token"\\r\\n\\r\\nut_demo_55aa66bb\\r\\n------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="file"; filename="q3.csv"\\r\\nContent-Type: text/csv\\r\\n\\r\\n\\r\\n------WebKitFormBoundaryX3bYq9--\\r\\n',
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Chrome bash: multipart upload copied as raw data → Python requests 1`] = `
+"import requests
+
+headers = {
+    'accept': '*/*',
+    'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryX3bYq9',
+}
+
+data = '------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="title"\\r\\n\\r\\nQuarterly report\\r\\n------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="upload_token"\\r\\n\\r\\nut_demo_55aa66bb\\r\\n------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="file"; filename="q3.csv"\\r\\nContent-Type: text/csv\\r\\n\\r\\n\\r\\n------WebKitFormBoundaryX3bYq9--\\r\\n'
+
+response = requests.post(
+    'https://upload.example.com/files',
+    headers=headers,
+    data=data,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Chrome bash: multipart upload copied as raw data → Raw HTTP/1.1 1`] = `
+"POST /files HTTP/1.1
+Host: upload.example.com
+accept: */*
+content-type: multipart/form-data; boundary=----WebKitFormBoundaryX3bYq9
+Content-Length: 361
+
+------WebKitFormBoundaryX3bYq9
+Content-Disposition: form-data; name="title"
+
+Quarterly report
+------WebKitFormBoundaryX3bYq9
+Content-Disposition: form-data; name="upload_token"
+
+ut_demo_55aa66bb
+------WebKitFormBoundaryX3bYq9
+Content-Disposition: form-data; name="file"; filename="q3.csv"
+Content-Type: text/csv
+
+
+------WebKitFormBoundaryX3bYq9--
+"
+`;
+
+exports[`outputs per target > Chrome bash: multipart upload copied as raw data → curl (bash) 1`] = `
+"curl https://upload.example.com/files \\
+  -H 'accept: */*' \\
+  -H 'content-type: multipart/form-data; boundary=----WebKitFormBoundaryX3bYq9' \\
+  --data-raw $'------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="title"\\r\\n\\r\\nQuarterly report\\r\\n------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="upload_token"\\r\\n\\r\\nut_demo_55aa66bb\\r\\n------WebKitFormBoundaryX3bYq9\\r\\nContent-Disposition: form-data; name="file"; filename="q3.csv"\\r\\nContent-Type: text/csv\\r\\n\\r\\n\\r\\n------WebKitFormBoundaryX3bYq9--\\r\\n'
+"
+`;
+
+exports[`outputs per target > Chrome cmd: GET with an encoded query and a multi-line body → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://example.com/search?q=100%25&page=2", strings.NewReader("line one\\nline two"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("x-api-key", "demo_key_abcdef0123")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Chrome cmd: GET with an encoded query and a multi-line body → JavaScript 1`] = `
+"const response = await fetch('https://example.com/search?q=100%25&page=2', {
+  method: 'POST',
+  headers: {
+    'x-api-key': 'demo_key_abcdef0123',
+    'Content-Type': 'application/x-www-form-urlencoded',
+  },
+  body: 'line one\\nline two',
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Chrome cmd: GET with an encoded query and a multi-line body → Python requests 1`] = `
+"import requests
+
+headers = {
+    'x-api-key': 'demo_key_abcdef0123',
+    'Content-Type': 'application/x-www-form-urlencoded',
+}
+
+data = 'line one\\nline two'
+
+response = requests.post(
+    'https://example.com/search?q=100%25&page=2',
+    headers=headers,
+    data=data,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Chrome cmd: GET with an encoded query and a multi-line body → Raw HTTP/1.1 1`] = `
+"POST /search?q=100%25&page=2 HTTP/1.1
+Host: example.com
+Accept: */*
+x-api-key: demo_key_abcdef0123
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 17
+
+line one
+line two"
+`;
+
+exports[`outputs per target > Chrome cmd: GET with an encoded query and a multi-line body → curl (bash) 1`] = `
+"curl 'https://example.com/search?q=100%25&page=2' \\
+  -H 'x-api-key: demo_key_abcdef0123' \\
+  -H 'Content-Type: application/x-www-form-urlencoded' \\
+  --data-raw $'line one\\nline two'
+"
+`;
+
+exports[`outputs per target > Chrome cmd: POST JSON with & and % → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://shop.example.com/api/cart?locale=en-US&ref=nav", strings.NewReader(\`{"sku":"A-100","qty":3,"note":"50% off & free"}\`))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("accept", "application/json, text/plain, */*")
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("Cookie", "cart_id=c-1029; consent=all")
+	req.Header.Set("sec-ch-ua", "\\"Chromium\\";v=\\"129\\", \\"Not=A?Brand\\";v=\\"8\\"")
+	req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Chrome cmd: POST JSON with & and % → JavaScript 1`] = `
+"// In a browser, fetch() silently drops forbidden headers: cookie, sec-ch-ua
+const response = await fetch('https://shop.example.com/api/cart?locale=en-US&ref=nav', {
+  method: 'POST',
+  headers: {
+    'accept': 'application/json, text/plain, */*',
+    'content-type': 'application/json',
+    'Cookie': 'cart_id=c-1029; consent=all',
+    'sec-ch-ua': '"Chromium";v="129", "Not=A?Brand";v="8"',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+  },
+  body: JSON.stringify({
+    "sku": "A-100",
+    "qty": 3,
+    "note": "50% off & free",
+  }),
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Chrome cmd: POST JSON with & and % → Python requests 1`] = `
+"import requests
+import json
+
+headers = {
+    'accept': 'application/json, text/plain, */*',
+    'content-type': 'application/json',
+    'Cookie': 'cart_id=c-1029; consent=all',
+    'sec-ch-ua': '"Chromium";v="129", "Not=A?Brand";v="8"',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+}
+
+json_data = {
+    'sku': 'A-100',
+    'qty': 3,
+    'note': '50% off & free',
+}
+
+response = requests.post(
+    'https://shop.example.com/api/cart?locale=en-US&ref=nav',
+    headers=headers,
+    data=json.dumps(json_data, separators=(',', ':')),
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Chrome cmd: POST JSON with & and % → Raw HTTP/1.1 1`] = `
+"POST /api/cart?locale=en-US&ref=nav HTTP/1.1
+Host: shop.example.com
+accept: application/json, text/plain, */*
+content-type: application/json
+Cookie: cart_id=c-1029; consent=all
+sec-ch-ua: "Chromium";v="129", "Not=A?Brand";v="8"
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+Content-Length: 47
+
+{"sku":"A-100","qty":3,"note":"50% off & free"}"
+`;
+
+exports[`outputs per target > Chrome cmd: POST JSON with & and % → curl (bash) 1`] = `
+"curl 'https://shop.example.com/api/cart?locale=en-US&ref=nav' \\
+  -H 'accept: application/json, text/plain, */*' \\
+  -H 'content-type: application/json' \\
+  -H 'Cookie: cart_id=c-1029; consent=all' \\
+  -H 'sec-ch-ua: "Chromium";v="129", "Not=A?Brand";v="8"' \\
+  -H 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)' \\
+  --data-raw '{"sku":"A-100","qty":3,"note":"50% off & free"}'
+"
+`;
+
+exports[`outputs per target > Firefox POSIX: one line, Latin-1 \\x escapes, Basic auth → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("PUT", "https://example.com/api/profile", strings.NewReader(\`{"name":"Renée","bio":"It's 5€"}\`))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Basic ZGVtbzpkZW1vLXBhc3M=")
+	req.Header.Set("Origin", "https://example.com")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Cookie", "csrftoken=demo_csrf_998877")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Firefox POSIX: one line, Latin-1 \\x escapes, Basic auth → JavaScript 1`] = `
+"// In a browser, fetch() silently drops forbidden headers: accept-encoding, origin, connection, cookie
+const response = await fetch('https://example.com/api/profile', {
+  method: 'PUT',
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'Accept': 'application/json',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br, zstd',
+    'Content-Type': 'application/json',
+    'Authorization': 'Basic ZGVtbzpkZW1vLXBhc3M=',
+    'Origin': 'https://example.com',
+    'Connection': 'keep-alive',
+    'Cookie': 'csrftoken=demo_csrf_998877',
+  },
+  body: JSON.stringify({
+    "name": "Renée",
+    "bio": "It's 5€",
+  }),
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Firefox POSIX: one line, Latin-1 \\x escapes, Basic auth → Python requests 1`] = `
+"import requests
+
+headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'Accept': 'application/json',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br, zstd',
+    'Content-Type': 'application/json',
+    'Authorization': 'Basic ZGVtbzpkZW1vLXBhc3M=',
+    'Origin': 'https://example.com',
+    'Connection': 'keep-alive',
+    'Cookie': 'csrftoken=demo_csrf_998877',
+}
+
+data = '{"name":"Renée","bio":"It\\'s 5€"}'.encode('utf-8')
+
+response = requests.put(
+    'https://example.com/api/profile',
+    headers=headers,
+    data=data,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Firefox POSIX: one line, Latin-1 \\x escapes, Basic auth → Raw HTTP/1.1 1`] = `
+"PUT /api/profile HTTP/1.1
+Host: example.com
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0
+Accept: application/json
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Content-Type: application/json
+Authorization: Basic ZGVtbzpkZW1vLXBhc3M=
+Origin: https://example.com
+Connection: keep-alive
+Cookie: csrftoken=demo_csrf_998877
+Content-Length: 35
+
+{"name":"Renée","bio":"It's 5€"}"
+`;
+
+exports[`outputs per target > Firefox POSIX: one line, Latin-1 \\x escapes, Basic auth → curl (bash) 1`] = `
+"curl https://example.com/api/profile \\
+  -X PUT \\
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0' \\
+  -H 'Accept: application/json' \\
+  -H 'Accept-Language: en-US,en;q=0.5' \\
+  -H 'Accept-Encoding: gzip, deflate, br, zstd' \\
+  -H 'Content-Type: application/json' \\
+  -H 'Authorization: Basic ZGVtbzpkZW1vLXBhc3M=' \\
+  -H 'Origin: https://example.com' \\
+  -H 'Connection: keep-alive' \\
+  -H 'Cookie: csrftoken=demo_csrf_998877' \\
+  --data-raw $'{"name":"Renée","bio":"It\\'s 5€"}'
+"
+`;
+
+exports[`outputs per target > Firefox Windows: form login → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://example.com/login", strings.NewReader("user=demo&password=pa%24%24word&remember=1"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0")
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Origin", "https://example.com")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Firefox Windows: form login → JavaScript 1`] = `
+"// In a browser, fetch() silently drops forbidden headers: origin
+const response = await fetch('https://example.com/login', {
+  method: 'POST',
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'Accept': 'text/html',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Origin': 'https://example.com',
+  },
+  body: 'user=demo&password=pa%24%24word&remember=1',
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Firefox Windows: form login → Python requests 1`] = `
+"import requests
+
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'Accept': 'text/html',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Origin': 'https://example.com',
+}
+
+data = 'user=demo&password=pa%24%24word&remember=1'
+
+response = requests.post(
+    'https://example.com/login',
+    headers=headers,
+    data=data,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Firefox Windows: form login → Raw HTTP/1.1 1`] = `
+"POST /login HTTP/1.1
+Host: example.com
+User-Agent: Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0
+Accept: text/html
+Content-Type: application/x-www-form-urlencoded
+Origin: https://example.com
+Content-Length: 42
+
+user=demo&password=pa%24%24word&remember=1"
+`;
+
+exports[`outputs per target > Firefox Windows: form login → curl (bash) 1`] = `
+"curl https://example.com/login \\
+  -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0' \\
+  -H 'Accept: text/html' \\
+  -H 'Content-Type: application/x-www-form-urlencoded' \\
+  -H 'Origin: https://example.com' \\
+  --data-raw 'user=demo&password=pa%24%24word&remember=1'
+"
+`;
+
+exports[`outputs per target > Hand-written: --json → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://api.example.com/items", strings.NewReader(\`{"name":"demo","id":12345678901234567890}\`))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Hand-written: --json → JavaScript 1`] = `
+"const response = await fetch('https://api.example.com/items', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+  body: '{"name":"demo","id":12345678901234567890}',
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Hand-written: --json → Python requests 1`] = `
+"import requests
+
+headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+}
+
+data = '{"name":"demo","id":12345678901234567890}'
+
+response = requests.post(
+    'https://api.example.com/items',
+    headers=headers,
+    data=data,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Hand-written: --json → Raw HTTP/1.1 1`] = `
+"POST /items HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+Accept: application/json
+Content-Length: 41
+
+{"name":"demo","id":12345678901234567890}"
+`;
+
+exports[`outputs per target > Hand-written: --json → curl (bash) 1`] = `
+"curl https://api.example.com/items \\
+  -H 'Content-Type: application/json' \\
+  -H 'Accept: application/json' \\
+  --data-raw '{"name":"demo","id":12345678901234567890}'
+"
+`;
+
+exports[`outputs per target > Hand-written: -F parts, -A, -e → Go net/http 1`] = `
+"package main
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"log"
+	"mime/multipart"
+	"net/http"
+	"net/textproto"
+	"os"
+)
+
+func main() {
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	form.WriteField("name", "report")
+	{
+		part, err := form.CreatePart(textproto.MIMEHeader{
+			"Content-Disposition": {"form-data; name=\\"file\\"; filename=\\"q3.csv\\""},
+			"Content-Type":        {"text/csv"},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		file, err := os.Open("./q3.csv")
+		if err != nil {
+			log.Fatal(err)
+		}
+		io.Copy(part, file)
+		file.Close()
+	}
+	{
+		part, err := form.CreatePart(textproto.MIMEHeader{
+			"Content-Disposition": {"form-data; name=\\"meta\\""},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		file, err := os.Open("meta.json")
+		if err != nil {
+			log.Fatal(err)
+		}
+		io.Copy(part, file)
+		file.Close()
+	}
+	form.Close()
+
+	req, err := http.NewRequest("POST", "https://upload.example.com/v1/import", &body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", form.FormDataContentType())
+
+	req.Header.Set("User-Agent", "importer/2.1")
+	req.Header.Set("Referer", "https://example.com/")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Hand-written: -F parts, -A, -e → JavaScript 1`] = `
+"import { openAsBlob } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+
+// In a browser, fetch() silently drops forbidden headers: referer
+const form = new FormData();
+form.append('name', 'report');
+form.append('file', await openAsBlob('./q3.csv', { type: 'text/csv' }), 'q3.csv');
+form.append('meta', await readFile('meta.json', 'utf8'));
+
+const response = await fetch('https://upload.example.com/v1/import', {
+  method: 'POST',
+  headers: {
+    'User-Agent': 'importer/2.1',
+    'Referer': 'https://example.com/',
+  },
+  body: form,
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Hand-written: -F parts, -A, -e → Python requests 1`] = `
+"import requests
+
+headers = {
+    'User-Agent': 'importer/2.1',
+    'Referer': 'https://example.com/',
+}
+
+files = [
+    ('name', (None, 'report')),
+    ('file', ('q3.csv', open('./q3.csv', 'rb'), 'text/csv')),
+    ('meta', (None, open('meta.json', 'rb').read())),
+]
+
+response = requests.post(
+    'https://upload.example.com/v1/import',
+    headers=headers,
+    files=files,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Hand-written: -F parts, -A, -e → Raw HTTP/1.1 1`] = `
+"POST /v1/import HTTP/1.1
+Host: upload.example.com
+Accept: */*
+User-Agent: importer/2.1
+Referer: https://example.com/
+Content-Type: multipart/form-data; boundary=------------------------d74496d66958873e
+
+--------------------------d74496d66958873e
+Content-Disposition: form-data; name="name"
+
+report
+--------------------------d74496d66958873e
+Content-Disposition: form-data; name="file"; filename="q3.csv"
+Content-Type: text/csv
+
+<contents of ./q3.csv>
+--------------------------d74496d66958873e
+Content-Disposition: form-data; name="meta"
+
+<contents of meta.json>
+--------------------------d74496d66958873e--
+"
+`;
+
+exports[`outputs per target > Hand-written: -F parts, -A, -e → curl (bash) 1`] = `
+"curl https://upload.example.com/v1/import \\
+  -H 'User-Agent: importer/2.1' \\
+  -H 'Referer: https://example.com/' \\
+  --form-string name=report \\
+  -F 'file=@"./q3.csv";type=text/csv' \\
+  -F 'meta=<"meta.json"'
+"
+`;
+
+exports[`outputs per target > Hand-written: -G, --json, -I and header removal → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+)
+
+func main() {
+	req, err := http.NewRequest("GET", "https://example.com/search?q=hello&tag=a%20b", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("X-Empty", "")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Hand-written: -G, --json, -I and header removal → JavaScript 1`] = `
+"const response = await fetch('https://example.com/search?q=hello&tag=a%20b', {
+  headers: {
+    'X-Empty': '',
+  },
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Hand-written: -G, --json, -I and header removal → Python requests 1`] = `
+"import requests
+
+headers = {
+    'X-Empty': '',
+}
+
+response = requests.get(
+    'https://example.com/search?q=hello&tag=a%20b',
+    headers=headers,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Hand-written: -G, --json, -I and header removal → Raw HTTP/1.1 1`] = `
+"GET /search?q=hello&tag=a%20b HTTP/1.1
+Host: example.com
+X-Empty: 
+
+"
+`;
+
+exports[`outputs per target > Hand-written: -G, --json, -I and header removal → curl (bash) 1`] = `
+"curl 'https://example.com/search?q=hello&tag=a%20b' \\
+  -H 'X-Empty;' \\
+  -H accept:
+"
+`;
+
+exports[`outputs per target > Hand-written: -u, clustered flags, several -d and --data-urlencode → Go net/http 1`] = `
+"package main
+
+import (
+	"crypto/tls"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://api.example.com/v1/charges", strings.NewReader("amount=500&currency=usd&description=Two%20widgets%20%26%20a%20gadget"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.SetBasicAuth("demo_user", "demo-pass-1")
+
+	req.Header.Set("Idempotency-Key", "7a1f")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // curl -k
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Hand-written: -u, clustered flags, several -d and --data-urlencode → JavaScript 1`] = `
+"// curl -k skips certificate checks; fetch() has no option for that
+const response = await fetch('https://api.example.com/v1/charges', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Basic ' + btoa('demo_user:demo-pass-1'),
+    'Idempotency-Key': '7a1f',
+    'Content-Type': 'application/x-www-form-urlencoded',
+  },
+  body: 'amount=500&currency=usd&description=Two%20widgets%20%26%20a%20gadget',
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Hand-written: -u, clustered flags, several -d and --data-urlencode → Python requests 1`] = `
+"import requests
+
+headers = {
+    'Idempotency-Key': '7a1f',
+    'Content-Type': 'application/x-www-form-urlencoded',
+}
+
+data = 'amount=500&currency=usd&description=Two%20widgets%20%26%20a%20gadget'
+
+response = requests.post(
+    'https://api.example.com/v1/charges',
+    headers=headers,
+    auth=('demo_user', 'demo-pass-1'),
+    data=data,
+    verify=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Hand-written: -u, clustered flags, several -d and --data-urlencode → Raw HTTP/1.1 1`] = `
+"POST /v1/charges HTTP/1.1
+Host: api.example.com
+Authorization: Basic ZGVtb191c2VyOmRlbW8tcGFzcy0x
+Accept: */*
+Accept-Encoding: deflate, gzip, br, zstd
+Idempotency-Key: 7a1f
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 68
+
+amount=500&currency=usd&description=Two%20widgets%20%26%20a%20gadget"
+`;
+
+exports[`outputs per target > Hand-written: -u, clustered flags, several -d and --data-urlencode → curl (bash) 1`] = `
+"curl https://api.example.com/v1/charges \\
+  -u demo_user:demo-pass-1 \\
+  -H 'Idempotency-Key: 7a1f' \\
+  -H 'Content-Type: application/x-www-form-urlencoded' \\
+  --data-raw 'amount=500&currency=usd&description=Two%20widgets%20%26%20a%20gadget' \\
+  -L -k --compressed
+"
+`;
+
+exports[`outputs per target > Hand-written: HEAD → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+)
+
+func main() {
+	req, err := http.NewRequest("HEAD", "https://example.com/health", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Hand-written: HEAD → JavaScript 1`] = `
+"const response = await fetch('https://example.com/health', {
+  method: 'HEAD',
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Hand-written: HEAD → Python requests 1`] = `
+"import requests
+
+response = requests.head(
+    'https://example.com/health',
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Hand-written: HEAD → Raw HTTP/1.1 1`] = `
+"HEAD /health HTTP/1.1
+Host: example.com
+Accept: */*
+
+"
+`;
+
+exports[`outputs per target > Hand-written: HEAD → curl (bash) 1`] = `
+"curl https://example.com/health \\
+  -I
+"
+`;
+
+exports[`outputs per target > Safari: binary JSON body with ANSI-C escapes → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://example.com/api/messages", strings.NewReader(\`{"msg":"Hi! über"}\`))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Safari: binary JSON body with ANSI-C escapes → JavaScript 1`] = `
+"const response = await fetch('https://example.com/api/messages', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    "msg": "Hi! über",
+  }),
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Safari: binary JSON body with ANSI-C escapes → Python requests 1`] = `
+"import requests
+
+headers = {
+    'Content-Type': 'application/json',
+}
+
+data = '{"msg":"Hi! über"}'.encode('utf-8')
+
+response = requests.post(
+    'https://example.com/api/messages',
+    headers=headers,
+    data=data,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Safari: binary JSON body with ANSI-C escapes → Raw HTTP/1.1 1`] = `
+"POST /api/messages HTTP/1.1
+Host: example.com
+Accept: */*
+Content-Type: application/json
+Content-Length: 19
+
+{"msg":"Hi! über"}"
+`;
+
+exports[`outputs per target > Safari: binary JSON body with ANSI-C escapes → curl (bash) 1`] = `
+"curl https://example.com/api/messages \\
+  -H 'Content-Type: application/json' \\
+  --data-raw '{"msg":"Hi! über"}'
+"
+`;
+
+exports[`outputs per target > Safari: escaped glob brackets and \\041 → Go net/http 1`] = `
+"package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+)
+
+func main() {
+	req, err := http.NewRequest("POST", "https://example.com/search?filter[type]=book&page=1", strings.NewReader("q=caf%C3%A9&lang=fr"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	req.Header.Set("X-CSRF-Token", "demo_csrf_8f7e6d5c4b")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15")
+
+	client := &http.Client{
+		// curl does not follow redirects without -L
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(resp.Status)
+	fmt.Printf("%s\\n", data)
+}
+"
+`;
+
+exports[`outputs per target > Safari: escaped glob brackets and \\041 → JavaScript 1`] = `
+"const response = await fetch('https://example.com/search?filter[type]=book&page=1', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Accept': 'text/html,application/xhtml+xml',
+    'X-CSRF-Token': 'demo_csrf_8f7e6d5c4b',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+  },
+  body: 'q=caf%C3%A9&lang=fr',
+  redirect: 'manual', // curl does not follow redirects without -L
+});
+
+console.log(response.status);
+console.log(await response.text());
+"
+`;
+
+exports[`outputs per target > Safari: escaped glob brackets and \\041 → Python requests 1`] = `
+"import requests
+
+headers = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Accept': 'text/html,application/xhtml+xml',
+    'X-CSRF-Token': 'demo_csrf_8f7e6d5c4b',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+}
+
+data = 'q=caf%C3%A9&lang=fr'
+
+response = requests.post(
+    'https://example.com/search?filter[type]=book&page=1',
+    headers=headers,
+    data=data,
+    allow_redirects=False,
+)
+
+print(response.status_code)
+print(response.text)
+"
+`;
+
+exports[`outputs per target > Safari: escaped glob brackets and \\041 → Raw HTTP/1.1 1`] = `
+"POST /search?filter[type]=book&page=1 HTTP/1.1
+Host: example.com
+Content-Type: application/x-www-form-urlencoded
+Accept: text/html,application/xhtml+xml
+X-CSRF-Token: demo_csrf_8f7e6d5c4b
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15
+Content-Length: 19
+
+q=caf%C3%A9&lang=fr"
+`;
+
+exports[`outputs per target > Safari: escaped glob brackets and \\041 → curl (bash) 1`] = `
+"curl 'https://example.com/search?filter[type]=book&page=1' \\
+  -g \\
+  -H 'Content-Type: application/x-www-form-urlencoded' \\
+  -H 'Accept: text/html,application/xhtml+xml' \\
+  -H 'X-CSRF-Token: demo_csrf_8f7e6d5c4b' \\
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15' \\
+  --data-raw 'q=caf%C3%A9&lang=fr'
+"
+`;

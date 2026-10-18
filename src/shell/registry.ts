@@ -161,4 +161,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/sqlite'),
   },
+  {
+    slug: 'curl',
+    name: 'cURL converter',
+    mark: 'cURL',
+    category: 'data',
+    load: () => import('../tools/curl'),
+  },
 ]

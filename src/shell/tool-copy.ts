@@ -27,4 +27,5 @@ export const taglines: Record<string, string> = {
   uuid: 'Generate v4, v7 and ULID batches, or inspect any UUID or ULID — version, variant, embedded time, and conversions to ULID, hex and base64url',
   convert: 'Convert between YAML, JSON and TOML with exact big integers, line-and-column errors and a warning for anything lost',
   sqlite: 'Open a SQLite file in your browser — browse tables, run SQL, export CSV, JSON or the edited database',
+  curl: 'Turn a browser’s Copy as cURL into fetch, Python, Go or raw HTTP — secrets flagged and swapped for placeholders, nothing sent',
 }
