@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
@@ -54,7 +54,8 @@ export default function UuidTool() {
 
 type Copy = (text: string, what: string) => Promise<void>
 
-function Generate({ copy }: { copy: Copy }) {
+/** Exported for layout.test.ts, which renders it without the shell header. */
+export function Generate({ copy }: { copy: Copy }) {
   const v7 = useRef(createV7Generator())
   const ulid = useRef(createUlidGenerator())
   const [kind, setKind] = useState<Kind>('v7')
@@ -85,31 +86,35 @@ function Generate({ copy }: { copy: Copy }) {
   }).join('\n'), [batch, batchKind, upper, hyphens])
 
   const hint = KINDS.find((item) => item.id === kind)!.hint
+  const hintId = useId()
 
   return (
     <>
       <section className="uuid-controls" aria-label="Generator settings">
-        <div className="uuid-seg" role="group" aria-label="ID type">
-          {KINDS.map((item) => (
-            <button key={item.id} className={kind === item.id ? 'on' : ''} aria-pressed={kind === item.id} onClick={() => pickKind(item.id)}>{item.label}</button>
-          ))}
+        <div className="uuid-settings">
+          <div className="uuid-seg" role="group" aria-label="ID type" aria-describedby={hintId}>
+            {KINDS.map((item) => (
+              <button key={item.id} className={kind === item.id ? 'on' : ''} aria-pressed={kind === item.id} data-label={item.label} onClick={() => pickKind(item.id)}>{item.label}</button>
+            ))}
+          </div>
+          <label>
+            <span>Count</span>
+            <input type="number" min={1} max={1000} value={count} onChange={(event) => setCount(Number(event.target.value))} onBlur={() => setCount(clampCount(count))} />
+          </label>
+          <div className="uuid-seg" role="group" aria-label="Letter case">
+            <button className={!upper ? 'on' : ''} aria-pressed={!upper} data-label="lower" onClick={() => setUpper(false)}>lower</button>
+            <button className={upper ? 'on' : ''} aria-pressed={upper} data-label="UPPER" onClick={() => setUpper(true)}>UPPER</button>
+          </div>
+          <label className="uuid-check">
+            <input type="checkbox" checked={hyphens} disabled={kind === 'ulid'} onChange={(event) => setHyphens(event.target.checked)} />
+            <span>Hyphens</span>
+          </label>
         </div>
-        <label>
-          <span>Count</span>
-          <input type="number" min={1} max={1000} value={count} onChange={(event) => setCount(Number(event.target.value))} onBlur={() => setCount(clampCount(count))} />
-        </label>
-        <div className="uuid-seg" role="group" aria-label="Letter case">
-          <button className={!upper ? 'on' : ''} aria-pressed={!upper} onClick={() => setUpper(false)}>lower</button>
-          <button className={upper ? 'on' : ''} aria-pressed={upper} onClick={() => setUpper(true)}>UPPER</button>
-        </div>
-        <label className="uuid-check">
-          <input type="checkbox" checked={hyphens} disabled={kind === 'ulid'} onChange={(event) => setHyphens(event.target.checked)} />
-          <span>Hyphens</span>
-        </label>
-        <p>{hint}</p>
         <button className="uuid-primary" onClick={() => generate()}>
-          <span className="material-symbols-outlined">refresh</span> Generate
+          <span className="material-symbols-outlined" aria-hidden>refresh</span> Generate
         </button>
+        {/* Its own grid row, after the button: the hint's length must never move the button. */}
+        <p className="uuid-hint" id={hintId}>{hint}</p>
       </section>
 
       <article className="uuid-pane">
@@ -117,7 +122,7 @@ function Generate({ copy }: { copy: Copy }) {
           <strong>{batch.length.toLocaleString()} × {KINDS.find((item) => item.id === batchKind)!.label}</strong>
           <span>crypto.getRandomValues</span>
           <button onClick={() => void copy(output, batch.length === 1 ? 'ID' : `${batch.length} IDs`)} disabled={!output}>
-            <span className="material-symbols-outlined">content_copy</span> Copy all
+            <span className="material-symbols-outlined" aria-hidden>content_copy</span> Copy all
           </button>
         </header>
         <textarea value={output} readOnly spellCheck={false} aria-label="Generated IDs" wrap="off" />
@@ -137,7 +142,7 @@ function Inspect({ copy }: { copy: Copy }) {
         <header>
           <strong>IDs</strong>
           <span>one per line · UUID or ULID</span>
-          <button onClick={() => setInput('')} disabled={!input} aria-label="Clear"><span className="material-symbols-outlined">close</span></button>
+          <button onClick={() => setInput('')} disabled={!input} aria-label="Clear"><span className="material-symbols-outlined" aria-hidden>close</span></button>
         </header>
         <textarea value={input} onChange={(event) => setInput(event.target.value)} spellCheck={false} aria-label="IDs to inspect" wrap="off" placeholder="Paste UUIDs or ULIDs, one per line" />
       </article>
@@ -168,7 +173,7 @@ function Inspect({ copy }: { copy: Copy }) {
                   <dd>
                     <code>{item.value}</code>
                     <button onClick={() => void copy(item.value, item.label)} aria-label={`Copy ${item.label}`} title={`Copy ${item.label}`}>
-                      <span className="material-symbols-outlined">content_copy</span>
+                      <span className="material-symbols-outlined" aria-hidden>content_copy</span>
                     </button>
                   </dd>
                 </div>
