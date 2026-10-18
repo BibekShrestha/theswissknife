@@ -11,6 +11,8 @@ import {
   parseTimestamp,
   preciseIso,
   relativeTime,
+  timestampField,
+  zoneOptions,
   type ParsedInstant,
   type TimeUnit,
 } from './time'
@@ -18,7 +20,7 @@ import './time.css'
 
 type SupportedValues = typeof Intl & { supportedValuesOf?: (key: 'timeZone') => string[] }
 const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-const zones = (Intl as SupportedValues).supportedValuesOf?.('timeZone') ?? ['UTC', localZone]
+const zones = zoneOptions((Intl as SupportedValues).supportedValuesOf?.('timeZone'), localZone)
 
 export default function TimeTool() {
   const initialMs = Date.now()
@@ -40,12 +42,16 @@ export default function TimeTool() {
   }, [])
 
   const sync = (next: ParsedInstant, source: 'timestamp' | 'iso' | 'local') => {
-    setInstant(next)
     setError(null)
     if (source !== 'timestamp') {
-      setTimestamp(String(next.milliseconds / 1000))
-      setUnit(next.inferredUnit)
+      // Write the timestamp in a unit that reads it back as the same instant.
+      const field = timestampField(next.nanoseconds, unit)
+      setTimestamp(field.text)
+      setUnit(field.unit)
+      const inferredUnit = parseTimestamp(field.text, field.unit).value?.inferredUnit ?? next.inferredUnit
+      next = { ...next, inferredUnit }
     }
+    setInstant(next)
     if (source !== 'iso') setIso(preciseIso(next))
     if (source !== 'local') setLocalValue(localInputValue(next.milliseconds))
   }
@@ -123,9 +129,9 @@ export default function TimeTool() {
           </label>
 
           <label className="time-field">
-            <span><b>02</b> ISO-8601</span>
+            <span><b>02</b> ISO 8601</span>
             <input className="mono" value={iso} onChange={(event) => onIso(event.target.value)} spellCheck={false} />
-            <small>{parseIsoInput(iso).value?.localAssumed ? 'No offset supplied — interpreted in your browser timezone.' : 'Explicit offset or UTC.'}</small>
+            <small>{parseIsoInput(iso).value?.localAssumed ? `No offset — read in your browser time zone (${localZone}); a date alone is local midnight.` : 'Explicit offset or UTC.'}</small>
           </label>
 
           <label className="time-field">
@@ -141,7 +147,6 @@ export default function TimeTool() {
           <div className="time-zone-control">
             <label htmlFor="time-zone">Display timezone</label>
             <select id="time-zone" value={zone} onChange={(event) => setZone(event.target.value)}>
-              {!zones.includes(localZone) && <option>{localZone}</option>}
               {zones.map((item) => <option key={item}>{item}</option>)}
             </select>
           </div>
@@ -149,7 +154,7 @@ export default function TimeTool() {
             <article className="time-output" key={label}>
               <span>{label}</span>
               <code>{value}</code>
-              <button onClick={() => void copy(value, label)} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
+              <button onClick={() => void copy(value, label)} aria-label={`Copy ${label}`}><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>
             </article>
           ))}
         </section>
@@ -176,7 +181,7 @@ export default function TimeTool() {
               <article className="time-converter-zone" key={item}>
                 <span className="time-converter-zone-name">{item}</span>
                 <time className="time-converter-zone-time">{formatInZone(instant.milliseconds, item)}</time>
-                <button className="time-converter-zone-remove" onClick={() => removeZone(item)} aria-label={`Remove ${item}`}><span className="material-symbols-outlined">close</span></button>
+                <button className="time-converter-zone-remove" onClick={() => removeZone(item)} aria-label={`Remove ${item}`}><span className="material-symbols-outlined" aria-hidden>close</span></button>
               </article>
             ))}
           </div>
