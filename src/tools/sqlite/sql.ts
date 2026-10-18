@@ -4,7 +4,7 @@
  * it is testable without the wasm.
  */
 
-/** What sql.js hands back for one cell. Integers outside ±2^53 arrive as bigint. */
+/** One cell as read with useBigInt: an INTEGER is a bigint, a REAL a number. */
 export type Cell = number | string | Uint8Array | bigint | null
 
 /**
@@ -152,11 +152,23 @@ export function formatCell(value: Cell): FormattedCell {
       title: `${value.length} bytes`,
     }
   }
-  if (typeof value === 'number' || typeof value === 'bigint') return { kind: 'number', text: String(value) }
+  if (typeof value === 'number' || typeof value === 'bigint') return { kind: 'number', text: numberText(value) }
   if (value.length > TEXT_PREVIEW_CHARS) {
     return { kind: 'text', text: `${value.slice(0, TEXT_PREVIEW_CHARS)}…`, title: value.slice(0, 4000) }
   }
   return { kind: 'text', text: value }
+}
+
+/**
+ * A bigint is an INTEGER and a number is a REAL (engine.ts keeps them apart),
+ * so a whole REAL is written the way SQLite writes it — 1.0, -0.0 — rather
+ * than passing for an integer.
+ */
+export function numberText(value: number | bigint): string {
+  if (typeof value === 'bigint') return String(value)
+  if (Object.is(value, -0)) return '-0.0'
+  const text = String(value)
+  return Number.isInteger(value) && !/e/i.test(text) ? `${text}.0` : text
 }
 
 // ---- export --------------------------------------------------------------
@@ -168,7 +180,7 @@ export function blobLiteral(bytes: Uint8Array): string {
 
 function csvField(value: Cell): string {
   if (value === null) return ''
-  const text = value instanceof Uint8Array ? blobLiteral(value) : String(value)
+  const text = value instanceof Uint8Array ? blobLiteral(value) : typeof value === 'string' ? value : numberText(value)
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
@@ -178,28 +190,51 @@ export function toCsv(columns: string[], rows: Cell[][]): string {
   return lines.map((line) => line.join(',')).join('\r\n') + '\r\n'
 }
 
-/** Duplicate column names (SELECT 1 a, 2 a) get a " (2)" suffix so no value is lost in an object. */
+/**
+ * Duplicate column names (SELECT 1 a, 2 a) get a " (2)" suffix so no value
+ * is lost in an object — skipping any suffix a real column already has
+ * (SELECT 1 a, 2 a, 3 "a (2)" gives a, a (3), a (2)).
+ */
 export function uniqueKeys(columns: string[]): string[] {
-  const seen = new Map<string, number>()
+  const real = new Set(columns)
+  const used = new Set<string>()
+  const next = new Map<string, number>()
   return columns.map((name) => {
-    const n = (seen.get(name) ?? 0) + 1
-    seen.set(name, n)
-    return n === 1 ? name : `${name} (${n})`
+    if (!used.has(name)) {
+      used.add(name)
+      return name
+    }
+    let n = next.get(name) ?? 2
+    while (real.has(`${name} (${n})`) || used.has(`${name} (${n})`)) n++
+    next.set(name, n + 1)
+    const key = `${name} (${n})`
+    used.add(key)
+    return key
   })
 }
 
-/** Array of row objects. BLOBs become hex literals; bigints become strings, since JSON numbers can't hold them. */
+function jsonCell(value: Cell): string {
+  if (value === null) return 'null'
+  if (value instanceof Uint8Array) return JSON.stringify(blobLiteral(value))
+  if (typeof value === 'string') return JSON.stringify(value)
+  // JSON numbers are doubles: integers past 2^53 travel as strings.
+  if (typeof value === 'bigint') return value >= -MAX_SAFE && value <= MAX_SAFE ? String(value) : JSON.stringify(String(value))
+  return Number.isFinite(value) ? numberText(value) : 'null'
+}
+const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER)
+
+/**
+ * Array of row objects, laid out as JSON.stringify(…, null, 2) would. BLOBs
+ * become hex literals, integers past 2^53 strings, and a whole REAL keeps
+ * its ".0" (JSON.stringify would write 1.0 as 1 and -0.0 as 0).
+ */
 export function toJson(columns: string[], rows: Cell[][]): string {
-  const keys = uniqueKeys(columns)
-  const out = rows.map((row) => {
-    const obj: Record<string, string | number | null> = {}
-    keys.forEach((key, i) => {
-      const v = row[i] ?? null
-      obj[key] = v instanceof Uint8Array ? blobLiteral(v) : typeof v === 'bigint' ? v.toString() : v
-    })
-    return obj
-  })
-  return `${JSON.stringify(out, null, 2)}\n`
+  const keys = uniqueKeys(columns).map((key) => JSON.stringify(key))
+  if (rows.length === 0) return '[]\n'
+  const objects = rows.map((row) =>
+    keys.length === 0 ? '  {}' : `  {\n${keys.map((key, i) => `    ${key}: ${jsonCell(row[i] ?? null)}`).join(',\n')}\n  }`,
+  )
+  return `[\n${objects.join(',\n')}\n]\n`
 }
 
 /** "data.db" → "data"; used to name downloads. */

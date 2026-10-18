@@ -147,7 +147,7 @@ describe('runScript', () => {
     expect(out.error).toBeNull()
     expect(out.changed).toBe(true)
     expect(out.results.map((r) => r.rowsModified)).toEqual([2, null, 0, 2])
-    expect(out.results[1].rows).toEqual([[1, 'x'], [2, 'y'], [3, 'z'], [4, 'w']])
+    expect(out.results[1].rows).toEqual([[1n, 'x'], [2n, 'y'], [3n, 'z'], [4n, 'w']])
     expect(out.results[1].columns).toEqual(['a', 'b'])
   })
 
@@ -180,7 +180,7 @@ describe('runScript', () => {
 
   it('keeps integers beyond 2^53 exact', () => {
     const out = runScript(openDatabase(SQL, null), 'SELECT 9007199254740993, 42, 1.5')
-    expect(out.results[0].rows[0]).toEqual([9007199254740993n, 42, 1.5])
+    expect(out.results[0].rows[0]).toEqual([9007199254740993n, 42n, 1.5])
   })
 
   it('round-trips edits through export', () => {

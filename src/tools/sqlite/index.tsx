@@ -4,6 +4,7 @@ import { takeHandoff, type Handoff } from '../../shell/handoff'
 import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
+import { beforeUnloadHandler, discardMessage } from './guard'
 import { ROW_CAP, type DbInfo, type Page, type ResultSet, type SchemaObject, type ScriptResult } from './engine'
 import {
   DEFAULT_READ,
@@ -102,6 +103,13 @@ export default function SqliteTool() {
   const [script, setScript] = useState<ScriptResult | null>(null)
   const [running, setRunning] = useState(false)
   const [dirty, setDirty] = useState(false)
+  /** Edits not yet exported — what closing, opening another file or leaving the page would lose. */
+  const [unsaved, setUnsavedState] = useState(false)
+  const unsavedRef = useRef(false)
+  const setUnsaved = useCallback((value: boolean) => {
+    unsavedRef.current = value
+    setUnsavedState(value)
+  }, [])
   const [notice, setNotice] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   /** Bumped whenever the data may have changed, so the browser refetches its page. */
@@ -114,6 +122,18 @@ export default function SqliteTool() {
   openedRef.current = opened
   const schemaRef = useRef(schema)
   schemaRef.current = schema
+
+  /** Asks before `action` throws away unsaved edits; true when it may go ahead. */
+  const confirmDiscard = useCallback((action: string) => {
+    const message = discardMessage(openedRef.current?.name ?? null, unsavedRef.current, action)
+    return message === null || window.confirm(message)
+  }, [])
+
+  useEffect(() => {
+    const handler = beforeUnloadHandler(() => unsavedRef.current)
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
 
   useEffect(() => {
     const runner = createSqliteRunner(
@@ -157,10 +177,11 @@ export default function SqliteTool() {
       if (error instanceof SqliteTimeoutError) {
         // The runner reopens the original bytes on the next call; re-read what that database holds.
         setDirty(false)
+        setUnsaved(false)
         void refresh().catch((e) => setNotice(e instanceof Error ? e.message : String(e)))
       }
     },
-    [refresh],
+    [refresh, setUnsaved],
   )
 
   const openBytes = useCallback(
@@ -181,6 +202,7 @@ export default function SqliteTool() {
         countRun.current++
         setOpened({ name, size: bytes ? bytes.length : null, header: bytes ? parseHeader(bytes) : null })
         setDirty(false)
+        setUnsaved(false)
         setScript(null)
         setTable(null)
         setPage(null)
@@ -204,7 +226,7 @@ export default function SqliteTool() {
         setOpening(false)
       }
     },
-    [refresh],
+    [refresh, setUnsaved],
   )
 
   // ---- import ------------------------------------------------------------
@@ -272,7 +294,7 @@ export default function SqliteTool() {
     for (const item of items) void analyzeItem(item.key, item.source, item.options)
   }
 
-  const takenNames = draft?.target === 'current' && opened ? schema.map((o) => o.name) : []
+  const takenNames = draft?.target === 'current' && opened ? schema.map((o) => ({ name: o.name, type: o.type })) : []
   const problems: Record<number, string | null> = {}
   draft?.items.forEach((item, i) => {
     problems[item.key] = tableNameProblem(item.table, [...takenNames, ...draft.items.slice(0, i).map((other) => other.table)])
@@ -297,6 +319,7 @@ export default function SqliteTool() {
       })
       setDraft(null)
       setDirty(true)
+      setUnsaved(true)
       const first = done[0]?.table
       if (first) {
         setTable(first)
@@ -356,6 +379,7 @@ export default function SqliteTool() {
       const db = loaded.find((file) => hasSqliteMagic(file.bytes))
       const data = loaded.filter((file) => file !== db && (isDataFileName(file.name) || !DB_NAME.test(file.name)))
       const other = loaded.find((file) => file !== db && !data.includes(file))
+      if ((db || (other && data.length === 0)) && !confirmDiscard(`Open ${(db ?? other)!.name}`)) return
       if (db) {
         await openBytes(db.name, db.bytes)
         schemaRef.current = await (runnerRef.current?.call('schema', {}) ?? Promise.resolve([]))
@@ -365,7 +389,7 @@ export default function SqliteTool() {
       }
       stageFiles(data, db ? 'current' : undefined)
     },
-    [openBytes, stageFiles],
+    [openBytes, stageFiles, confirmDiscard],
   )
 
   const onPick = (event: ChangeEvent<HTMLInputElement>) => {
@@ -444,6 +468,7 @@ export default function SqliteTool() {
       setScript(result)
       if (result.changed) {
         setDirty(true)
+        setUnsaved(true)
         await refresh()
       }
     } catch (error) {
@@ -472,6 +497,7 @@ export default function SqliteTool() {
       const bytes = await runner.call('export', {})
       const name = dirty && opened?.size !== null ? `${stem}-edited.sqlite` : `${stem}.sqlite`
       download(bytes as Uint8Array<ArrayBuffer>, name, 'application/vnd.sqlite3')
+      setUnsaved(false)
       showToast(`Saved ${name} · ${formatBytes(bytes.length)}`)
     } catch (error) {
       report(error)
@@ -479,6 +505,7 @@ export default function SqliteTool() {
   }
 
   const close = () => {
+    if (!confirmDiscard('Close it')) return
     countRun.current++
     setOpened(null)
     setInfo(null)
@@ -488,6 +515,7 @@ export default function SqliteTool() {
     setPage(null)
     setScript(null)
     setDirty(false)
+    setUnsaved(false)
     setNotice(null)
   }
 
@@ -751,7 +779,7 @@ export default function SqliteTool() {
           items={draft.items}
           target={draft.target}
           currentName={opened?.name ?? null}
-          currentDirty={dirty}
+          currentDirty={unsaved}
           emptyAsNull={draft.emptyAsNull}
           problems={problems}
           running={importRun}

@@ -42,6 +42,8 @@ export interface ParseResult {
   issues: ParseIssue[]
   /** Total ragged rows, which can exceed the issues actually listed. */
   raggedRows: number
+  /** Blank lines left out by `skipEmptyLines` (a quoted "" row is a row, not a blank line). */
+  skippedEmpty: number
 }
 
 export const DEFAULT_OPTIONS: ParseOptions = {
@@ -80,14 +82,19 @@ export function parseCsv(text: string, options: ParseOptions): ParseResult {
   let row: string[] = []
   let width = 0
   let i = 0
+  let skippedEmpty = 0
+  /** Whether the row's first field was quoted: `""` alone on a line is a row holding one empty value. */
+  let quotedFirst = false
 
   const endRow = () => {
     // A blank line parses as a single empty field; that is what "empty" means.
-    if (!(skipEmptyLines && row.length === 1 && row[0] === '')) {
+    if (skipEmptyLines && row.length === 1 && row[0] === '' && !quotedFirst) skippedEmpty++
+    else {
       rows.push(row)
       if (row.length > width) width = row.length
     }
     row = []
+    quotedFirst = false
   }
 
   while (i < len) {
@@ -101,6 +108,7 @@ export function parseCsv(text: string, options: ParseOptions): ParseResult {
 
     let value: string
     if (quoteCode >= 0 && text.charCodeAt(i) === quoteCode) {
+      if (row.length === 0) quotedFirst = true
       i++
       let out = ''
       let start = i
@@ -174,7 +182,7 @@ export function parseCsv(text: string, options: ParseOptions): ParseResult {
     }
   }
 
-  return { rows, width, issues, raggedRows }
+  return { rows, width, issues, raggedRows, skippedEmpty }
 }
 
 export interface Detection {
