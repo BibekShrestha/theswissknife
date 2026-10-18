@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { tools } from './registry'
 import { navigate } from './router'
 import { paletteKeyLabel, rank, toCommands, type Command } from './palette'
+import { taglines } from './tool-copy'
 
-const ALL = toCommands(tools)
+const ALL = toCommands(tools, taglines)
 
 interface PaletteProps {
   /** Current route, '' on the landing page — used to mark where you already are. */

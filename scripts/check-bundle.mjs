@@ -22,26 +22,31 @@ walk(manifest['index.html'] ? 'index.html' : 'src/main.tsx')
 
 const bytes = [...eager].reduce((sum, file) => sum + gzipSync(readFileSync(`dist/${file}`)).byteLength, 0)
 
-// The entry chunk is react + the shell, and adding a tool should only add its
-// registry line — about a tenth of a kilobyte of name and tagline. The budget
-// is not there to police those; it is there to catch the shell growing, or a
-// tool leaking into the eager graph. Sized so registry lines never trip it on
-// their own, while anything chunk-shaped still does — the smallest tool chunk
-// is 2.4 KiB gzipped.
-const BUDGET_KIB = 68
-const budget = BUDGET_KIB * 1024
-
-if (bytes > budget) {
-  throw new Error(
-    `Main bundle is ${(bytes / 1024).toFixed(2)} KiB gzipped; budget is ${BUDGET_KIB} KiB. ` +
-      'Something outside shell/ reached the entry chunk, or the shell itself grew.',
-  )
-}
-
 // Read from src/shell/registry.ts rather than repeating the slugs: a hardcoded
 // list stops guarding the moment someone adds a tool and forgets this file.
 const registry = readFileSync('src/shell/registry.ts', 'utf8')
 const required = [...registry.matchAll(/\bslug:\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1])
+
+// The entry chunk is react + the shell + one registry line per tool (slug,
+// name, mark, category, loader: ~0.05 KiB gzipped — taglines load lazily from
+// src/shell/tool-copy.ts). The budget is there to catch the shell growing or a
+// tool leaking into the eager graph, not to police registry lines, so it grows
+// with the tool count: a per-tool allowance above the real cost, on top of a
+// fixed shell allowance. Anything chunk-shaped still trips it — the smallest
+// tool chunk is ~2.3 KiB gzipped.
+const SHELL_KIB = 65.9
+const PER_TOOL_KIB = 0.08
+const BUDGET_KIB = SHELL_KIB + PER_TOOL_KIB * required.length
+const budget = BUDGET_KIB * 1024
+
+if (bytes > budget) {
+  throw new Error(
+    `Main bundle is ${(bytes / 1024).toFixed(2)} KiB gzipped; budget is ${BUDGET_KIB.toFixed(2)} KiB ` +
+      `(${SHELL_KIB} shell + ${PER_TOOL_KIB} × ${required.length} tools). ` +
+      'Something outside shell/ reached the entry chunk, or the shell itself grew.',
+  )
+}
+
 
 if (required.length === 0) throw new Error('Could not read any tool slugs from the registry.')
 
@@ -104,5 +109,5 @@ for (const page of ['dist/index.html', 'dist/404.html']) {
 }
 
 console.log(
-  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB} KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB · icon font ${(fontBytes / 1024).toFixed(1)} KiB · display font ${(displayBytes / 1024).toFixed(1)} KiB precached`,
+  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB.toFixed(2)} KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB · icon font ${(fontBytes / 1024).toFixed(1)} KiB · display font ${(displayBytes / 1024).toFixed(1)} KiB precached`,
 )

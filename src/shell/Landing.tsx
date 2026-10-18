@@ -3,6 +3,7 @@ import { BladeMark } from './BladeMark'
 import { openPalette, paletteKeyLabel } from './palette'
 import { tools, type ToolMeta } from './registry'
 import { Link } from './router'
+import { toolMatches, useTaglines } from './taglines'
 import { useTheme } from './theme'
 
 /** Every registry category must be represented here so no tool becomes undiscoverable. */
@@ -19,16 +20,12 @@ export const categories: { id: ToolMeta['category']; name: string; short: string
 const lengths = [368, 334, 386, 352, 322, 376, 344]
 const SPREAD = 55
 
-function matches(tool: ToolMeta, query: string) {
-  const value = query.trim().toLowerCase()
-  return !value || `${tool.name} ${tool.tagline} ${tool.category}`.toLowerCase().includes(value)
-}
-
 function ToolIndex({ query }: { query: string }) {
+  const taglines = useTaglines(query)
   const groups = categories
     .map((category) => ({
       category,
-      list: tools.filter((tool) => tool.category === category.id && matches(tool, query)),
+      list: tools.filter((tool) => tool.category === category.id && toolMatches(tool, query, taglines)),
     }))
     .filter(({ list }) => list.length)
 

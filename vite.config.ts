@@ -43,7 +43,7 @@ const readBytes = (relative: string) => {
  * per build (and per dev request) to pick up edits.
  */
 function toolSeo(): Plugin {
-  const meta = () => parseToolMeta(read('./src/shell/registry.ts') ?? '')
+  const meta = () => parseToolMeta(read('./src/shell/registry.ts') ?? '', read('./src/shell/tool-copy.ts') ?? '')
   const origin = () => originFromCname(read('./public/CNAME'))
 
   return {
@@ -77,7 +77,7 @@ function toolSeo(): Plugin {
  */
 function pwa(): Plugin {
   let base = '/'
-  const description = () => buildDescription(parseToolMeta(read('./src/shell/registry.ts') ?? ''))
+  const description = () => buildDescription(parseToolMeta(read('./src/shell/registry.ts') ?? '', read('./src/shell/tool-copy.ts') ?? ''))
 
   return {
     name: 'pwa',

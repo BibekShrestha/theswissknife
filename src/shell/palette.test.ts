@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { isPaletteKey, rank, suggestForPath, toCommands, type KeyLike } from './palette'
 import { tools } from './registry'
+import { taglines } from './tool-copy'
 
 const press = (key: string, extra: Partial<KeyLike> = {}): KeyLike => ({ key, ...extra })
-const ALL = toCommands(tools)
+const ALL = toCommands(tools, taglines)
 const names = (query: string) => rank(ALL, query).map((c) => c.name)
 
 describe('isPaletteKey', () => {

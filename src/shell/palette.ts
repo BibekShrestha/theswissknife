@@ -58,12 +58,13 @@ export interface Command {
 
 /**
  * Home leads, so the way back out of a tool is the first thing in the list
- * rather than something to remember.
+ * rather than something to remember. Taglines are passed in (from the lazy
+ * ./tool-copy) because this module ships in the entry chunk.
  */
-export function toCommands(list: ToolMeta[]): Command[] {
+export function toCommands(list: ToolMeta[], taglines: Record<string, string> = {}): Command[] {
   return [
     { to: '/', name: 'All tools', hint: 'Back to the landing page', mark: '⌂' },
-    ...list.map((t) => ({ to: `/${t.slug}`, name: t.name, hint: t.tagline, mark: t.mark })),
+    ...list.map((t) => ({ to: `/${t.slug}`, name: t.name, hint: taglines[t.slug] ?? '', mark: t.mark })),
   ]
 }
 
