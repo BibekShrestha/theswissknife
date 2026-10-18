@@ -4,6 +4,8 @@ export type CodecDirection = 'encode' | 'decode'
 export interface CodecResult {
   value: string
   error: string | null
+  /** Set when the conversion worked but changed something on the way. */
+  warning?: string
 }
 
 export const codecs: ReadonlyArray<{ id: CodecId; label: string; hint: string }> = [
@@ -11,8 +13,8 @@ export const codecs: ReadonlyArray<{ id: CodecId; label: string; hint: string }>
   { id: 'base64url', label: 'Base64URL', hint: 'UTF-8 text ↔ URL-safe Base64 without padding' },
   { id: 'url-component', label: 'URL component', hint: 'encodeURIComponent / decodeURIComponent' },
   { id: 'url-full', label: 'Full URI', hint: 'Preserves URI separators such as : / ? & #' },
-  { id: 'html', label: 'HTML entities', hint: 'Escapes markup-significant characters; decodes named and numeric entities' },
-  { id: 'hex', label: 'UTF-8 hex', hint: 'UTF-8 text ↔ hexadecimal bytes' },
+  { id: 'html', label: 'HTML entities', hint: 'Escapes markup-significant characters; decodes named and numeric entities and leaves tags as text' },
+  { id: 'hex', label: 'UTF-8 hex', hint: 'UTF-8 text ↔ hexadecimal bytes (spaces, commas, 0x and \\x prefixes allowed)' },
 ]
 
 const utf8 = new TextEncoder()
@@ -48,7 +50,8 @@ function base64ToBytes(raw: string, urlSafe: boolean): Uint8Array {
 
 function decodeUtf8(bytes: Uint8Array): string {
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    // ignoreBOM: a leading U+FEFF is part of the decoded text, not a signature to drop
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
   } catch {
     throw new Error('Decoded bytes are not valid UTF-8 text.')
   }
@@ -64,6 +67,7 @@ function encodeHtml(value: string): string {
   })[char]!)
 }
 
+/** Without a DOM (tests, workers): the common named entities and every numeric one. */
 function decodeHtmlFallback(value: string): string {
   const named: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' }
   return value.replace(/&(#x[\da-f]+|#\d+|[a-z][\da-z]+);/gi, (entity, code: string) => {
@@ -71,19 +75,66 @@ function decodeHtmlFallback(value: string): string {
     const radix = code[1]?.toLowerCase() === 'x' ? 16 : 10
     const digits = radix === 16 ? code.slice(2) : code.slice(1)
     const point = Number.parseInt(digits, radix)
-    return Number.isFinite(point) && point <= 0x10ffff ? String.fromCodePoint(point) : entity
+    // as the HTML spec does: NUL, surrogates and out-of-range become U+FFFD
+    if (!Number.isFinite(point) || point === 0 || point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff)) return '\ufffd'
+    return String.fromCodePoint(point)
   })
 }
 
+/**
+ * Entities only, by the browser's own tokenizer and its full entity table: a
+ * <textarea>'s content is RCDATA, so `<b>`, comments and `</textarea>` stay
+ * text and nothing is created or run. Parsing a whole document instead (as
+ * this once did) dropped tags and comments and trimmed leading whitespace.
+ * The element lives in a detached document, never the page.
+ *
+ * The parser's input preprocessing turns CR and CRLF into LF and NUL into
+ * U+FFFD; no entity contains either, so the text is decoded around them.
+ */
+let entityBox: HTMLTextAreaElement | null = null
 function decodeHtml(value: string): string {
   if (typeof document === 'undefined') return decodeHtmlFallback(value)
-  const doc = new DOMParser().parseFromString(value, 'text/html')
-  return doc.body.textContent ?? value
+  entityBox ??= document.implementation.createHTMLDocument('').createElement('textarea')
+  const box = entityBox
+  return value
+    .split(/([\r\0])/)
+    .map((part, i) => {
+      if (i % 2 === 1 || !part.includes('&')) return part
+      box.innerHTML = part
+      return box.textContent ?? part
+    })
+    .join('')
+}
+
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g
+
+const HAS_LONE_SURROGATE = new RegExp(LONE_SURROGATE.source)
+
+/** UTF-8 cannot hold half a surrogate pair; TextEncoder writes U+FFFD for it. */
+function surrogateWarning(input: string): string | undefined {
+  const count = input.match(LONE_SURROGATE)?.length ?? 0
+  if (count === 0) return undefined
+  return `${count} lone surrogate${count === 1 ? '' : 's'} (half of an emoji or other astral character) encoded as U+FFFD (EF BF BD) — decoding gives U+FFFD back, not the original.`
+}
+
+function hexToBytes(input: string): Uint8Array {
+  const compact = input.replace(/0x|\\x/gi, '').replace(/[\s,:]+/g, '')
+  const bad = /[^\da-f]/i.exec(compact)
+  if (bad) throw new Error(`Hex input may contain only hex digits (0–9, a–f), spaces, commas, colons and 0x or \\x prefixes — found "${bad[0]}".`)
+  if (compact.length % 2 !== 0) throw new Error(`Hex input has an odd number of hex digits (${compact.length}); each byte needs two.`)
+  const bytes = new Uint8Array(compact.length / 2)
+  for (let i = 0; i < compact.length; i += 2) bytes[i / 2] = Number.parseInt(compact.slice(i, i + 2), 16)
+  return bytes
 }
 
 export function convertCodec(codec: CodecId, direction: CodecDirection, input: string): CodecResult {
   try {
     let value: string
+    let warning: string | undefined
+    if (direction === 'encode' && (codec === 'base64' || codec === 'base64url' || codec === 'hex')) warning = surrogateWarning(input)
+    if ((codec === 'url-component' || codec === 'url-full') && direction === 'encode' && HAS_LONE_SURROGATE.test(input)) {
+      throw new Error('Input contains a lone surrogate (half of an emoji or other astral character), which cannot be percent-encoded.')
+    }
     if (codec === 'base64' || codec === 'base64url') {
       const urlSafe = codec === 'base64url'
       if (direction === 'encode') {
@@ -101,13 +152,9 @@ export function convertCodec(codec: CodecId, direction: CodecDirection, input: s
     } else if (direction === 'encode') {
       value = Array.from(utf8.encode(input), (byte) => byte.toString(16).padStart(2, '0')).join(' ')
     } else {
-      const compact = input.replace(/\s+/g, '')
-      if (compact.length % 2 !== 0 || !/^[\da-f]*$/i.test(compact)) throw new Error('Hex input must contain complete byte pairs.')
-      const bytes = new Uint8Array(compact.length / 2)
-      for (let i = 0; i < compact.length; i += 2) bytes[i / 2] = Number.parseInt(compact.slice(i, i + 2), 16)
-      value = decodeUtf8(bytes)
+      value = decodeUtf8(hexToBytes(input))
     }
-    return { value, error: null }
+    return warning ? { value, error: null, warning } : { value, error: null }
   } catch (error) {
     const raw = error instanceof Error ? error.message : String(error)
     const message = raw === 'URI malformed' ? 'Input contains an invalid percent-escape sequence.' : raw
