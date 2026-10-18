@@ -11,7 +11,7 @@ export const taglines: Record<string, string> = {
   jwt: 'Decode, verify, generate and sign JSON Web Tokens — keys never leave your machine',
   ssl: 'Inspect certificates, check expiry and hostname coverage, and verify chain signatures locally',
   hash: 'SHA-1, SHA-256, SHA-384 and SHA-512 digests and HMACs of text or files, with checksum compare',
-  regex: 'Match and replace with JavaScript regex in a local worker that stops runaway patterns',
+  regex: 'Test JavaScript regex with highlighted groups, test cases, plain-language explanations and share links — in a worker that stops runaway patterns',
   redact: 'Black out text with block characters — the shape stays, the words are gone for good',
   codec: 'Encode and decode Base64, URLs, HTML entities and UTF-8 hex without uploads',
   diff: 'Compare text or JSON line by line with word highlights, and export a unified patch',
