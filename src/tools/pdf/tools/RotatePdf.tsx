@@ -1,32 +1,27 @@
 import { useState } from 'react'
-import { PDFDocument, degrees } from 'pdf-lib'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
-
-type Rotation = 90 | 180 | 270
+import { ErrorText } from '../components/ErrorText'
+import { describeError, readBytes } from '../lib/load'
+import { rotatePdf, type Rotation } from '../ops/organize'
 
 export function RotatePdf() {
   const [files, setFiles] = useState<File[]>([])
   const [rotation, setRotation] = useState<Rotation>(90)
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<Uint8Array | null>(null)
+  const [error, setError] = useState('')
 
   async function handleRotate() {
     if (files.length === 0) return
     setProcessing(true)
     setResult(null)
+    setError('')
 
     try {
-      const buf = await files[0].arrayBuffer()
-      const pdf = await PDFDocument.load(buf, { ignoreEncryption: true })
-      const pages = pdf.getPages()
-      pages.forEach((p) => {
-        p.setRotation(degrees((p.getRotation().angle + rotation) % 360))
-      })
-      const bytes = await pdf.save()
-      setResult(bytes)
+      setResult(await rotatePdf(await readBytes(files[0]), rotation))
     } catch (e) {
-      console.error(e)
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -51,9 +46,9 @@ export function RotatePdf() {
         <label className="pdf-form-label">Rotation angle</label>
         <div className="pdf-option-grid">
           {[
-            { value: 90 as Rotation, label: '90° CW', icon: 'rotate_90_degrees_ccw' },
+            { value: 90 as Rotation, label: '90° CW', icon: 'rotate_90_degrees_cw' },
             { value: 180 as Rotation, label: '180°', icon: 'flip' },
-            { value: 270 as Rotation, label: '90° CCW', icon: 'rotate_90_degrees_cw' },
+            { value: 270 as Rotation, label: '90° CCW', icon: 'rotate_90_degrees_ccw' },
           ].map((opt) => (
             <div key={opt.value} className={`pdf-option-card${rotation === opt.value ? ' on' : ''}`} onClick={() => setRotation(opt.value)}>
               <span className="material-symbols-outlined">{opt.icon}</span>
@@ -67,6 +62,8 @@ export function RotatePdf() {
         <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Rotating...' : 'Rotate PDF'}
       </button>
+
+      <ErrorText message={error} />
 
       {result && (
         <ProcessedPdfActions fileName="rotated.pdf" outputBytes={result} />

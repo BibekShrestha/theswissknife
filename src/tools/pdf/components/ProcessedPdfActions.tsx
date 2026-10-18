@@ -5,9 +5,14 @@ import { PdfPreviewModal } from './PdfPreviewModal'
 interface ProcessedPdfActionsProps {
   fileName: string
   outputBytes: Uint8Array
+  /** Anything but a PDF (Split's ZIP) is download-only: the preview renders PDFs. */
+  mimeType?: string
+  /** The preview cannot open a password-protected result. */
+  encrypted?: boolean
 }
 
-export function ProcessedPdfActions({ fileName, outputBytes }: ProcessedPdfActionsProps) {
+export function ProcessedPdfActions({ fileName, outputBytes, mimeType = 'application/pdf', encrypted = false }: ProcessedPdfActionsProps) {
+  const previewable = mimeType === 'application/pdf' && !encrypted
   const [preview, setPreview] = useState(false)
 
   return (
@@ -23,11 +28,13 @@ export function ProcessedPdfActions({ fileName, outputBytes }: ProcessedPdfActio
         <button className="pdf-processed-download" onClick={handleDownload}>
           <span className="material-symbols-outlined">download</span> Download
         </button>
-        <button className="pdf-processed-preview" onClick={() => setPreview(true)}>
-          <span className="material-symbols-outlined">visibility</span> Preview
-        </button>
+        {previewable && (
+          <button className="pdf-processed-preview" onClick={() => setPreview(true)}>
+            <span className="material-symbols-outlined">visibility</span> Preview
+          </button>
+        )}
       </div>
-      {preview && (
+      {preview && previewable && (
         <PdfPreviewModal
           bytes={outputBytes}
           fileName={fileName}
@@ -38,7 +45,7 @@ export function ProcessedPdfActions({ fileName, outputBytes }: ProcessedPdfActio
   )
 
   function handleDownload() {
-    const blob = new Blob([outputBytes as unknown as BlobPart], { type: 'application/pdf' })
+    const blob = new Blob([outputBytes as unknown as BlobPart], { type: mimeType })
     saveAs(blob, fileName)
   }
 }

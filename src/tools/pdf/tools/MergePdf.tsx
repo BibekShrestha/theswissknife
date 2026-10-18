@@ -1,34 +1,29 @@
 import { useState } from 'react'
-import { PDFDocument } from 'pdf-lib'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
+import { ErrorText } from '../components/ErrorText'
+import { describeError, readBytes } from '../lib/load'
+import { mergePdfs } from '../ops/organize'
 
 export function MergePdf() {
   const [files, setFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<Uint8Array | null>(null)
+  const [error, setError] = useState('')
 
   async function handleMerge() {
     if (files.length < 2) return
     setProcessing(true)
     setProgress(0)
     setResult(null)
+    setError('')
 
     try {
-      const merged = await PDFDocument.create()
-      for (let i = 0; i < files.length; i++) {
-        const buf = await files[i].arrayBuffer()
-        const pdf = await PDFDocument.load(buf, { ignoreEncryption: true })
-        const indices = pdf.getPageIndices()
-        const pages = await merged.copyPages(pdf, indices)
-        pages.forEach((p) => merged.addPage(p))
-        setProgress(((i + 1) / files.length) * 100)
-      }
-      const bytes = await merged.save()
-      setResult(bytes)
+      const inputs = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: await readBytes(f) })))
+      setResult(await mergePdfs(inputs, (done) => setProgress((done / files.length) * 100)))
     } catch (e) {
-      console.error(e)
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -42,7 +37,7 @@ export function MergePdf() {
         </div>
         <div className="pdf-subtool-info">
           <h2>Merge PDF</h2>
-          <p>Combine multiple PDFs into one document</p>
+          <p>Combine multiple PDFs into one document, in the order listed</p>
         </div>
       </div>
 
@@ -62,6 +57,8 @@ export function MergePdf() {
           <div className="pdf-progress-label"><span>Processing...</span><span>{Math.round(progress)}%</span></div>
         </div>
       )}
+
+      <ErrorText message={error} />
 
       {result && (
         <ProcessedPdfActions fileName="merged.pdf" outputBytes={result} />

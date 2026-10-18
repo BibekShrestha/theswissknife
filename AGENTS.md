@@ -237,7 +237,20 @@ the precache list built by `scripts/sw-manifest.ts`.
   event title is never put in it.
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
   (`lib/pdfjs.ts` loads it lazily and points it at its runtime-cached worker).
-  13 sub-tools under `tools/`, each a lazy chunk.
+  13 sub-tools under `tools/`, each a lazy chunk; their pipelines are plain
+  functions in `ops/` (no DOM), tested in Node against pdf.js and against
+  fixtures written by macOS PDFKit/CoreGraphics (`test/fixtures/`).
+  Everything loads through `lib/load.ts` → `lib/parse.ts`, pdf-lib's parser
+  with a fix: pdf-lib ignores the xref and lets any object stream override
+  earlier objects, and Preview-saved files carry a stale one — so object
+  streams are only unpacked when an xref stream could point into them.
+  pdf-lib has no encryption: `lib/crypt/` is a hand-written Standard
+  security handler (reads R2–R6: RC4, AES-128, AES-256; Protect writes R6
+  AES-256), and every other tool refuses encrypted input rather than writing
+  a half-decrypted file. pdf-lib runs on the main thread without a deadline,
+  so a hostile file (a deflate bomb in an object stream) can stall or crash
+  the tab — the `ops/` functions take and return bytes so they could move
+  into a worker.
 - `tools/image/` — batch convert/resize/compress. One engine
   (`useImagePipeline`) behind four screens; canvas work runs in
   `image.worker.ts`. `gif/` is a hand-written GIF89a encoder (median cut,

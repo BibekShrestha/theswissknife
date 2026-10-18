@@ -1,40 +1,51 @@
 import { useState } from 'react'
+import { saveAs } from 'file-saver'
 import { FileDropzone, FileList } from '../components/FileDropzone'
+import { ErrorText } from '../components/ErrorText'
+import { describeError, PdfInputError } from '../lib/errors'
 import { getPdfJs } from '../lib/pdfjs'
+import { openPdf, renderScale } from '../ops/read'
 import JSZip from 'jszip'
 
 export function PdfToImage() {
   const [files, setFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
-  const [images, setImages] = useState<string[]>([])
+  const [progress, setProgress] = useState(0)
+  // Blobs, not data: URLs — the site CSP forbids fetch() of data: URLs, and base64 strings cost a third more memory
+  const [images, setImages] = useState<Blob[]>([])
   const [error, setError] = useState('')
 
   async function handleConvert() {
     if (files.length === 0) return
     setProcessing(true)
+    setProgress(0)
     setError('')
     setImages([])
 
     try {
-      const pdfjs = await getPdfJs()
-      const buf = await files[0].arrayBuffer()
-      const doc = await pdfjs.getDocument({ data: buf.slice() }).promise
-      const urls: string[] = []
-
-      for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i)
-        const viewport = page.getViewport({ scale: 2 })
-        const canvas = document.createElement('canvas')
-        canvas.width = viewport.width
-        canvas.height = viewport.height
-        const ctx = canvas.getContext('2d')!
-        await page.render({ canvas, canvasContext: ctx, viewport } as any).promise
-        urls.push(canvas.toDataURL('image/png'))
-        page.cleanup()
+      const { doc, close } = await openPdf(await getPdfJs(), new Uint8Array(await files[0].arrayBuffer()))
+      try {
+        const blobs: Blob[] = []
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i)
+          const base = page.getViewport({ scale: 1 })
+          const viewport = page.getViewport({ scale: renderScale(base.width, base.height) })
+          const canvas = document.createElement('canvas')
+          canvas.width = Math.floor(viewport.width)
+          canvas.height = Math.floor(viewport.height)
+          await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport }).promise
+          const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+          if (!blob) throw new PdfInputError(`Page ${i} is too large to render in this browser.`)
+          blobs.push(blob)
+          page.cleanup()
+          setProgress((i / doc.numPages) * 100)
+        }
+        setImages(blobs)
+      } finally {
+        await close()
       }
-      setImages(urls)
     } catch (e) {
-      setError('Failed to convert PDF to images')
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -43,29 +54,12 @@ export function PdfToImage() {
   async function downloadAll() {
     if (images.length === 0) return
     if (images.length === 1) {
-      const blob = await (await fetch(images[0])).blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'page-1.png'
-      a.click()
-      URL.revokeObjectURL(url)
+      saveAs(images[0], 'page-1.png')
       return
     }
-
     const zip = new JSZip()
-    for (let i = 0; i < images.length; i++) {
-      const data = images[i].split(',')[1]
-      zip.file(`page-${i + 1}.png`, data, { base64: true })
-    }
-    const zipBytes = await zip.generateAsync({ type: 'uint8array' })
-    const blob = new Blob([zipBytes as unknown as BlobPart], { type: 'application/zip' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'pdf-images.zip'
-    a.click()
-    URL.revokeObjectURL(url)
+    images.forEach((image, i) => zip.file(`page-${i + 1}.png`, image))
+    saveAs(await zip.generateAsync({ type: 'blob' }), 'pdf-images.zip')
   }
 
   return (
@@ -91,12 +85,12 @@ export function PdfToImage() {
       {processing && (
         <div className="pdf-progress">
           <div className="pdf-progress-bar">
-            <div className="pdf-progress-fill" style={{ width: '100%' }} />
+            <div className="pdf-progress-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
       )}
 
-      {error && <p style={{ color: 'var(--pdf-muted)' }}>{error}</p>}
+      <ErrorText message={error} />
 
       {images.length > 0 && (
         <div className="pdf-processed">

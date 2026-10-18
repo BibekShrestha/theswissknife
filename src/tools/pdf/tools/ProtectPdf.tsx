@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { PDFDocument } from 'pdf-lib'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
+import { ErrorText } from '../components/ErrorText'
+import { describeError, readBytes } from '../lib/load'
+import { protectPdf } from '../ops/security'
 
 export function ProtectPdf() {
   const [files, setFiles] = useState<File[]>([])
@@ -17,12 +19,9 @@ export function ProtectPdf() {
     setResult(null)
 
     try {
-      const buf = await files[0].arrayBuffer()
-      const pdf = await PDFDocument.load(buf, { ignoreEncryption: true })
-      const bytes = await pdf.save({ userPassword: password, ownerPassword: password } as any)
-      setResult(bytes)
+      setResult(await protectPdf(await readBytes(files[0]), password))
     } catch (e) {
-      setError('Failed to protect PDF')
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -44,9 +43,14 @@ export function ProtectPdf() {
       <FileList files={files} onFilesChange={setFiles} />
 
       <div className="pdf-form-group">
-        <label className="pdf-form-label">Password</label>
-        <input className="pdf-text-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter a password" />
-        <p className="pdf-form-hint">This password will be required to open the PDF.</p>
+        <label className="pdf-form-label" htmlFor="pdf-protect-password">Password</label>
+        <input id="pdf-protect-password" className="pdf-text-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter a password" />
+        <p className="pdf-form-hint">This password will be required to open the PDF. It is encrypted with AES-256.</p>
+        {/[^\x20-\x7e]/.test(password) && (
+          <p className="pdf-form-hint">
+            Characters outside plain ASCII are encoded the PDF 2.0 way (UTF-8). pdf.js reads them, but some viewers — macOS Preview among them — cannot open such files; an ASCII password works everywhere.
+          </p>
+        )}
       </div>
 
       <button className="pdf-action-btn" disabled={files.length === 0 || !password || processing} onClick={handleProtect}>
@@ -54,10 +58,10 @@ export function ProtectPdf() {
         {processing ? 'Protecting...' : 'Protect PDF'}
       </button>
 
-      {error && <p style={{ color: 'var(--pdf-muted)' }}>{error}</p>}
+      <ErrorText message={error} />
 
       {result && (
-        <ProcessedPdfActions fileName="protected.pdf" outputBytes={result} />
+        <ProcessedPdfActions fileName="protected.pdf" outputBytes={result} encrypted />
       )}
     </div>
   )

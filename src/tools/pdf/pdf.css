@@ -323,6 +323,17 @@
   margin-top: 4px;
 }
 
+/* ----- error / notice ----- */
+.pdf-error {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--err);
+  border-radius: var(--radius-sm);
+  background: var(--err-bg);
+  color: var(--err);
+  font-size: 13px;
+}
+
 /* ----- processed actions ----- */
 .pdf-processed {
   border: 1px solid color-mix(in srgb, var(--ok) 30%, var(--pdf-border));

@@ -1,34 +1,30 @@
 import { useState } from 'react'
-import { PDFDocument } from 'pdf-lib'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
+import { ErrorText } from '../components/ErrorText'
+import { describeError, readBytes } from '../lib/load'
 import { formatSize } from '../lib/utils'
+import { compressPdf } from '../ops/edit'
 
 export function CompressPdf() {
   const [files, setFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<Uint8Array | null>(null)
   const [originalSize, setOriginalSize] = useState(0)
+  const [error, setError] = useState('')
 
   async function handleCompress() {
     if (files.length === 0) return
     setProcessing(true)
     setResult(null)
+    setError('')
 
     try {
-      const buf = await files[0].arrayBuffer()
-      setOriginalSize(buf.byteLength)
-      const pdf = await PDFDocument.load(buf, { ignoreEncryption: true })
-      const pages = pdf.getPages()
-      for (const page of pages) {
-        const { width, height } = page.getSize()
-        page.setMediaBox(0, 0, width, height)
-        page.setCropBox(0, 0, width, height)
-      }
-      const bytes = await pdf.save({ useObjectStreams: true })
-      setResult(bytes)
+      const bytes = await readBytes(files[0])
+      setOriginalSize(bytes.length)
+      setResult(await compressPdf(bytes))
     } catch (e) {
-      console.error(e)
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -46,7 +42,7 @@ export function CompressPdf() {
         </div>
         <div className="pdf-subtool-info">
           <h2>Compress PDF</h2>
-          <p>Reduce file size while maintaining quality</p>
+          <p>Re-save with compressed object streams — lossless; images are not recompressed, so savings vary</p>
         </div>
       </div>
 
@@ -58,13 +54,17 @@ export function CompressPdf() {
         {processing ? 'Compressing...' : 'Compress PDF'}
       </button>
 
+      <ErrorText message={error} />
+
       {result && (
         <>
           <div className="pdf-file-info">
             <span className="material-symbols-outlined" style={{ color: 'var(--pdf-muted)' }}>storage</span>
             <span>{formatSize(originalSize)} → {formatSize(result.length)}</span>
-            {savedPct > 0 && (
+            {savedPct > 0 ? (
               <span style={{ color: '#059669', fontWeight: 600, marginLeft: 'auto' }}>−{savedPct}%</span>
+            ) : (
+              <span style={{ color: 'var(--pdf-muted)', marginLeft: 'auto' }}>No smaller — keep your original</span>
             )}
           </div>
           <ProcessedPdfActions fileName="compressed.pdf" outputBytes={result} />

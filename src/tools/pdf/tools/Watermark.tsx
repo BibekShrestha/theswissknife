@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
-
-type WatermarkPosition = 'center' | 'tile' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+import { ErrorText } from '../components/ErrorText'
+import { describeError, readBytes } from '../lib/load'
+import { addWatermark, type WatermarkPosition } from '../ops/edit'
 
 export function Watermark() {
   const [files, setFiles] = useState<File[]>([])
@@ -12,6 +12,7 @@ export function Watermark() {
   const [position, setPosition] = useState<WatermarkPosition>('center')
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<Uint8Array | null>(null)
+  const [error, setError] = useState('')
 
   const positions: { id: WatermarkPosition; label: string; icon: string }[] = [
     { id: 'center', label: 'Center', icon: 'center_focus_strong' },
@@ -26,52 +27,12 @@ export function Watermark() {
     if (files.length === 0 || !text) return
     setProcessing(true)
     setResult(null)
+    setError('')
 
     try {
-      const buf = await files[0].arrayBuffer()
-      const pdf = await PDFDocument.load(buf, { ignoreEncryption: true })
-      const font = await pdf.embedFont(StandardFonts.HelveticaBold)
-      const alpha = opacity / 100
-      const pages = pdf.getPages()
-
-      for (const page of pages) {
-        const { width, height } = page.getSize()
-        const fontSize = position === 'tile' ? 20 : Math.min(width, height) * 0.1
-        const textWidth = font.widthOfTextAtSize(text, fontSize)
-
-        if (position === 'tile') {
-          const stepX = textWidth + 100
-          const stepY = 100
-          for (let x = 0; x < width; x += stepX) {
-            for (let y = 0; y < height; y += stepY) {
-              page.drawText(text, {
-                x, y, size: fontSize, font,
-                color: rgb(0, 0, 0),
-                opacity: alpha * 0.5,
-              })
-            }
-          }
-        } else {
-          const posMap: Record<string, { x: number; y: number }> = {
-            'center': { x: (width - textWidth) / 2, y: height / 2 },
-            'top-left': { x: 40, y: height - 40 - fontSize },
-            'top-right': { x: width - textWidth - 40, y: height - 40 - fontSize },
-            'bottom-left': { x: 40, y: 40 },
-            'bottom-right': { x: width - textWidth - 40, y: 40 },
-          }
-          const pos = posMap[position]
-          page.drawText(text, {
-            x: pos.x, y: pos.y, size: fontSize, font,
-            color: rgb(0, 0, 0),
-            opacity: alpha,
-          })
-        }
-      }
-
-      const bytes = await pdf.save()
-      setResult(bytes)
+      setResult(await addWatermark(await readBytes(files[0]), { text, opacity: opacity / 100, position }))
     } catch (e) {
-      console.error(e)
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -126,6 +87,8 @@ export function Watermark() {
         <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Adding watermark...' : 'Add Watermark'}
       </button>
+
+      <ErrorText message={error} />
 
       {result && (
         <ProcessedPdfActions fileName="watermarked.pdf" outputBytes={result} />
