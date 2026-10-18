@@ -95,15 +95,15 @@ export function svgSize(text: string): SvgSize {
   if (box && height) return { intrinsic: { width: (height * box.width) / box.height, height }, assumed: false }
 
   const relative = [w, h].find((x) => x && 'relative' in x) as { relative: string } | undefined
-  const why = relative ? `its size is relative (${relative.relative})` : 'it declares no size'
+  const why = relative ? `This SVG’s size is relative (${relative.relative})` : 'This SVG declares no size'
   if (box) {
     const scale = SVG_FALLBACK_LONG_EDGE / Math.max(box.width, box.height)
-    return { intrinsic: { width: box.width * scale, height: box.height * scale }, assumed: true, note: `This SVG has no absolute size — ${why}, so it was drawn at ${SVG_FALLBACK_LONG_EDGE} px on the long edge in its viewBox shape` }
+    return { intrinsic: { width: box.width * scale, height: box.height * scale }, assumed: true, note: `${why} — rasterised at ${SVG_FALLBACK_LONG_EDGE} px on the long edge, in its viewBox shape` }
   }
   const side = width ?? height ?? SVG_FALLBACK_LONG_EDGE
   return {
     intrinsic: { width: side, height: side },
     assumed: true,
-    note: width || height ? 'This SVG gives one side and no viewBox — drawn square' : `This SVG has no absolute size or viewBox — ${why}, so it was drawn at ${side} px square`,
+    note: width || height ? 'This SVG gives one side and no viewBox — rasterised square' : `${why} and has no viewBox — rasterised at ${side} px square`,
   }
 }

@@ -4,6 +4,8 @@
  * by the analysis and gone from the re-parse.
  */
 import { describe, expect, it } from 'vitest'
+// @ts-expect-error — plain .mjs helper
+import { readText } from '../../../../scripts/read-text.mjs'
 import { analyze, processImage } from './analyze'
 import { concat, indexOf, putU32be, u16be, u32le } from './bytes'
 import { parseIcc } from './icc'
@@ -292,5 +294,11 @@ describe('ICC device text', () => {
     expect(get('Device model')?.value).toBe('TM-1 Mark II (TM01)')
     expect(get('Device model')?.sensitive).toBe(true)
     expect(get('Description')?.value).toBe('Camera RGB')
+  })
+
+  it('EXIF-7: the keep-profile option no longer says a profile cannot describe you', () => {
+    const page: string = readText('src/tools/exif/index.tsx')
+    expect(page).not.toMatch(/describe colour, not you/)
+    expect(page).toMatch(/can name the device, maker or software/)
   })
 })
