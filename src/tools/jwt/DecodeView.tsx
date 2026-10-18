@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ALGS, isHmac, signJws, verifyJws, type Alg, type VerifyResult } from './crypto'
+import { ALGS, declaredAlg, hasKeyMaterial, isHmac, signJws, verifyJws, type Alg, type VerifyResult } from './crypto'
+import { minifyJson, prettyJson, setTopLevel } from './jsontext'
 import { b64urlEncodeString, describeTimeClaims, parseJwt } from './jwt'
 import { Card, ColoredToken, JsonEditor } from './ui'
+
+type VerifyState =
+  | VerifyResult
+  | { state: 'none' }
+  | { state: 'checking' }
+  | { state: 'unsupported'; message: string; unsecured: boolean }
+
+function DuplicateWarning({ keys }: { keys: string[] }) {
+  if (!keys.length) return null
+  return (
+    <div className="jwt-warn">
+      {keys.map((k) => `Duplicate key "${k}"`).join(', ')} — this page and JSON.parse use the last value; other parsers may use the first.
+    </div>
+  )
+}
 
 // The canonical jwt.io sample token (HS256, secret: your-256-bit-secret).
 export const SAMPLE_TOKEN =
@@ -31,7 +47,7 @@ export default function DecodeView({
   const [secretIsB64, setSecretIsB64] = useState(false)
   const [publicKey, setPublicKey] = useState('')
   const [privateKey, setPrivateKey] = useState('')
-  const [verify, setVerify] = useState<VerifyResult | { state: 'none' }>({ state: 'none' })
+  const [verify, setVerify] = useState<VerifyState>({ state: 'none' })
   const [decodeError, setDecodeError] = useState<string | null>(null)
   const [signError, setSignError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -54,12 +70,12 @@ export default function DecodeView({
       return
     }
     setDecodeError(null)
-    setHeaderJson(JSON.stringify(p.header, null, 2))
-    setPayloadJson(JSON.stringify(p.payload, null, 2))
-    const headerAlg = p.header.alg
-    if (typeof headerAlg === 'string' && (ALGS as readonly string[]).includes(headerAlg)) {
-      setAlg(headerAlg as Alg)
-    }
+    // the decoded text as written — never via JSON.stringify, which rounds
+    // big integers and drops duplicate keys
+    setHeaderJson(prettyJson(p.headerJson))
+    setPayloadJson(prettyJson(p.payloadJson))
+    const declared = declaredAlg(p.header)
+    if (declared.ok) setAlg(declared.alg)
   }, [])
 
   useEffect(() => {
@@ -67,38 +83,48 @@ export default function DecodeView({
   }, [handleRef, onTokenChange])
 
   // ---- decoded edited → re-sign (or reassemble with the old signature) ----
-  const signingKey = useMemo(
-    () => (isHmac(alg) ? { text: secret, secretIsB64 } : { text: privateKey, secretIsB64: false }),
-    [alg, secret, secretIsB64, privateKey],
-  )
-  const canSign = isHmac(alg) ? secret.length > 0 : privateKey.trim().length > 0
-
   const reencode = useCallback(
     async (nextHeader: string, nextPayload: string) => {
       setSignError(null)
       let h: string
       let p: string
+      let header: unknown
+      let payload: unknown
       try {
-        h = JSON.stringify(JSON.parse(nextHeader))
-        p = JSON.stringify(JSON.parse(nextPayload))
+        header = JSON.parse(nextHeader)
+        payload = JSON.parse(nextPayload)
+        // minify the text as typed so no value changes on the way back in
+        h = minifyJson(nextHeader)
+        p = minifyJson(nextPayload)
       } catch {
         setSignError('Decoded JSON is invalid — token not updated.')
         return
       }
+      const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+      if (!isObj(header) || !isObj(payload)) {
+        setSignError('Header and payload must be JSON objects — token not updated.')
+        return
+      }
       setDecodeError(null)
-      if (canSign) {
-        try {
-          setToken(await signJws(alg, h, p, signingKey))
-          return
-        } catch (err) {
-          setSignError(`Could not sign: ${err instanceof Error ? err.message : String(err)}`)
+      // sign with the alg the header declares, never a different one
+      const declared = declaredAlg(header)
+      if (declared.ok) {
+        setAlg(declared.alg)
+        const key = isHmac(declared.alg) ? { text: secret, secretIsB64 } : { text: privateKey, secretIsB64: false }
+        if (hasKeyMaterial(declared.alg, key.text)) {
+          try {
+            setToken(await signJws(declared.alg, h, p, key))
+            return
+          } catch (err) {
+            setSignError(`Could not sign: ${err instanceof Error ? err.message : String(err)}`)
+          }
         }
       }
-      // no signing key: reassemble, keeping the (now stale) signature
+      // no usable key or alg: reassemble, keeping the (now stale) signature
       const oldSig = token.trim().split('.')[2] ?? ''
       setToken(`${b64urlEncodeString(h)}.${b64urlEncodeString(p)}.${oldSig}`)
     },
-    [alg, canSign, signingKey, token],
+    [secret, secretIsB64, privateKey, token],
   )
 
   const onHeaderChange = (v: string) => {
@@ -112,9 +138,7 @@ export default function DecodeView({
   const onAlgChange = (next: Alg) => {
     setAlg(next)
     try {
-      const h = JSON.parse(headerJson) as Record<string, unknown>
-      h.alg = next
-      const nextHeader = JSON.stringify(h, null, 2)
+      const nextHeader = setTopLevel(headerJson, 'alg', JSON.stringify(next))
       setHeaderJson(nextHeader)
       void reencode(nextHeader, payloadJson)
     } catch {
@@ -129,18 +153,28 @@ export default function DecodeView({
       setVerify({ state: 'none' })
       return
     }
-    const key = isHmac(alg) ? { text: secret, secretIsB64 } : { text: publicKey, secretIsB64: false }
-    if (!key.text.trim()) {
+    // verify with the alg the token declares — the dropdown only mirrors it
+    const declared = declaredAlg(parsed.header)
+    if (!declared.ok) {
+      const unsecured = typeof parsed.header.alg === 'string' && parsed.header.alg.toLowerCase() === 'none'
+      setVerify({ state: 'unsupported', message: declared.reason, unsecured })
+      return
+    }
+    const tokenAlg = declared.alg
+    const key = isHmac(tokenAlg) ? { text: secret, secretIsB64 } : { text: publicKey, secretIsB64: false }
+    if (!hasKeyMaterial(tokenAlg, key.text)) {
       setVerify({ state: 'none' })
       return
     }
+    // never leave the previous token's result on screen while this one runs
+    setVerify({ state: 'checking' })
     const t = setTimeout(() => {
-      void verifyJws(alg, parsed.signingInput, parsed.signatureB64, key).then((r) => {
+      void verifyJws(tokenAlg, parsed.signingInput, parsed.signatureB64, key).then((r) => {
         if (verifySeq.current === seq) setVerify(r)
       })
     }, 250)
     return () => clearTimeout(t)
-  }, [parsed, alg, secret, secretIsB64, publicKey])
+  }, [parsed, secret, secretIsB64, publicKey])
 
   const claims = useMemo(
     () => ('error' in parsed ? [] : describeTimeClaims(parsed.payload, now)),
@@ -156,6 +190,12 @@ export default function DecodeView({
       <span className="sig-badge warn" title={verify.message}>
         <span className="material-symbols-outlined" aria-hidden>warning</span> {verify.message}
       </span>
+    ) : verify.state === 'unsupported' ? (
+      <span className={`sig-badge ${verify.unsecured ? 'err' : 'warn'}`} title={verify.message}>
+        <span className="material-symbols-outlined" aria-hidden>{verify.unsecured ? 'gpp_bad' : 'warning'}</span> {verify.message}
+      </span>
+    ) : verify.state === 'checking' ? (
+      <span className="sig-badge muted">verifying…</span>
     ) : (
       <span className="sig-badge muted">
         {isHmac(alg) ? 'enter the secret to verify' : 'paste the public key to verify'}
@@ -163,15 +203,15 @@ export default function DecodeView({
     )
 
   return (
-    <main id="main-content" className="jwt-panes">
+    <div className="jwt-panes">
       <div className="jwt-col">
         <Card
           title="encoded token"
           fill
           actions={
             <>
-              <button onClick={() => void onCopy(token, 'Token')} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
-              <button onClick={() => onTokenChange('')} aria-label="Clear"><span className="material-symbols-outlined">close</span></button>
+              <button onClick={() => void onCopy(token, 'Token')} aria-label="Copy"><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>
+              <button onClick={() => onTokenChange('')} aria-label="Clear"><span className="material-symbols-outlined" aria-hidden>close</span></button>
             </>
           }
         >
@@ -202,10 +242,12 @@ export default function DecodeView({
       <div className="jwt-col">
         <Card tone="h" title="header">
           <JsonEditor value={headerJson} onChange={onHeaderChange} minRows={3} ariaLabel="Header JSON" />
+          {!('error' in parsed) && <DuplicateWarning keys={parsed.headerDuplicates} />}
         </Card>
 
         <Card tone="p" title="payload">
           <JsonEditor value={payloadJson} onChange={onPayloadChange} minRows={5} ariaLabel="Payload JSON" />
+          {!('error' in parsed) && <DuplicateWarning keys={parsed.payloadDuplicates} />}
           {claims.length > 0 && (
             <table className="jwt-claims">
               <tbody>
@@ -231,21 +273,22 @@ export default function DecodeView({
           <div className="jwt-form">
             <label className="jwt-form-row">
               <span className="jwt-form-label">alg</span>
-              <select value={alg} onChange={(e) => onAlgChange(e.target.value as Alg)}>
+              <select value={alg} onChange={(e) => onAlgChange(e.target.value as Alg)} aria-label="Signing algorithm">
                 {ALGS.map((a) => (
                   <option key={a}>{a}</option>
                 ))}
               </select>
             </label>
             {isHmac(alg) ? (
-              <label className="jwt-form-row">
-                <span className="jwt-form-label">secret</span>
+              <div className="jwt-form-row">
+                <span className="jwt-form-label" aria-hidden>secret</span>
                 <input
                   className="mono"
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
                   placeholder="secret"
                   spellCheck={false}
+                  aria-label="HMAC secret"
                 />
                 <label className="jwt-check">
                   <input
@@ -255,7 +298,7 @@ export default function DecodeView({
                   />
                   base64url
                 </label>
-              </label>
+              </div>
             ) : (
               <div className="jwt-keys">
                 <textarea
@@ -264,6 +307,7 @@ export default function DecodeView({
                   onChange={(e) => setPublicKey(e.target.value)}
                   placeholder={'Public key — verifies\n-----BEGIN PUBLIC KEY----- or JWK {"kty":…}'}
                   spellCheck={false}
+                  aria-label="Public key (verifies the signature)"
                 />
                 <textarea
                   className="mono"
@@ -271,6 +315,7 @@ export default function DecodeView({
                   onChange={(e) => setPrivateKey(e.target.value)}
                   placeholder={'Private key — re-signs edits (optional)\n-----BEGIN PRIVATE KEY----- or JWK'}
                   spellCheck={false}
+                  aria-label="Private key (re-signs edits, optional)"
                 />
               </div>
             )}
@@ -282,6 +327,6 @@ export default function DecodeView({
           </div>
         </Card>
       </div>
-    </main>
+    </div>
   )
 }

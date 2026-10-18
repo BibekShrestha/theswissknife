@@ -11,8 +11,6 @@
     "src/tools/jq/components/CheatsheetDrawer.tsx": 1,
     "src/tools/jq/components/OptionsPanel.tsx": 5,
     "src/tools/jq/index.tsx": 11,
-    "src/tools/jwt/DecodeView.tsx": 2,
-    "src/tools/jwt/GenerateView.tsx": 2,
     "src/tools/pdf/components/FileDropzone.tsx": 3,
     "src/tools/pdf/components/PdfPreviewModal.tsx": 3,
     "src/tools/pdf/components/ProcessedPdfActions.tsx": 3,

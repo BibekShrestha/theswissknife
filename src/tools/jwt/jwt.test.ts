@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import {
+  b64urlDecodeBytes,
   b64urlDecodeString,
   b64urlEncodeBytes,
   b64urlEncodeString,
   describeTimeClaims,
   parseJwt,
 } from './jwt'
-import { generateKeyMaterial, signJws, verifyJws, type Alg } from './crypto'
+import { duplicateKeys, minifyJson, prettyJson, setTopLevel } from './jsontext'
+import {
+  declaredAlg,
+  derivePublicPem,
+  generateKeyMaterial,
+  hasKeyMaterial,
+  headerAlgProblem,
+  signJws,
+  verifyJws,
+  type Alg,
+} from './crypto'
 
 const SAMPLE =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
@@ -155,4 +166,152 @@ describe('generateKeyMaterial (generator mode)', () => {
     },
     20_000,
   )
+})
+
+// ---- regression tests from the bug hunt ---------------------------------
+
+const enc = (o: unknown) => b64urlEncodeString(typeof o === 'string' ? o : JSON.stringify(o))
+
+describe('JWT-1: the token declares its own alg', () => {
+  it('accepts only exact, supported alg names', () => {
+    expect(declaredAlg({ alg: 'HS256' })).toEqual({ ok: true, alg: 'HS256' })
+    for (const alg of ['none', 'hs256', 'ES256K', 'RS1', 42, undefined]) {
+      expect(declaredAlg({ alg }).ok).toBe(false)
+    }
+    expect(declaredAlg({ alg: 'none' })).toMatchObject({ ok: false, reason: expect.stringContaining('none') })
+    expect(declaredAlg({ alg: 'hs256' })).toMatchObject({ ok: false, reason: expect.stringContaining('HS256') })
+  })
+})
+
+describe('JWT-2: time claims out of Date range', () => {
+  it('reports out of range instead of throwing', () => {
+    const claims = describeTimeClaims({ exp: 9e12, iat: -9e12, nbf: 8.64e12 }, 1_700_000_000_000)
+    const byName = Object.fromEntries(claims.map((c) => [c.claim, c]))
+    expect(byName.exp.iso).toBe('out of range')
+    expect(byName.iat.iso).toBe('out of range')
+    expect(byName.nbf.iso).toBe('+275760-09-13T00:00:00.000Z')
+    expect(byName.exp.problem).toBe(false)
+  })
+})
+
+describe('JWT-3: header and payload must be JSON objects', () => {
+  it.each(['null', '[1,2]', '5', '"s"', 'true'])('rejects %s', (json) => {
+    expect(parseJwt(`${enc({ alg: 'HS256' })}.${enc(json)}.sig`)).toEqual({ error: 'Payload must be a JSON object.' })
+    expect(parseJwt(`${enc(json)}.${enc({})}.sig`)).toEqual({ error: 'Header must be a JSON object.' })
+  })
+})
+
+describe('JWT-4: decoded JSON stays faithful', () => {
+  const raw = '{"id":12345678901234567890,"f":1.0,"s":"\\u0041","a":[],"o":{}}'
+
+  it('pretty-prints without touching values', () => {
+    expect(prettyJson(raw)).toBe(
+      '{\n  "id": 12345678901234567890,\n  "f": 1.0,\n  "s": "\\u0041",\n  "a": [],\n  "o": {}\n}',
+    )
+    expect(prettyJson('{"alg":"HS256","typ":"JWT"}')).toBe(JSON.stringify({ alg: 'HS256', typ: 'JWT' }, null, 2))
+    expect(minifyJson(prettyJson(raw))).toBe(raw)
+    expect(() => prettyJson('{oops')).toThrow()
+  })
+
+  it('finds duplicate keys at any depth', () => {
+    expect(duplicateKeys('{"a":1,"b":{"a":2,"c":1,"c":2},"a":3}')).toEqual(['c', 'a'])
+    expect(duplicateKeys('[{"a":1},{"a":2}]')).toEqual([])
+    expect(duplicateKeys('{"\\u0061":1,"a":2}')).toEqual(['a'])
+  })
+
+  it('reports duplicate keys from parseJwt', () => {
+    const p = parseJwt(`${enc({ alg: 'HS256' })}.${enc('{"admin":false,"admin":true}')}.sig`)
+    if ('error' in p) throw new Error(p.error)
+    expect(p.payloadDuplicates).toEqual(['admin'])
+    expect(p.headerDuplicates).toEqual([])
+  })
+
+  it('sets a top-level member without changing anything else', () => {
+    expect(setTopLevel('{"alg":"HS256","n":12345678901234567890}', 'alg', '"RS256"')).toBe(
+      '{\n  "alg": "RS256",\n  "n": 12345678901234567890\n}',
+    )
+    expect(setTopLevel('{"n":12345678901234567890}', 'iat', '1')).toBe('{\n  "n": 12345678901234567890,\n  "iat": 1\n}')
+    expect(setTopLevel('{}', 'alg', '"HS256"')).toBe('{\n  "alg": "HS256"\n}')
+    expect(setTopLevel('{"alg":{"x":[1,2]},"b":1}', 'alg', '"ES256"')).toBe('{\n  "alg": "ES256",\n  "b": 1\n}')
+    expect(() => setTopLevel('[1]', 'alg', '"HS256"')).toThrow()
+  })
+})
+
+describe('JWT-8: strict base64url (RFC 7515)', () => {
+  const sig = SAMPLE.split('.')[2]
+
+  it('rejects non-canonical trailing bits, padding, the base64 alphabet and spaces', () => {
+    expect(() => b64urlDecodeBytes(sig)).not.toThrow()
+    expect(() => b64urlDecodeBytes(sig.slice(0, -1) + 'd')).toThrow()
+    expect(() => b64urlDecodeBytes(sig + '=')).toThrow()
+    expect(() => b64urlDecodeBytes(sig.replace('_', '/'))).toThrow()
+    expect(() => b64urlDecodeBytes(sig.slice(0, 10) + ' ' + sig.slice(10))).toThrow()
+    expect(() => b64urlDecodeBytes('A')).toThrow()
+  })
+
+  it('does not verify a signature with an altered last character', async () => {
+    const key = { text: 'your-256-bit-secret', secretIsB64: false }
+    const [h, p] = SAMPLE.split('.')
+    const r = await verifyJws('HS256', `${h}.${p}`, sig.slice(0, -1) + 'd', key)
+    expect(r.state).not.toBe('valid')
+    expect(parseJwt(`${h}.${p}.${sig}=`)).toEqual({ error: 'Signature is not valid base64url.' })
+  })
+
+  it('still accepts padded or standard Base64 for an HMAC secret marked base64url', async () => {
+    const token = await signJws('HS256', '{"alg":"HS256"}', '{}', { text: 'c2VjcmV0+/8=', secretIsB64: true })
+    const p = parseJwt(token)
+    if ('error' in p) throw new Error(p.error)
+    expect(await verifyJws('HS256', p.signingInput, p.signatureB64, { text: 'c2VjcmV0-_8', secretIsB64: true })).toEqual({ state: 'valid' })
+  })
+})
+
+describe('JWT-9: RFC 7519 time semantics', () => {
+  const now = 1_700_000_000_000
+  it('treats exp == now as expired and nbf == now as valid', () => {
+    expect(describeTimeClaims({ exp: now / 1000 }, now)[0].problem).toBe(true)
+    expect(describeTimeClaims({ nbf: now / 1000 }, now)[0].problem).toBe(false)
+    expect(describeTimeClaims({ exp: now / 1000 - 0.4 }, now)[0].problem).toBe(true)
+  })
+
+  it('floors relative times', () => {
+    expect(describeTimeClaims({ exp: now / 1000 + 1.5 * 86400 }, now)[0].relative).toBe('in 1d')
+    expect(describeTimeClaims({ exp: now / 1000 - 119 }, now)[0].relative).toBe('1m ago')
+  })
+})
+
+describe('JWT-10: key presence is judged the same way everywhere', () => {
+  it('uses an HMAC secret as typed, but trims PEM/JWK text', () => {
+    expect(hasKeyMaterial('HS256', '   ')).toBe(true)
+    expect(hasKeyMaterial('HS256', '')).toBe(false)
+    expect(hasKeyMaterial('RS256', '  \n ')).toBe(false)
+    expect(hasKeyMaterial('RS256', '-----BEGIN')).toBe(true)
+  })
+})
+
+describe('JWT-5: public key derived from the private key', () => {
+  it.each(['RS256', 'PS384', 'ES256', 'EdDSA'] as Alg[])('%s derives a public key that verifies', async (alg) => {
+    const key = await generateKeyMaterial(alg)
+    if (key.kind !== 'pair') throw new Error('expected pair')
+    const pub = await derivePublicPem(alg, key.privatePem)
+    expect(pub).toBe(key.publicPem)
+    const token = await signJws(alg, JSON.stringify({ alg }), '{}', { text: key.privatePem, secretIsB64: false })
+    const p = parseJwt(token)
+    if ('error' in p) throw new Error(p.error)
+    expect(await verifyJws(alg, p.signingInput, p.signatureB64, { text: pub, secretIsB64: false })).toEqual({ state: 'valid' })
+  }, 20_000)
+
+  it('accepts a private JWK and fails for a key of another curve', async () => {
+    const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])
+    const jwk = JSON.stringify(await crypto.subtle.exportKey('jwk', pair.privateKey))
+    expect(await derivePublicPem('ES256', jwk)).toContain('BEGIN PUBLIC KEY')
+    await expect(derivePublicPem('ES384', jwk)).rejects.toThrow()
+  })
+})
+
+describe('JWT-6: header alg must match the signing alg', () => {
+  it('names the mismatch', () => {
+    expect(headerAlgProblem({ alg: 'HS256' }, 'HS256')).toBeNull()
+    expect(headerAlgProblem({ alg: 'RS256' }, 'HS256')).toContain('RS256')
+    expect(headerAlgProblem({}, 'HS256')).toContain('"alg"')
+  })
 })

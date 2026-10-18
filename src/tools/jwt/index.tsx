@@ -40,13 +40,16 @@ export default function JwtTool() {
         )}
       </ToolHeader>
 
-      {/* both views stay mounted so switching tabs never loses state */}
-      <div className={mode === 'decode' ? '' : 'jwt-hidden'}>
-        <DecodeView onCopy={copy} handleRef={decodeRef} />
-      </div>
-      <div className={mode === 'generate' ? '' : 'jwt-hidden'}>
-        <GenerateView onCopy={copy} />
-      </div>
+      {/* both views stay mounted so switching tabs never loses state; one
+          <main> landmark wraps them so the page has a single #main-content */}
+      <main id="main-content" className="jwt-main">
+        <div className={mode === 'decode' ? '' : 'jwt-hidden'}>
+          <DecodeView onCopy={copy} handleRef={decodeRef} />
+        </div>
+        <div className={mode === 'generate' ? '' : 'jwt-hidden'}>
+          <GenerateView onCopy={copy} />
+        </div>
+      </main>
 
       <Toast message={toast} />
     </div>
