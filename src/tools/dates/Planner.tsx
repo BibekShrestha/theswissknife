@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { buildIcs } from './ics'
+import { buildIcs, icsRangeError } from './ics'
 import {
-  buildRow, buildTimeline, dayShiftLabel, meetingText, meetingTimes, overlap, ranges, SLOT_MINUTES, SLOT_MS,
+  buildRow, buildTimeline, clampSel, dayShiftLabel, meetingText, meetingTimes, overlap, ranges, SLOT_MINUTES, SLOT_MS,
   type ZoneRow,
 } from './timeline'
 import { MAX_ZONES, MEETING_LENGTHS, plannerHash, type PlannerState } from './share'
@@ -84,14 +84,18 @@ export function Planner({ initial, active, copy, showToast }: PlannerProps) {
   const shiftDate = (days: number) => setDate(isoDate(addDays(plainDate, days)))
 
   const nudge = (slots: number) => setSel((current) => {
-    const s = current ? clampSel(current, timeline.slots) : [0, len / SLOT_MINUTES] as [number, number]
+    if (timeline.missing) return current
+    const s = (current ? clampSel(current, timeline.slots) : null) ?? [0, len / SLOT_MINUTES] as [number, number]
     const width = s[1] - s[0]
     const from = Math.max(0, Math.min(timeline.slots - width, s[0] + slots))
     return [from, from + width]
   })
 
+  const icsProblem = clampedSel ? icsRangeError(startMs, endMs) : null
+  const offGridRows = rows.filter((r) => r.offGrid)
+
   const downloadIcs = () => {
-    if (!clampedSel) return
+    if (!clampedSel || icsProblem) return
     const text = meetingText(times, startMs, endMs, title)
     const ics = buildIcs({
       uid: `${crypto.randomUUID()}@theswissknife.com`,
@@ -146,7 +150,7 @@ export function Planner({ initial, active, copy, showToast }: PlannerProps) {
           <select value={len} onChange={(e) => {
             const next = Number(e.target.value)
             setLen(next)
-            if (clampedSel) setSel(clampSel([clampedSel[0], clampedSel[0] + next / SLOT_MINUTES], timeline.slots))
+            if (clampedSel) setSel(clampSel([clampedSel[0], clampedSel[0] + next / SLOT_MINUTES], timeline.slots) ?? clampedSel)
           }} aria-label="Meeting length">
             {MEETING_LENGTHS.map((m) => <option key={m} value={m}>{lengthLabel(m)}</option>)}
           </select>
@@ -154,28 +158,43 @@ export function Planner({ initial, active, copy, showToast }: PlannerProps) {
       </section>
 
       <section className="dates-zones" aria-label="Zones">
-        <div className="dates-strips-scroll" ref={scrollRef}>
-          <Strips
-            rows={rows}
-            slots={timeline.slots}
-            shared={sharedRanges}
-            sel={clampedSel}
-            len={len}
-            onSelect={setSel}
-            onMove={moveZone}
-            onRemove={(i) => setZones((list) => list.filter((_, j) => j !== i))}
-          />
-        </div>
+        {timeline.missing && (
+          <p className="dates-error" role="status">
+            {longDate(plainDate)} does not exist in {ref}: the calendar there skipped from {longDate(addDays(plainDate, -1))} straight
+            to {longDate(addDays(plainDate, 1))}. Pick another date.
+          </p>
+        )}
+        {!timeline.missing && (
+          <div className="dates-strips-scroll" ref={scrollRef}>
+            <Strips
+              rows={rows}
+              slots={timeline.slots}
+              shared={sharedRanges}
+              sel={clampedSel}
+              len={len}
+              onSelect={setSel}
+              onMove={moveZone}
+              onRemove={(i) => setZones((list) => list.filter((_, j) => j !== i))}
+            />
+          </div>
+        )}
         <div className="dates-add">
           {zones.length < MAX_ZONES
             ? <ZonePicker label="Add a time zone" placeholder="Add a zone — city, region or abbreviation (PST, CET)…" at={timeline.start} exclude={zones} onPick={(z) => setZones((list) => [...list, z])} />
             : <span className="dates-muted">Up to {MAX_ZONES} zones.</span>}
         </div>
         <p className="dates-hint">
-          The first zone is the reference: the strips cover its {refDay === 24 ? '24-hour' : `${refDay}-hour`} day.
+          The first zone is the reference: the strips cover its {refDay === 24 ? '24-hour' : `${Number(refDay.toFixed(2))}-hour`} day.
           Click to start a {lengthLabel(len)} meeting on that half hour, or drag across slots (mouse) to pick any 15-minute range.
           <span className="dates-legend"><i className="dates-swatch dates-swatch-work" /> working hours <i className="dates-swatch dates-swatch-overlap" /> everyone working</span>
         </p>
+        {offGridRows.length > 0 && (
+          <p className="dates-note">
+            {offGridRows.map((r) => r.zone).join(', ')} {offGridRows.length === 1 ? 'is' : 'are'} on local mean time on this date, an offset that is not a
+            whole number of 15 minutes from the reference, so {offGridRows.length === 1 ? 'its' : 'their'} hours start between slots. The strip shows the
+            clock at the start of each slot; the selected times below are exact.
+          </p>
+        )}
         {rows.some((r) => r.transitions.length > 0) && (
           <ul className="dates-transitions">
             {rows.flatMap((r) => r.transitions.map((t) => {
@@ -196,8 +215,8 @@ export function Planner({ initial, active, copy, showToast }: PlannerProps) {
         <div className="dates-meeting-head">
           <span className="dates-label">Selected time</span>
           <div className="dates-row dates-nudge">
-            <button type="button" onClick={() => nudge(-1)} aria-label="Earlier by 15 minutes">−15 min</button>
-            <button type="button" onClick={() => nudge(1)} aria-label="Later by 15 minutes">+15 min</button>
+            <button type="button" disabled={timeline.missing} onClick={() => nudge(-1)} aria-label="Earlier by 15 minutes">−15 min</button>
+            <button type="button" disabled={timeline.missing} onClick={() => nudge(1)} aria-label="Later by 15 minutes">+15 min</button>
             <button type="button" disabled={!sharedRanges.length} onClick={() => {
               const first = sharedRanges[0]
               if (first) setSel([first[0], Math.min(first[1], first[0] + len / SLOT_MINUTES)])
@@ -205,7 +224,9 @@ export function Planner({ initial, active, copy, showToast }: PlannerProps) {
           </div>
         </div>
         <p className="dates-overlap-text">
-          {sharedRanges.length === 0
+          {timeline.missing
+            ? `There is no time to pick: ${longDate(plainDate)} does not exist in ${ref}.`
+            : sharedRanges.length === 0
             ? `No time on this day is inside ${pad(work[0])}:00–${pad(work[1] % 24)}:00 in every zone.`
             : <>Everyone is in working hours {sharedRanges.map(([a, b], i) => {
               const s = wallAt(timeline.start + a * SLOT_MS, ref)
@@ -232,24 +253,19 @@ export function Planner({ initial, active, copy, showToast }: PlannerProps) {
               <button type="button" onClick={() => void copy(meetingText(times, startMs, endMs, title), 'Meeting times')}>
                 <span className="material-symbols-outlined" aria-hidden>content_copy</span> Copy times
               </button>
-              <button type="button" onClick={downloadIcs}>
+              <button type="button" onClick={downloadIcs} disabled={icsProblem !== null}>
                 <span className="material-symbols-outlined" aria-hidden>event</span> Download .ics
               </button>
             </div>
+            {icsProblem && <p className="dates-error" role="status">{icsProblem}</p>}
             <p className="dates-muted">The .ics event uses UTC start and end times ({new Date(startMs).toISOString().slice(11, 16)}–{new Date(endMs).toISOString().slice(11, 16)} UTC); calendar apps show it in each viewer’s own zone.</p>
           </>
-        ) : (
+        ) : !timeline.missing && (
           <p className="dates-muted">Click a slot on the strips to choose a meeting time.</p>
         )}
       </section>
     </div>
   )
-}
-
-function clampSel(sel: [number, number], slots: number): [number, number] {
-  const from = Math.max(0, Math.min(sel[0], slots - 1))
-  const to = Math.max(from + 1, Math.min(sel[1], slots))
-  return [from, to]
 }
 
 interface StripsProps {

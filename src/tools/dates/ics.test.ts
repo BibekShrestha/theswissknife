@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildIcs, escapeText, foldLine, icsUtc } from './ics'
+import { buildIcs, escapeText, foldLine, icsRangeError, icsUtc } from './ics'
 
 const bytes = (s: string) => new TextEncoder().encode(s).length
 
@@ -46,5 +46,15 @@ describe('ics', () => {
     expect(lines).toContain('DESCRIPTION:London 10:00\\nNew York 05:00')
     expect(lines[0]).toBe('BEGIN:VCALENDAR')
     expect(lines.at(-2)).toBe('END:VCALENDAR')
+  })
+})
+
+describe('ics year range (DATES-3)', () => {
+  it('refuses instants outside years 0000–9999 instead of writing +010000…', () => {
+    expect(icsUtc(Date.UTC(9999, 11, 31, 23, 59))).toBe('99991231T235900Z')
+    expect(() => icsUtc(Date.UTC(10000, 0, 1))).toThrow(/0000.9999/)
+    expect(() => icsUtc(Date.UTC(-1, 0, 1))).toThrow(/0000.9999/)
+    expect(icsRangeError(Date.UTC(9999, 11, 31, 22), Date.UTC(10000, 0, 1, 1))).toMatch(/0000.9999/)
+    expect(icsRangeError(Date.UTC(2026, 0, 1), Date.UTC(2026, 0, 1, 1))).toBeNull()
   })
 })

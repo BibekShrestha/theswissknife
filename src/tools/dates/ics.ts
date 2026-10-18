@@ -14,9 +14,24 @@ export interface IcsEvent {
   description?: string
 }
 
-/** 20260329T090000Z */
+const ICS_RANGE = 'iCalendar dates need a four-digit year — this time falls outside years 0000–9999 (UTC).'
+
+/** 20260329T090000Z. Throws RangeError outside years 0000–9999, which RFC 5545 DATE-TIME cannot hold. */
 export function icsUtc(ms: number): string {
+  const year = new Date(ms).getUTCFullYear()
+  if (!(year >= 0 && year <= 9999)) throw new RangeError(ICS_RANGE)
   return new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z').replace(/[-:]/g, '')
+}
+
+/** Why an event from `start` to `end` cannot be written as .ics, or null when it can. */
+export function icsRangeError(start: number, end: number): string | null {
+  try {
+    icsUtc(start)
+    icsUtc(end)
+    return null
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
 }
 
 /** TEXT escaping (RFC 5545 §3.3.11): backslash, semicolon, comma and newlines. */

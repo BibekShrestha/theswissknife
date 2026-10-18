@@ -148,6 +148,23 @@ export function zoneList(supported?: string[]): string[] {
   return [...set].sort()
 }
 
+/**
+ * The catalog spelling of a zone from outside (a share link): any case, and
+ * an alias (US/Pacific, Asia/Katmandu) mapped onto the zone it names where
+ * the engine resolves it. Null for a zone the engine does not know.
+ */
+export function canonicalZone(zone: string, all: readonly string[] = zoneList()): string | null {
+  let resolved: string
+  try {
+    resolved = new Intl.DateTimeFormat('en-US', { timeZone: zone }).resolvedOptions().timeZone
+  } catch {
+    return null
+  }
+  const find = (name: string) => all.find((z) => z.toLowerCase() === name.toLowerCase())
+  const renamed = (name: string) => RENAMED[name] ?? name
+  return find(renamed(zone)) ?? find(renamed(resolved)) ?? renamed(resolved)
+}
+
 export function zoneCity(zone: string): string {
   return zone.slice(zone.lastIndexOf('/') + 1).replace(/_/g, ' ')
 }

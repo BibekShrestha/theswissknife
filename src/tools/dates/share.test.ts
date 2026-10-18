@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { canonicalZone } from './catalog'
 import { durationsHash, plannerHash, readHash } from './share'
 
 describe('fragment state', () => {
@@ -22,5 +23,23 @@ describe('fragment state', () => {
     expect(readHash('#d=yesterday&dz=Nowhere&op=mul')).toEqual({ tab: 'durations', durations: {} })
     expect(readHash('#something=else')).toEqual({ tab: null })
     expect(readHash('')).toEqual({ tab: null })
+  })
+  it('canonicalises zone names from a link and drops duplicates (DATES-4)', () => {
+    const state = readHash('#zones=america/new_york,America/New_York,US/Pacific,America/Los_Angeles,utc,UTC&date=2026-03-29')
+    expect(state).toMatchObject({ tab: 'zones' })
+    const zones = state.tab === 'zones' ? state.planner.zones : []
+    expect(zones?.[0]).toBe('America/New_York')
+    expect(zones).toContain('UTC')
+    expect(new Set(zones!.map((z) => z.toLowerCase())).size).toBe(zones!.length)
+    expect(zones!.filter((z) => z === 'America/New_York')).toHaveLength(1)
+    expect(readHash('#d=2026-01-01T00:00&dz=europe/london')).toEqual({ tab: 'durations', durations: { start: '2026-01-01T00:00', startZone: 'Europe/London' } })
+  })
+
+  it('maps an alias onto the zone it names when the engine canonicalises it', () => {
+    expect(canonicalZone('america/new_york')).toBe('America/New_York')
+    expect(canonicalZone('Asia/Katmandu')).toBe('Asia/Kathmandu')
+    expect(canonicalZone('Mars/Base')).toBeNull()
+    const pacific = canonicalZone('US/Pacific')
+    expect(pacific === 'America/Los_Angeles' || pacific === 'US/Pacific').toBe(true)
   })
 })
