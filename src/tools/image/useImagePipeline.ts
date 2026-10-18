@@ -12,7 +12,7 @@ import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { decodeRaster, measureSvg, rasterizeSvg } from './lib/decode'
 import { computeSize, DEFAULT_RESIZE, type ResizeSpec } from './lib/dimensions'
-import { sniff, SNIFF_BYTES, type Frames } from './lib/detect'
+import { sniff, SNIFF_BYTES, unsupported, type Frames } from './lib/detect'
 import { canUseOffscreen, probeEncoders } from './lib/encode'
 import {
   formatInfo,
@@ -229,7 +229,7 @@ export function useImagePipeline(defaults?: Partial<PipelineOptions>) {
         frames,
         status: format === 'unknown' ? 'rejected' : 'queued',
         result: null,
-        error: format === 'unknown' ? 'Not an image format this tool can read' : null,
+        error: format === 'unknown' ? unsupported(head) : null,
       })
     }
     setItems((prev) => [...prev, ...prepared])
@@ -287,9 +287,7 @@ export function useImagePipeline(defaults?: Partial<PipelineOptions>) {
       if (item.source === 'svg') {
         // Vectors are rasterised once, at the final size, on this thread.
         const measured = await measureSvg(item.file)
-        if (measured.assumed) {
-          warnings.push('This SVG declares no size — rasterised at 1024 px on the long edge')
-        }
+        if (measured.assumed && measured.note) warnings.push(measured.note)
         const size = computeSize(measured.intrinsic, options.resize)
         const bitmap = await rasterizeSvg(measured.text, size)
         const svgJob: JobOptions = { ...jobOptions, resize: { ...DEFAULT_RESIZE, mode: 'none' } }
