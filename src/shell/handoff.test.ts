@@ -28,4 +28,28 @@ describe('handoff', () => {
     expect(takeHandoff('csv')).toBeNull()
     expect(takeHandoff('sqlite')).toBeNull()
   })
+
+  it('survives arriving at the target, but not leaving for anywhere else', async () => {
+    const { releaseHandoff } = await import('./handoff')
+    sendTo('sqlite', { name: 'x.csv', text: 'secret' })
+    releaseHandoff('sqlite')
+    expect(takeHandoff('sqlite')).toEqual({ name: 'x.csv', text: 'secret' })
+
+    // The target failed to load and the user went Back: a later visit must not auto-import.
+    sendTo('sqlite', { name: 'x.csv', text: 'secret' })
+    releaseHandoff('csv')
+    expect(takeHandoff('sqlite')).toBeNull()
+  })
+
+  it('expires if the target never takes it', async () => {
+    const { HANDOFF_TTL_MS } = await import('./handoff')
+    vi.useFakeTimers()
+    try {
+      sendTo('sqlite', { name: 'x.csv', text: 'secret' })
+      vi.advanceTimersByTime(HANDOFF_TTL_MS + 1)
+      expect(takeHandoff('sqlite')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
