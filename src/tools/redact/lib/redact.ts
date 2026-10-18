@@ -17,7 +17,10 @@ import { DEFAULT_MASK } from './characters'
 export type SpaceMode = 'keep' | 'remove' | 'redact'
 
 export interface RedactOptions {
-  /** The mask character. Anything longer than one grapheme is trimmed to it. */
+  /**
+   * The mask character. Anything longer than one grapheme is trimmed to it;
+   * one that fails `normalizeMask`'s checks falls back to the default.
+   */
   mask: string
   spaces: SpaceMode
 }
@@ -56,11 +59,45 @@ const LINE_SPLIT = /(\r\n|\n|\r)/
 const LINE_BREAK = /^(?:\r\n|[\n\r\u2028\u2029])$/
 const WHITESPACE = /^\s$/u
 
-/** First grapheme of the requested mask, or the default when there is none. */
+/**
+ * A mask grapheme is repeated once per masked character, so its size
+ * multiplies the output: "a" plus 100,000 combining accents is one grapheme.
+ * 16 UTF-16 units still fits every emoji ZWJ sequence (a family of four is 11,
+ * a kiss with two skin tones 15).
+ */
+export const MAX_MASK_UNITS = 16
+
+/**
+ * Characters a reader cannot see: controls, format characters (zero-width
+ * space, bidi overrides, tag characters), default-ignorables (soft hyphen,
+ * the variation-selector supplement) and unassigned or private code points.
+ * A mask made of them could smuggle hidden text into every redacted span.
+ */
+const INVISIBLE = /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/u
+/** The invisible characters emoji legitimately use: a joiner between pictographs, text/emoji presentation selectors. */
+const EMOJI_JOINER = /(?<=[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\uFE0F])\u200D(?=\p{Extended_Pictographic})/gu
+const PRESENTATION = /(?<=.)[\uFE0E\uFE0F]/gsu
+
+/** Whether one grapheme is fit to be repeated as a mask. */
+export function isUsableMask(grapheme: string): boolean {
+  if (!grapheme || grapheme.length > MAX_MASK_UNITS || WHITESPACE.test(grapheme)) return false
+  return !INVISIBLE.test(grapheme.replace(EMOJI_JOINER, '').replace(PRESENTATION, ''))
+}
+
+/** First grapheme of the requested mask, or the default when there is none or it is unusable. */
 export function normalizeMask(mask: string): string {
-  const first = graphemes(mask)[0]
-  if (!first || WHITESPACE.test(first)) return DEFAULT_MASK
-  return first
+  const first = firstGrapheme(mask)
+  return isUsableMask(first) ? first : DEFAULT_MASK
+}
+
+/** Segments only as far as the first grapheme: the input may be huge. */
+export function firstGrapheme(text: string): string {
+  if (!text) return ''
+  if (segmenter) {
+    for (const part of segmenter.segment(text)) return part.segment
+    return ''
+  }
+  return String.fromCodePoint(text.codePointAt(0)!)
 }
 
 /** Masks the whole text. */
@@ -74,21 +111,41 @@ export function redact(text: string, options: RedactOptions): string {
  * match can never split an emoji in half.
  */
 export function redactRanges(text: string, ranges: Range[], options: RedactOptions): string {
+  return redactCounted(text, ranges, options).output
+}
+
+/**
+ * How many characters `redactRanges` hides, counted as a reader sees them:
+ * graphemes, not UTF-16 units, and never a space or line break it leaves
+ * visible. Spaces it removes or masks count as hidden.
+ */
+export function hiddenCount(text: string, ranges: Range[], spaces: SpaceMode): number {
+  return redactCounted(text, ranges, { mask: DEFAULT_MASK, spaces }).hidden
+}
+
+/** Both at once, in one pass over the graphemes. */
+export function redactCounted(text: string, ranges: Range[], options: RedactOptions): { output: string; hidden: number } {
   const merged = mergeRanges(ranges)
-  if (merged.length === 0 || !text) return text
+  if (merged.length === 0 || !text) return { output: text, hidden: 0 }
   const mask = normalizeMask(options.mask)
 
   let out = ''
+  let hidden = 0
   let offset = 0
   let next = 0 // ranges and graphemes both run left to right, so one pointer does
   for (const grapheme of graphemes(text)) {
     const end = offset + grapheme.length
     while (next < merged.length && merged[next].end <= offset) next++
     const covered = next < merged.length && merged[next].start < end
-    out += covered ? maskGrapheme(grapheme, mask, options.spaces) : grapheme
+    if (covered) {
+      out += maskGrapheme(grapheme, mask, options.spaces)
+      if (!LINE_BREAK.test(grapheme) && (options.spaces !== 'keep' || !WHITESPACE.test(grapheme))) hidden++
+    } else {
+      out += grapheme
+    }
     offset = end
   }
-  return out
+  return { output: out, hidden }
 }
 
 function maskGrapheme(grapheme: string, mask: string, spaces: SpaceMode): string {
@@ -125,20 +182,25 @@ export interface MatchReport {
   truncated: boolean
 }
 
-/** A pathological pattern should stop somewhere rather than eat the tab. */
+/**
+ * A pattern with too many matches should stop somewhere rather than eat the
+ * tab. A pattern that backtracks forever is stopped by the worker deadline in
+ * runner.ts instead — this function itself has no clock.
+ */
 export const MAX_MATCHES = 20_000
 
 export function findRanges(
   text: string,
   targets: Target[],
-  options: { caseSensitive?: boolean } = {},
+  options: { caseSensitive?: boolean; onTarget?: (index: number) => void } = {},
 ): MatchReport {
   const ranges: Range[] = []
   const counts: number[] = []
   const errors: (string | null)[] = []
   let truncated = false
 
-  for (const target of targets) {
+  for (const [index, target] of targets.entries()) {
+    options.onTarget?.(index)
     if (!target.value) {
       counts.push(0)
       errors.push(null)

@@ -39,6 +39,14 @@ export const MAX_PATTERN = 500
  */
 export const LENGTH_WARN = 1_500
 export const LENGTH_MAX = 8_000
+/** What decoding accepts at all — well past any link this tool writes. */
+export const MAX_FRAGMENT = 64_000
+/**
+ * Inflated payloads are capped too: a few hundred KB of link can expand to
+ * hundreds of MB. The largest scheme normalizeScheme keeps (200 targets of
+ * 500 characters, JSON-escaped) is well under this.
+ */
+export const MAX_INFLATED = 1_000_000
 
 const SPACE_MODES: SpaceMode[] = ['keep', 'remove', 'redact']
 
@@ -100,8 +108,8 @@ export async function encodeScheme(scheme: Scheme, includeLiterals: boolean): Pr
 }
 
 export async function decodeFragment(hash: string): Promise<Scheme | null> {
-  const match = /^#p=([^&]+)$/.exec(hash)
-  if (!match) return null
+  const match = /^#p=([A-Za-z0-9_-]+)$/.exec(hash)
+  if (!match || match[1].length > MAX_FRAGMENT) return null
   try {
     return normalizeScheme(JSON.parse(await inflate(bytesFromB64url(match[1]))))
   } catch {
@@ -124,6 +132,17 @@ export function schemeFromJson(text: string): Scheme | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Applying a scheme must never un-redact anything by itself. A scheme that
+ * left the hand-picked terms out (the default for links and the JSON editor)
+ * says nothing about them, so the terms already picked stay picked.
+ */
+export function keepLiterals(incoming: Scheme, current: Target[]): Scheme {
+  const has = new Set(incoming.targets.filter((t) => t.kind === 'literal').map((t) => t.value))
+  const kept = current.filter((t) => t.kind === 'literal' && !has.has(t.value))
+  return kept.length ? { ...incoming, targets: [...incoming.targets, ...kept.map(({ kind, value }) => ({ kind, value }))] } : incoming
 }
 
 export function countKinds(targets: Target[]): { patterns: number; literals: number } {
@@ -149,7 +168,20 @@ async function inflate(bytes: Uint8Array): Promise<string> {
   const stream = new Blob([bytes as BlobPart])
     .stream()
     .pipeThrough(new DecompressionStream('deflate-raw'))
-  return new Response(stream).text()
+  const reader = stream.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.length
+    if (total > MAX_INFLATED) {
+      await reader.cancel()
+      throw new Error('payload too large')
+    }
+    chunks.push(value)
+  }
+  return new TextDecoder().decode(await new Blob(chunks as BlobPart[]).arrayBuffer())
 }
 
 function b64url(bytes: Uint8Array): string {

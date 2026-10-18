@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   countKinds,
   encodeScheme,
+  keepLiterals,
   LENGTH_MAX,
   LENGTH_WARN,
   schemeFromJson,
@@ -9,6 +10,7 @@ import {
   schemeUrl,
   type Scheme,
 } from '../lib/share'
+import { useDialogFocus } from './useDialogFocus'
 
 interface ShareDialogProps {
   scheme: Scheme
@@ -23,14 +25,10 @@ export function ShareDialog({ scheme, onApply, onClose, copy, showToast }: Share
   const [includeLiterals, setIncludeLiterals] = useState(false)
   const [url, setUrl] = useState('')
   const [json, setJson] = useState('')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  useDialogFocus(dialogRef, onClose, closeRef)
 
   // Compression is async, so the link arrives a tick after the dialog does.
   useEffect(() => {
@@ -51,6 +49,7 @@ export function ShareDialog({ scheme, onApply, onClose, copy, showToast }: Share
   return (
     <div className="redact-dialog-backdrop" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="redact-dialog"
         role="dialog"
         aria-modal="true"
@@ -60,8 +59,8 @@ export function ShareDialog({ scheme, onApply, onClose, copy, showToast }: Share
         <header>
           <strong>Share this scheme</strong>
           <div className="spacer" />
-          <button className="redact-icon" onClick={onClose} aria-label="Close">
-            <span className="material-symbols-outlined">close</span>
+          <button ref={closeRef} className="redact-icon" onClick={onClose} aria-label="Close">
+            <span className="material-symbols-outlined" aria-hidden>close</span>
           </button>
         </header>
 
@@ -110,7 +109,7 @@ export function ShareDialog({ scheme, onApply, onClose, copy, showToast }: Share
                 disabled={!url || tooLong}
                 onClick={() => copy(url, 'Link')}
               >
-                <span className="material-symbols-outlined">link</span>
+                <span className="material-symbols-outlined" aria-hidden>link</span>
                 Copy link
               </button>
             </div>
@@ -139,7 +138,9 @@ export function ShareDialog({ scheme, onApply, onClose, copy, showToast }: Share
                 onClick={() => {
                   const parsed = schemeFromJson(json)
                   if (!parsed) return showToast('That JSON is not a redaction scheme')
-                  onApply(parsed)
+                  // The JSON above leaves the hand-picked terms out unless the box
+                  // is ticked; applying it must not quietly un-redact them.
+                  onApply(includeLiterals ? parsed : keepLiterals(parsed, scheme.targets))
                   showToast('Scheme applied')
                   onClose()
                 }}
@@ -147,6 +148,11 @@ export function ShareDialog({ scheme, onApply, onClose, copy, showToast }: Share
                 Apply JSON
               </button>
             </div>
+            {literals > 0 && !includeLiterals && (
+              <span className="redact-length">
+                Applying keeps the {literals} term{literals === 1 ? '' : 's'} you picked by hand.
+              </span>
+            )}
           </label>
         </div>
       </div>
