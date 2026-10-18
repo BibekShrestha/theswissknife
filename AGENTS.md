@@ -293,9 +293,17 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/exif/` — photo metadata viewer/stripper, hand-written (no exifr):
   `lib/exif.ts` is a bounds-checked TIFF reader (visited-offset set against
   IFD loops, capped chains and entry counts); one module per container
-  (`jpeg`, `png`, `webp`, `gif`, `heif`) parses blocks and strips by copying
-  every non-metadata byte range — nothing is re-encoded. HEIF/AVIF Exif/XMP
-  items are zero-filled in place so `iloc` offsets stay valid. Each format
+  (`jpeg`, `png`, `webp`, `gif`, `heif`) parses blocks and strips by
+  **allow-list**: only what decoding needs is kept (JPEG SOF/DHT/DQT/DRI/SOS…,
+  a 16-byte JFIF and 12-byte Adobe APP0/APP14; PNG critical chunks plus
+  rendering ones like tRNS/gAMA/sRGB/pHYs and APNG; WebP VP8/VP8L/VP8X/ALPH/
+  ANIM/ANMF; GIF image blocks, 4-byte graphic control, loop count), plus ICC
+  or a minimal orientation EXIF when the user keeps them. Everything else —
+  unknown chunks, C2PA, stray bytes, thumbnails — is dropped *and listed*, so
+  analysis and stripper share one classification and nothing is re-encoded.
+  HEIF/AVIF Exif/XMP items are zero-filled in place so `iloc` offsets stay
+  valid; an item that can't be located or overwritten is `unremovable` and
+  the verdict stays red. Each format
   also names its image-data ranges; `processImage` SHA-256s them before and
   after and re-parses the output, and the UI's "N found → M remain" comes from
   that re-parse, never the stripper's own list. Work runs in `exif.worker.ts`
