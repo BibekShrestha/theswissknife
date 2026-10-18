@@ -19,6 +19,43 @@ export function rowWindow(
   return { first, last: Math.max(first, last) }
 }
 
+/**
+ * Browsers cap an element's height — Firefox near 17.9 million px, Chrome and
+ * Safari near 33.5 million — and silently clip anything taller, so 29 px rows
+ * run out a little past half a million. The body is never made taller than
+ * this; past it, the scrollbar is scaled (see toVirtualTop).
+ */
+export const MAX_BODY_HEIGHT = 10_000_000
+
+/** How tall the scrollable body is for `count` rows: their real height, capped. */
+export function bodyHeightFor(count: number, rowHeight: number, max = MAX_BODY_HEIGHT): number {
+  return Math.min(count * rowHeight, max)
+}
+
+/**
+ * Scroll position → offset into the full-height list. `total` is the real
+ * height of every row, `height` the (capped) scrollable height, `viewport`
+ * what is visible of it. While the rows fit this is the identity; once they
+ * don't, the scroll range maps proportionally onto the row range, so the end
+ * of the scrollbar is the end of the file.
+ */
+export function toVirtualTop(scrollTop: number, total: number, height: number, viewport: number): number {
+  if (total <= height) return scrollTop
+  const range = height - viewport
+  if (range <= 0) return 0
+  const clamped = Math.min(Math.max(0, scrollTop), range)
+  return (clamped / range) * (total - viewport)
+}
+
+/** The inverse of toVirtualTop: where to scroll so `virtualTop` is at the top. */
+export function toScrollTop(virtualTop: number, total: number, height: number, viewport: number): number {
+  if (total <= height) return virtualTop
+  const span = total - viewport
+  if (span <= 0) return 0
+  const clamped = Math.min(Math.max(0, virtualTop), span)
+  return (clamped / span) * (height - viewport)
+}
+
 /** Prefix sums of the column widths; length is widths.length + 1. */
 export function columnOffsets(widths: number[]): number[] {
   const offsets = new Array<number>(widths.length + 1)

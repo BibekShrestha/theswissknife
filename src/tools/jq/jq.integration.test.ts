@@ -3,6 +3,7 @@ import { loadJq, type Jq } from 'jq-wasm'
 import { examples } from './examples'
 import { cheatsheet } from './cheatsheet'
 import { buildInvocation } from './flags'
+import { pickDisplay } from './output'
 import { defaultOptions } from './types'
 
 // Runs the REAL wasm jq — the same engine the app ships — against every
@@ -60,5 +61,17 @@ describe('argv size guard', () => {
     const res = jq.raw('null', inv.query, inv.flags)
     expect(res.exitCode).toBe(0)
     expect(res.stdout.trim()).toBe(String(512 * 1024))
+  })
+})
+
+describe('JQ-1: a runtime error after some output', () => {
+  it('reports exit 5 with the output printed before it, which the pane shows', () => {
+    const res = jq.raw('[1, 0, 2]', '.[] | if . == 0 then error("boom") else . end', ['-c'])
+    expect(res.exitCode).toBe(5)
+    expect(res.stdout.trim()).toBe('1')
+    expect(res.stderr).toMatch(/boom/)
+    const view = pickDisplay({ ...res, ms: 0 }, { stdout: '"older run"\n', stderr: '', exitCode: 0, ms: 0 })
+    expect(view.display?.stdout.trim()).toBe('1')
+    expect(view.stale).toBe(false)
   })
 })

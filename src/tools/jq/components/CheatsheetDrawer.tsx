@@ -20,14 +20,15 @@ export function CheatsheetDrawer({ open, onClose, onInsert }: Props) {
   return (
     <>
       {open && <div className="drawer-backdrop" onClick={onClose} />}
-      <aside className={`drawer${open ? ' open' : ''}`} aria-hidden={!open}>
+      {/* Closed, it is off screen but still in the DOM: inert keeps Tab out of its controls. */}
+      <aside className={`drawer${open ? ' open' : ''}`} aria-hidden={!open} inert={!open}>
         <div className="drawer-head">
           <strong>jq reference</strong>
           <a href="https://jqlang.org/manual/" target="_blank" rel="noreferrer">
             full manual <span className="material-symbols-outlined" aria-hidden>open_in_new</span>
           </a>
           <button className="icon-btn" onClick={onClose} aria-label="Close" title="Close">
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined" aria-hidden>close</span>
           </button>
         </div>
         <div className="drawer-body">

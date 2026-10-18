@@ -54,6 +54,8 @@ const MAX_ISSUES = 40
 
 const LF = 10
 const CR = 13
+const SPACE = 32
+const TAB = 9
 
 /** Scans to the next delimiter or line break, whichever comes first. */
 function fieldEnd(text: string, from: number, delimiter: number, len: number): number {
@@ -75,16 +77,19 @@ export function parseCsv(text: string, options: ParseOptions): ParseResult {
   const rows: string[][] = []
   const issues: ParseIssue[] = []
   let row: string[] = []
+  /** A row holding `""` is an empty value someone wrote down, not a blank line. */
+  let rowQuoted = false
   let width = 0
   let i = 0
 
   const endRow = () => {
     // A blank line parses as a single empty field; that is what "empty" means.
-    if (!(skipEmptyLines && row.length === 1 && row[0] === '')) {
+    if (!(skipEmptyLines && !rowQuoted && row.length === 1 && row[0] === '')) {
       rows.push(row)
       if (row.length > width) width = row.length
     }
     row = []
+    rowQuoted = false
   }
 
   while (i < len) {
@@ -96,9 +101,21 @@ export function parseCsv(text: string, options: ParseOptions): ParseResult {
       continue
     }
 
+    // With trimming on, `a, "b,c"` is a quoted field after a space, not a
+    // field that happens to start with a space and a quote.
+    let lead = i
+    if (trim && quoteCode >= 0) {
+      while (lead < len) {
+        const code = text.charCodeAt(lead)
+        if (code === delimiterCode || (code !== SPACE && code !== TAB)) break
+        lead++
+      }
+    }
+
     let value: string
-    if (quoteCode >= 0 && text.charCodeAt(i) === quoteCode) {
-      i++
+    if (quoteCode >= 0 && text.charCodeAt(lead) === quoteCode) {
+      rowQuoted = true
+      i = lead + 1
       let out = ''
       let start = i
       for (;;) {
@@ -126,16 +143,19 @@ export function parseCsv(text: string, options: ParseOptions): ParseResult {
       }
       // Text after the closing quote but before the delimiter is malformed
       // ("a"b,c). Keeping it beats dropping characters the file really has.
+      // Trimming never reaches inside the quotes — only the tail after them.
       const stop = fieldEnd(text, i, delimiterCode, len)
-      value = stop > i ? out + text.slice(i, stop) : out
+      const tail = stop > i ? text.slice(i, stop) : ''
+      value = out + (trim ? tail.trimEnd() : tail)
       i = stop
     } else {
       const stop = fieldEnd(text, i, delimiterCode, len)
       value = text.slice(i, stop)
+      if (trim) value = value.trim()
       i = stop
     }
 
-    row.push(trim ? value.trim() : value)
+    row.push(value)
 
     if (i >= len) {
       endRow()

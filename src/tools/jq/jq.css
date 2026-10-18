@@ -612,11 +612,15 @@ body.dragging .divider::after {
   display: flex;
   flex-direction: column;
   transform: translateX(105%);
-  transition: transform 0.2s ease;
+  /* Hidden once it has slid away, so nothing in it can be reached. */
+  visibility: hidden;
+  transition: transform 0.2s ease, visibility 0s linear 0.2s;
 }
 
 .drawer.open {
   transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.2s ease;
 }
 
 .drawer-head {

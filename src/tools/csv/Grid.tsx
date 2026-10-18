@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -21,8 +22,9 @@ import {
   type Filter,
   type Group,
   type Sort,
+  TYPE_SAMPLE,
 } from './view'
-import { columnOffsets, columnWindow, rowWindow } from './virtual'
+import { bodyHeightFor, columnOffsets, columnWindow, rowWindow, toScrollTop, toVirtualTop } from './virtual'
 import { ColumnFilter } from './ColumnFilter'
 
 export const ROW_HEIGHT = 29
@@ -86,28 +88,68 @@ const TYPE_MARK: Record<ColumnType, string> = {
   text: 'T',
 }
 
+const SAMPLED = `the first ${TYPE_SAMPLE} non-empty values`
+
 const TYPE_TITLE: Record<ColumnType, string> = {
-  number: 'Every value in this column is a number — it sorts numerically',
-  date: 'Every value is an ISO date — it sorts chronologically',
-  boolean: 'Every value is a true/false flag',
+  number: `Every value checked (${SAMPLED}) is a number — it sorts numerically`,
+  date: `Every value checked (${SAMPLED}) is an ISO date — it sorts chronologically`,
+  boolean: `Every value checked (${SAMPLED}) is a true/false flag`,
   text: 'Mixed or free text — it sorts alphabetically',
 }
 
-function Highlight({ text, needle, caseSensitive }: { text: string; needle: string; caseSensitive: boolean }) {
-  if (!needle) return <>{text}</>
-  const haystack = caseSensitive ? text : text.toLowerCase()
-  if (!haystack.includes(needle)) return <>{text}</>
-
-  const parts: ReactNode[] = []
+/**
+ * Where `needle` occurs in `text`, as [start, end) offsets into `text` itself.
+ * Lower-casing can change a string's length ('İ' becomes two code units), so
+ * offsets found in the lower-cased copy are mapped back character by
+ * character rather than reused as they are.
+ */
+export function highlightRanges(text: string, needle: string, caseSensitive: boolean): [number, number][] {
+  if (!needle) return []
+  let haystack = caseSensitive ? text : text.toLowerCase()
+  let origin: number[] | null = null
+  if (!caseSensitive && haystack.length !== text.length) {
+    // origin[i] is where the code unit at haystack[i] came from in text.
+    haystack = ''
+    origin = []
+    for (let i = 0; i < text.length; ) {
+      const char = String.fromCodePoint(text.codePointAt(i)!)
+      const lower = char.toLowerCase()
+      for (let j = 0; j < lower.length; j++) origin.push(i)
+      haystack += lower
+      i += char.length
+    }
+    origin.push(text.length)
+  }
+  const ranges: [number, number][] = []
   let at = 0
-  let key = 0
   for (;;) {
     const found = haystack.indexOf(needle, at)
     if (found === -1) break
-    if (found > at) parts.push(text.slice(at, found))
-    parts.push(<mark key={key++}>{text.slice(found, found + needle.length)}</mark>)
-    at = found + needle.length
+    const end = found + needle.length
+    if (origin) {
+      // A match ending part-way through one character's lower-case form
+      // still covers that whole character.
+      const last = origin[end - 1]
+      let stop = end
+      while (stop < origin.length - 1 && origin[stop] === last) stop++
+      ranges.push([origin[found], origin[stop]])
+    } else ranges.push([found, end])
+    at = end
   }
+  return ranges
+}
+
+function Highlight({ text, needle, caseSensitive }: { text: string; needle: string; caseSensitive: boolean }) {
+  const ranges = highlightRanges(text, needle, caseSensitive)
+  if (ranges.length === 0) return <>{text}</>
+
+  const parts: ReactNode[] = []
+  let at = 0
+  ranges.forEach(([start, end], key) => {
+    if (start > at) parts.push(text.slice(at, start))
+    parts.push(<mark key={key}>{text.slice(start, end)}</mark>)
+    at = end
+  })
   parts.push(text.slice(at))
   return <>{parts}</>
 }
@@ -118,6 +160,7 @@ const formatSum = (value: number) =>
 interface GroupHeaderProps {
   group: Group
   index: number
+  id: string
   top: number
   width: number
   /** The visible width — the label spans the screen, not the whole row. */
@@ -135,14 +178,16 @@ interface GroupHeaderProps {
  * and the sum of every number column. The text sticks to the left edge so it
  * stays readable however far the grid is scrolled sideways.
  */
-function GroupHeader({ group, top, width, viewWidth, label, sumLabel, open, selected, ariaRow, onToggle }: GroupHeaderProps) {
+function GroupHeader({ group, id, top, width, viewWidth, label, sumLabel, open, selected, ariaRow, onToggle }: GroupHeaderProps) {
   const count = group.rows.length
   return (
     <div
       className={`csv-row csv-group${selected ? ' on' : ''}`}
       role="row"
+      id={id}
       aria-rowindex={ariaRow}
       aria-expanded={open}
+      aria-selected={selected}
       style={{ top, width }}
     >
       <button
@@ -187,7 +232,17 @@ export function Grid(props: GridProps) {
 
   const offsets = useMemo(() => columnOffsets(widths), [widths])
   const totalWidth = GUTTER_WIDTH + (offsets[offsets.length - 1] ?? 0)
-  const bodyHeight = order.length * ROW_HEIGHT
+  // Past the browser's height limit the body is capped and the scrollbar
+  // scaled: `virtualTop` is where the reader is in the full list, and rows are
+  // drawn rowLift px higher than their real offset so they land in view.
+  const bodyTotal = order.length * ROW_HEIGHT
+  const bodyHeight = bodyHeightFor(order.length, ROW_HEIGHT)
+  const scaled = bodyTotal > bodyHeight
+  const bodyViewport = Math.max(ROW_HEIGHT, viewport.height - HEADER_HEIGHT)
+  const virtualTop = toVirtualTop(scroll.top, bodyTotal, bodyHeight, bodyViewport)
+  const rowLift = virtualTop - scroll.top
+  const idBase = useId()
+  const cellId = (index: number, column: number) => `${idBase}-r${index}-c${column}`
 
   useLayoutEffect(() => {
     const element = scroller.current
@@ -199,7 +254,7 @@ export function Grid(props: GridProps) {
     return () => observer.disconnect()
   }, [])
 
-  const visibleRows = rowWindow(scroll.top, viewport.height, ROW_HEIGHT, order.length)
+  const visibleRows = rowWindow(virtualTop, viewport.height, ROW_HEIGHT, order.length)
   const visibleColumns = columnWindow(offsets, Math.max(0, scroll.left - GUTTER_WIDTH), viewport.width)
 
   const columnIndexes = useMemo(() => {
@@ -241,11 +296,18 @@ export function Grid(props: GridProps) {
     (next: Cursor) => {
       const element = scroller.current
       if (!element) return
+      // Worked out in the full list's coordinates, then mapped onto the
+      // (possibly scaled) scrollbar — rounding away from the row, so a
+      // scaled pixel never leaves it half off screen.
+      const view = Math.max(ROW_HEIGHT, element.clientHeight - HEADER_HEIGHT)
+      const total = order.length * ROW_HEIGHT
+      const height = bodyHeightFor(order.length, ROW_HEIGHT)
       const top = next.index * ROW_HEIGHT
-      const viewTop = element.scrollTop
-      const viewBottom = viewTop + element.clientHeight - HEADER_HEIGHT
-      if (top < viewTop) element.scrollTop = top
-      else if (top + ROW_HEIGHT > viewBottom) element.scrollTop = top + ROW_HEIGHT - element.clientHeight + HEADER_HEIGHT
+      const viewTop = toVirtualTop(element.scrollTop, total, height, view)
+      if (top < viewTop) element.scrollTop = Math.floor(toScrollTop(top, total, height, view))
+      else if (top + ROW_HEIGHT > viewTop + view) {
+        element.scrollTop = Math.ceil(toScrollTop(top + ROW_HEIGHT - view, total, height, view))
+      }
 
       const left = GUTTER_WIDTH + offsets[next.column]
       const right = left + widths[next.column]
@@ -254,15 +316,18 @@ export function Grid(props: GridProps) {
         element.scrollLeft = right - element.clientWidth
       }
     },
-    [offsets, widths],
+    [offsets, widths, order.length],
   )
 
   const commit = useCallback(() => {
     if (!editing) return
     const row = order[editing.index]
-    if (row !== undefined && !isGroupHeader(row)) onEdit(row, editing.column, draft)
+    // Leaving a cell as it was is not an edit.
+    if (row !== undefined && !isGroupHeader(row) && (rows[row]?.[editing.column] ?? '') !== draft) {
+      onEdit(row, editing.column, draft)
+    }
     setEditing(null)
-  }, [draft, editing, onEdit, order])
+  }, [draft, editing, onEdit, order, rows])
 
   const beginEdit = useCallback(
     (next: Cursor) => {
@@ -293,8 +358,9 @@ export function Grid(props: GridProps) {
       case 'ArrowLeft': next = { ...current, column: Math.max(0, current.column - 1) }; break
       case 'PageDown': next = { ...current, index: Math.min(order.length - 1, current.index + 20) }; break
       case 'PageUp': next = { ...current, index: Math.max(0, current.index - 20) }; break
-      case 'Home': next = { ...current, column: 0 }; break
-      case 'End': next = { ...current, column: width - 1 }; break
+      // Ctrl/⌘ with Home and End jumps to the first and last row, as in a spreadsheet.
+      case 'Home': next = event.ctrlKey || event.metaKey ? { ...current, index: 0 } : { ...current, column: 0 }; break
+      case 'End': next = event.ctrlKey || event.metaKey ? { ...current, index: order.length - 1 } : { ...current, column: width - 1 }; break
       case 'Enter':
       case 'F2':
         if (cursor) {
@@ -320,6 +386,17 @@ export function Grid(props: GridProps) {
   }
 
   const gridStyle: CSSProperties = { height: HEADER_HEIGHT + bodyHeight, width: totalWidth }
+  // The cursor cell is announced through aria-activedescendant — focus stays
+  // on the grid — so it has to be one of the cells actually rendered.
+  const activeId =
+    cursor &&
+    cursor.index >= visibleRows.first &&
+    cursor.index < visibleRows.last &&
+    order[cursor.index] !== undefined &&
+    (isGroupHeader(order[cursor.index]) ||
+      (cursor.column >= visibleColumns.first && cursor.column < visibleColumns.last))
+      ? cellId(cursor.index, isGroupHeader(order[cursor.index]) ? -1 : cursor.column)
+      : undefined
 
   return (
     <div
@@ -330,6 +407,7 @@ export function Grid(props: GridProps) {
       aria-rowcount={order.length + (headers ? 1 : 0)}
       aria-colcount={width}
       aria-label="CSV rows"
+      aria-activedescendant={editing ? undefined : activeId}
       onKeyDown={onKeyDown}
       onScroll={(event) =>
         setScroll({ top: event.currentTarget.scrollTop, left: event.currentTarget.scrollLeft })
@@ -398,7 +476,11 @@ export function Grid(props: GridProps) {
           })}
         </div>
 
-        <div className="csv-body" style={{ height: bodyHeight, width: totalWidth }}>
+        <div
+          className="csv-body"
+          // Overscan rows drawn past the capped height must not grow it.
+          style={{ height: bodyHeight, width: totalWidth, overflow: scaled ? 'clip' : undefined }}
+        >
           {order.slice(visibleRows.first, visibleRows.last).map((rowIndex, offset) => {
             const index = visibleRows.first + offset
             if (isGroupHeader(rowIndex)) {
@@ -409,7 +491,8 @@ export function Grid(props: GridProps) {
                   key={rowIndex}
                   group={group}
                   index={index}
-                  top={index * ROW_HEIGHT}
+                  top={index * ROW_HEIGHT - rowLift}
+                  id={cellId(index, -1)}
                   width={totalWidth}
                   viewWidth={viewport.width}
                   label={headers?.[groupColumn]?.trim() || columnName(groupColumn)}
@@ -432,7 +515,7 @@ export function Grid(props: GridProps) {
                 className={`csv-row${selectedRow ? ' on' : ''}`}
                 role="row"
                 aria-rowindex={index + (headers ? 2 : 1)}
-                style={{ top: index * ROW_HEIGHT, width: totalWidth }}
+                style={{ top: index * ROW_HEIGHT - rowLift, width: totalWidth }}
               >
                 <div className="csv-gutter csv-cell" style={{ width: GUTTER_WIDTH }} role="rowheader">
                   {groups ? rowIndex - bodyStart + 1 : index + 1}
@@ -448,7 +531,9 @@ export function Grid(props: GridProps) {
                         types[column] === 'number' ? ' num' : ''
                       }${value === '' ? ' empty' : ''}`}
                       role="gridcell"
+                      id={cellId(index, column)}
                       aria-colindex={column + 1}
+                      aria-selected={isCursor}
                       style={{ left: GUTTER_WIDTH + offsets[column], width: widths[column] }}
                       onMouseDown={() => onCursor({ index, column })}
                       onDoubleClick={() => beginEdit({ index, column })}

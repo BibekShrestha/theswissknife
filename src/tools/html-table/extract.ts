@@ -27,11 +27,29 @@ export interface ExtractedTable {
   nested: boolean
 }
 
+import { BLOCK, HTML_SPACE } from './blocks'
+
 const MAX_COLSPAN = 1000
 
-/** Rows belonging to this table — not to a table nested inside its cells. */
-function ownRows(table: Element): Element[] {
-  return Array.from(table.querySelectorAll('tr')).filter((tr) => tr.closest('table') === table)
+/**
+ * Rows belonging to this table — not to a table nested inside its cells —
+ * grouped by row group (thead / tbody / tfoot) and in the order a browser
+ * draws them: the first <thead> on top and the first <tfoot> at the bottom
+ * wherever they were written, every other group in source order between.
+ */
+function ownSections(table: Element): Element[][] {
+  const groups: { parent: Element; rows: Element[] }[] = []
+  for (const tr of Array.from(table.querySelectorAll('tr'))) {
+    if (tr.closest('table') !== table) continue
+    const parent = tr.parentElement ?? table
+    const last = groups[groups.length - 1]
+    if (last && last.parent === parent) last.rows.push(tr)
+    else groups.push({ parent, rows: [tr] })
+  }
+  const head = groups.find((g) => g.parent.tagName === 'THEAD')
+  const foot = groups.find((g) => g.parent.tagName === 'TFOOT')
+  const middle = groups.filter((g) => g !== head && g !== foot)
+  return [head, ...middle, foot].filter((g) => g !== undefined).map((g) => g.rows)
 }
 
 function span(value: string | null): number {
@@ -39,18 +57,36 @@ function span(value: string | null): number {
   return Number.isFinite(n) && n > 0 ? n : 1
 }
 
-/** rowspan="0" means "to the end of this section" in HTML. */
+/** rowspan="0" means "to the end of this section" in HTML; no span crosses one. */
 function rowSpan(value: string | null, rowsLeft: number): number {
   if ((value ?? '').trim() === '0') return rowsLeft
   return Math.min(span(value), rowsLeft)
 }
 
+/**
+ * Stands in for a line break at a block boundary until the text is read out.
+ * The HTML parser turns U+0000 in text into U+FFFD, so it cannot be content.
+ */
+const BREAK = '\u0000'
+const BREAK_RUN = new RegExp(`${HTML_SPACE}*${BREAK}[${BREAK}${HTML_SPACE.slice(1, -1)}]*`, 'g')
+
+/** Content a browser does not show: no inline style is ever computed here, so only what the markup says. */
+function isHidden(el: Element): boolean {
+  if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return true
+  const style = el.getAttribute('style') ?? ''
+  return /(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden)\s*(!important\s*)?(;|$)/i.test(style)
+}
+
 function cellText(cell: Element, opts: ExtractOptions): string {
   const clone = cell.cloneNode(true) as Element
+  for (const el of Array.from(clone.querySelectorAll('script, style, template'))) el.remove()
+  for (const el of Array.from(clone.querySelectorAll('*'))) if (isHidden(el)) el.remove()
   // A nested table's text would otherwise smear into this cell; it is
-  // extracted separately as its own table.
-  for (const el of Array.from(clone.querySelectorAll('table, script, style'))) el.remove()
+  // extracted separately as its own table, and leaves a line break.
+  for (const el of Array.from(clone.querySelectorAll('table'))) el.replaceWith(BREAK)
   for (const br of Array.from(clone.querySelectorAll('br'))) br.replaceWith('\n')
+  // An image says what it is through its alt text.
+  for (const img of Array.from(clone.querySelectorAll('img'))) img.replaceWith(img.getAttribute('alt') ?? '')
 
   if (opts.links !== 'text') {
     for (const a of Array.from(clone.querySelectorAll('a[href]'))) {
@@ -66,12 +102,29 @@ function cellText(cell: Element, opts: ExtractOptions): string {
     }
   }
 
-  const raw = clone.textContent ?? ''
+  // Block elements (<div>, <p>, <li>…) start a new line where they begin and
+  // end, as they do on screen — "<div>a</div><div>b</div>" is two lines, not
+  // "ab". Whitespace next to such a boundary does not render, so it goes too.
+  for (const el of Array.from(clone.querySelectorAll('*'))) {
+    if (!BLOCK.has(el.localName)) continue
+    el.before(BREAK)
+    el.after(BREAK)
+  }
+
+  const raw = (clone.textContent ?? '').replace(BREAK_RUN, '\n')
   return opts.collapseWhitespace ? raw.replace(/\s+/g, ' ').trim() : raw.trim()
 }
 
 function buildTable(table: Element, index: number, opts: ExtractOptions): ExtractedTable {
-  const trs = ownRows(table)
+  const sections = ownSections(table)
+  const trs = sections.flat()
+  // Row index where each row's section ends, so spans stop at its edge.
+  const sectionEnd: number[] = []
+  let at0 = 0
+  for (const rows of sections) {
+    at0 += rows.length
+    for (let k = 0; k < rows.length; k++) sectionEnd.push(at0)
+  }
   const grid: string[][] = []
   const taken: boolean[][] = []
 
@@ -99,7 +152,7 @@ function buildTable(table: Element, index: number, opts: ExtractOptions): Extrac
     for (const cell of cells) {
       while (taken[r]?.[c]) c++
       const colspan = Math.min(span(cell.getAttribute('colspan')), MAX_COLSPAN)
-      const rows = rowSpan(cell.getAttribute('rowspan'), trs.length - r)
+      const rows = rowSpan(cell.getAttribute('rowspan'), sectionEnd[r] - r)
       const text = cellText(cell, opts)
       for (let dr = 0; dr < rows; dr++) {
         for (let dc = 0; dc < colspan; dc++) at(r + dr, c + dc, text)

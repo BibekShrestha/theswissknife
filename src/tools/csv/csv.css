@@ -67,6 +67,23 @@
   padding: 18px 16px;
 }
 
+.csv-source-edits {
+  border-bottom: 1px solid var(--border);
+  color: var(--warn);
+  font-size: 12px;
+  margin: 0;
+  padding: 8px 14px;
+}
+
+.csv-sr-only {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .csv-source > footer {
   align-items: center;
   border-top: 1px solid var(--border);
@@ -307,7 +324,16 @@
   min-height: 26px;
 }
 
-.csv-foot-label { font-size: 11.5px; white-space: nowrap; }
+.csv-foot { min-width: 0; }
+/* Ellipsised rather than pushed off the side on a phone. */
+.csv-foot-label {
+  flex: 0 1 auto;
+  font-size: 11.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .csv-foot-value {
   color: var(--text);
   flex: 0 1 auto;

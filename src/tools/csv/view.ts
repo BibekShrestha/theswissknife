@@ -18,7 +18,7 @@ export interface Sort {
 const NUMBER = /^[+-]?(\d+|\d{1,3}(,\d{3})+)(\.\d+)?([eE][+-]?\d+)?$/
 const BOOLEAN = /^(true|false|yes|no|y|n|t|f|0|1)$/i
 /** ISO-ish dates only — Date.parse guesses far too eagerly to trust for this. */
-const DATE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/
+const DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?(Z|([+-])(\d{2}):?(\d{2}))?)?$/
 
 export function parseNumber(value: string): number | null {
   const text = value.trim()
@@ -27,14 +27,43 @@ export function parseNumber(value: string): number | null {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+const daysIn = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+/**
+ * Milliseconds on one clock for every ISO date in a column. Date.parse reads
+ * `2024-01-01` as UTC but `2024-01-01 00:30` as local time, which sorts the
+ * second before the first anywhere east of Greenwich — so the parts are read
+ * by hand, a value without a zone counts as UTC (date-only and date-time
+ * alike), and an explicit offset is applied. Dates that are not on the
+ * calendar (Feb 30, hour 24) are not dates.
+ */
 export function parseDate(value: string): number | null {
-  const text = value.trim()
-  if (!DATE.test(text)) return null
-  const time = Date.parse(text)
-  return Number.isNaN(time) ? null : time
+  const match = DATE.exec(value.trim())
+  if (!match) return null
+  const [, y, mo, d, h = '0', mi = '0', s = '0', fraction, zone, sign, zh, zm] = match
+  const year = Number(y)
+  const month = Number(mo)
+  const day = Number(d)
+  const hour = Number(h)
+  const minute = Number(mi)
+  const second = Number(s)
+  if (month < 1 || month > 12 || day < 1 || day > daysIn(year, month)) return null
+  if (hour > 23 || minute > 59 || second > 59) return null
+  let time = Date.UTC(year, month - 1, day, hour, minute, second) + (fraction ? Number(fraction) * 1000 : 0)
+  // Date.UTC maps years 0–99 to 1900–1999.
+  if (year < 100) time = new Date(time).setUTCFullYear(year)
+  if (zone && zone !== 'Z') {
+    const offsetHours = Number(zh)
+    const offsetMinutes = Number(zm)
+    if (offsetHours > 23 || offsetMinutes > 59) return null
+    time -= (sign === '-' ? -1 : 1) * (offsetHours * 60 + offsetMinutes) * 60_000
+  }
+  return time
 }
 
-const SAMPLE = 200
+/** How many non-empty values typing looks at — the column tooltip says so. */
+export const TYPE_SAMPLE = 200
+const SAMPLE = TYPE_SAMPLE
 
 /**
  * Types a column from its non-empty values. Every sampled value has to agree —
@@ -79,6 +108,12 @@ export function columnTypes(rows: string[][], width: number, start: number): Col
 const BOOL_ORDER: Record<string, number> = {
   false: 0, f: 0, n: 0, no: 0, '0': 0,
   true: 1, t: 1, y: 1, yes: 1, '1': 1,
+}
+
+/** The flag a boolean-typed value stands for, or null when it is not one. */
+export function parseFlag(value: string): boolean | null {
+  const key = value.trim().toLowerCase()
+  return Object.hasOwn(BOOL_ORDER, key) ? BOOL_ORDER[key] === 1 : null
 }
 
 export const isBlank = (value: string) => value.trim() === ''

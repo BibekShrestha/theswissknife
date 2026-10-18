@@ -92,7 +92,7 @@ export function ColumnFilter({ anchor, column, label, type, rows, bodyStart, fil
         <span className="material-symbols-outlined" aria-hidden>filter_alt</span>
         <strong>{label}</strong>
         <button onClick={onClose} aria-label="Close the filter">
-          <span className="material-symbols-outlined">close</span>
+          <span className="material-symbols-outlined" aria-hidden>close</span>
         </button>
       </header>
       <div className="csv-colfilter-row">

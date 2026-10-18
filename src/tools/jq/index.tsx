@@ -8,6 +8,8 @@ import './jq.css'
 import { CheatsheetDrawer } from './components/CheatsheetDrawer'
 import { examples } from './examples'
 import { buildCliCommand, buildInvocation, wrapperColumnOffset } from './flags'
+import { formatJson } from './jsonFormat'
+import { downloadMeta, exitLabel, INVOCATION_ERROR, isSuccess, outputBytes, pickDisplay } from './output'
 import type { ErrorPos, FilterEditorHandle } from './editor/FilterEditor'
 
 // Lazy chunk: CodeMirror (+ the jq tooling worker) stays out of the main
@@ -21,16 +23,6 @@ import { defaultOptions, type JqOptions, type RunResult } from './types'
 import { useJq } from './useJq'
 
 const initial = loadInitialState()
-
-function exitLabel(code: number): { text: string; cls: string } {
-  if (code === 0) return { text: 'exit 0', cls: 'ok' }
-  if (code === 1 || code === 4) return { text: `exit ${code}`, cls: 'warn' }
-  return { text: code < 0 ? 'killed' : `exit ${code}`, cls: 'err' }
-}
-
-// Exit 0 is success; 1 and 4 are -e's semantic codes (null/false or no
-// output) — the run itself evaluated fine, so its output is current.
-const isSuccess = (r: RunResult) => r.exitCode === 0 || r.exitCode === 1 || r.exitCode === 4
 
 export default function App() {
   const [filter, setFilter] = useState(initial.filter)
@@ -76,7 +68,7 @@ export default function App() {
   const execute = useCallback(() => {
     const inv = buildInvocation(filter, options)
     if (inv.error) {
-      handleResult({ stdout: '', stderr: inv.error, exitCode: -2, ms: 0 })
+      handleResult({ stdout: '', stderr: inv.error, exitCode: INVOCATION_ERROR, ms: 0 })
       return
     }
     jq.run({ input, query: inv.query, flags: inv.flags })
@@ -147,11 +139,12 @@ export default function App() {
   // ---- input pane actions ------------------------------------------------
   const formatInput = useCallback(
     (spacing: number) => {
-      try {
-        setInput(JSON.stringify(JSON.parse(input), null, spacing))
-      } catch {
-        showToast('Input is not a single JSON document')
-      }
+      // Re-indents the text itself, so numbers, escapes and repeated keys
+      // reach jq exactly as they were written.
+      const result = formatJson(input, spacing)
+      if ('error' in result) showToast(result.error)
+      else if (result.text === input) showToast(spacing ? 'Already formatted' : 'Already minified')
+      else setInput(result.text)
     },
     [input, showToast],
   )
@@ -186,10 +179,11 @@ export default function App() {
   // ---- derived -----------------------------------------------------------
   const inputBytes = useMemo(() => new TextEncoder().encode(input).length, [input])
 
-  // What the output pane shows: the current run if it succeeded, else the
-  // preserved last successful output (marked stale) with the error alongside.
-  const display = current && isSuccess(current) ? current : lastGood
-  const isStale = current != null && !isSuccess(current) && lastGood != null
+  // What the output pane shows: the current run whenever it printed
+  // anything (a runtime error keeps the output before it, as in a terminal);
+  // only a run that printed nothing falls back to the last good one, stale.
+  const { display, stale: isStale } = pickDisplay(current, lastGood)
+  const outBytes = useMemo(() => outputBytes(display?.stdout ?? ''), [display?.stdout])
 
   const outputNodes = useMemo(() => {
     if (!display?.stdout) return null
@@ -198,7 +192,7 @@ export default function App() {
   }, [display?.stdout, options.outputMode])
 
   const compileError = current != null && current.exitCode === 3
-  const exit = current ? exitLabel(current.exitCode) : null
+  const exit = current ? exitLabel(current) : null
   const inputLabel = options.rawInput ? 'Input · raw text (-R)' : 'Input · JSON'
 
   const errorPos = useMemo<ErrorPos | null>(() => {
@@ -246,14 +240,14 @@ export default function App() {
           ))}
         </select>
         <button onClick={() => setSettingsOpen((v) => !v)} aria-label="Settings" title="Toggle settings panel" className={settingsOpen ? 'settings-on' : ''}>
-          <span className="material-symbols-outlined">{settingsOpen ? 'close' : 'tune'}</span>
+          <span className="material-symbols-outlined" aria-hidden>{settingsOpen ? 'close' : 'tune'}</span>
         </button>
-        <button onClick={() => setDrawerOpen(true)}><span className="material-symbols-outlined">menu_book</span> Reference</button>
+        <button onClick={() => setDrawerOpen(true)}><span className="material-symbols-outlined" aria-hidden>menu_book</span> Reference</button>
         <button onClick={() => void copy(buildCliCommand(filter, options), 'Command')} aria-label="Copy command" title="Copy the equivalent terminal command">
-          <span className="material-symbols-outlined">content_copy</span>
+          <span className="material-symbols-outlined" aria-hidden>content_copy</span>
         </button>
         <button onClick={share} aria-label="Share session" title="Copy a link that restores this exact session">
-          <span className="material-symbols-outlined">share</span>
+          <span className="material-symbols-outlined" aria-hidden>share</span>
         </button>
       </ToolHeader>
 
@@ -288,11 +282,11 @@ export default function App() {
           </label>
           {jq.running ? (
             <button className="run-btn stop" onClick={jq.stop}>
-              <span className="material-symbols-outlined">stop</span> Stop
+              <span className="material-symbols-outlined" aria-hidden>stop</span> Stop
             </button>
           ) : (
             <button className="run-btn" onClick={execute} title="Run (⌘⏎ / Ctrl+⏎)">
-              <span className="material-symbols-outlined">play_arrow</span> Run
+              <span className="material-symbols-outlined" aria-hidden>play_arrow</span> Run
             </button>
           )}
         </div>
@@ -309,17 +303,17 @@ export default function App() {
             </span>
             <span className="pane-meta">{inputBytes.toLocaleString()} B</span>
             <div className="pane-actions">
-              <button onClick={() => formatInput(2)} title="Pretty-print (single JSON doc)">
+              <button onClick={() => formatInput(2)} title="Pretty-print the JSON — numbers, strings and repeated keys stay exactly as written">
                 Format
               </button>
-              <button onClick={() => formatInput(0)} aria-label="Minify" title="Minify (single JSON doc)">
-                <span className="material-symbols-outlined">compress</span>
+              <button onClick={() => formatInput(0)} aria-label="Minify" title="Minify the JSON — numbers, strings and repeated keys stay exactly as written">
+                <span className="material-symbols-outlined" aria-hidden>compress</span>
               </button>
               <button onClick={() => fileRef.current?.click()} aria-label="Load file" title="Load a local file">
-                <span className="material-symbols-outlined">folder_open</span>
+                <span className="material-symbols-outlined" aria-hidden>folder_open</span>
               </button>
-              <button onClick={() => void copy(input, 'Input')} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
-              <button onClick={() => setInput('')} aria-label="Clear"><span className="material-symbols-outlined">close</span></button>
+              <button onClick={() => void copy(input, 'Input')} aria-label="Copy"><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>
+              <button onClick={() => setInput('')} aria-label="Clear"><span className="material-symbols-outlined" aria-hidden>close</span></button>
               <input
                 ref={fileRef}
                 type="file"
@@ -349,21 +343,24 @@ export default function App() {
               <span className="pane-meta">
                 <span className={`exit-chip ${exit!.cls}`}>{exit!.text}</span>
                 {isStale && <span className="exit-chip warn">stale</span>}
+                {!jq.ready && !jq.fatal && <span>loading jq…</span>}
                 {current.ms > 0 && <span>{current.ms < 1 ? '<1' : Math.round(current.ms)} ms</span>}
-                <span>{(display?.stdout.length ?? 0).toLocaleString()} B</span>
+                <span title="UTF-8 bytes">{outBytes.toLocaleString()} B</span>
               </span>
             )}
             <div className="pane-actions">
               <button onClick={() => void copy(display?.stdout ?? '', 'Output')} disabled={!display?.stdout} aria-label="Copy">
-                <span className="material-symbols-outlined">content_copy</span>
+                <span className="material-symbols-outlined" aria-hidden>content_copy</span>
               </button>
               <button
                 disabled={!display?.stdout}
                 onClick={() => {
-                  const blob = new Blob([display?.stdout ?? ''], { type: 'application/json' })
+                  // -r / -j print text, not JSON — name and type the file to match.
+                  const { name, type } = downloadMeta(options)
+                  const blob = new Blob([display?.stdout ?? ''], { type: `${type};charset=utf-8` })
                   const a = document.createElement('a')
                   a.href = URL.createObjectURL(blob)
-                  a.download = 'output.json'
+                  a.download = name
                   a.click()
                   URL.revokeObjectURL(a.href)
                 }}
@@ -385,7 +382,7 @@ export default function App() {
                 )}
                 {isStale && (
                   <div className="stale-banner">
-                    Showing the last successful output — the current filter didn't produce a result.
+                    Showing the output of the last successful run — this run failed before printing anything.
                   </div>
                 )}
                 {display?.stdout ? (

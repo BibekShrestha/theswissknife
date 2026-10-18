@@ -20,6 +20,9 @@ export function useJq(onResult: (r: RunResult) => void, timeoutSec = 15) {
   const workerRef = useRef<Worker | null>(null)
   const idRef = useRef(0)
   const busyRef = useRef(false)
+  // Runs wait for 'ready': the deadline is for runaway filters, and must not
+  // also count a slow first download and compile of the wasm.
+  const readyRef = useRef(false)
   const queuedRef = useRef<RunPayload | null>(null)
   const timerRef = useRef<number | undefined>(undefined)
   const onResultRef = useRef(onResult)
@@ -29,7 +32,7 @@ export function useJq(onResult: (r: RunResult) => void, timeoutSec = 15) {
 
   const pump = useCallback(() => {
     const q = queuedRef.current
-    if (q && !busyRef.current && workerRef.current) {
+    if (q && !busyRef.current && readyRef.current && workerRef.current) {
       queuedRef.current = null
       postRun(q)
     }
@@ -52,6 +55,7 @@ export function useJq(onResult: (r: RunResult) => void, timeoutSec = 15) {
     w.onmessage = (e: MessageEvent) => {
       const m = e.data as WorkerToMain
       if (m.type === 'ready') {
+        readyRef.current = true
         setReady(true)
         setVersion(m.version)
         pump()
@@ -67,6 +71,8 @@ export function useJq(onResult: (r: RunResult) => void, timeoutSec = 15) {
         pump()
       }
     }
+    readyRef.current = false
+    setReady(false)
     w.postMessage({ type: 'init' })
     workerRef.current = w
   }, [pump])
@@ -99,7 +105,7 @@ export function useJq(onResult: (r: RunResult) => void, timeoutSec = 15) {
   }, [spawn])
 
   const run = useCallback((p: RunPayload) => {
-    if (busyRef.current || !workerRef.current) {
+    if (busyRef.current || !readyRef.current || !workerRef.current) {
       queuedRef.current = p // latest wins
     } else {
       postRun(p)
