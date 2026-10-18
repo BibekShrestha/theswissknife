@@ -7,6 +7,8 @@ interface Props {
   parsed: ParseResult
   tree: ExplainNode[] | null
   risks: BacktrackWarning[]
+  /** The backtracking check gave up: the pattern is too large to check quickly. */
+  riskCheckSkipped?: boolean
   /** The engine's own error for this pattern, if it rejected it. */
   engineError: string | null
 }
@@ -28,7 +30,7 @@ function Tree({ nodes }: { nodes: ExplainNode[] }) {
   )
 }
 
-export function ExplainPanel({ pattern, parsed, tree, risks, engineError }: Props) {
+export function ExplainPanel({ pattern, parsed, tree, risks, riskCheckSkipped = false, engineError }: Props) {
   if (engineError) {
     return (
       <div className="regex-explain">
@@ -46,6 +48,9 @@ export function ExplainPanel({ pattern, parsed, tree, risks, engineError }: Prop
   }
   return (
     <div className="regex-explain">
+      {riskCheckSkipped && (
+        <p className="regex-muted">Backtracking check skipped: this pattern is too large to check without slowing the page.</p>
+      )}
       {risks.map((risk) => (
         <p key={`${risk.start}-${risk.message}`} className="regex-x-risk">
           <span className="material-symbols-outlined" aria-hidden>warning</span>
