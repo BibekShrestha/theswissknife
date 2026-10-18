@@ -181,6 +181,10 @@ export function toFetch(request: CurlRequest): string {
     }
     options.push('body: form,')
   }
+  const upperMethod = request.method.toUpperCase()
+  if (upperMethod !== request.method && ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT'].includes(upperMethod)) {
+    comments.push(`// fetch() upper-cases this method: curl sends ${request.method}, this sends ${upperMethod}`)
+  }
   if (body && (request.method === 'GET' || request.method === 'HEAD')) comments.push(`// fetch() throws on a ${request.method} request with a body; curl sends it anyway`)
   if (!request.followRedirects) options.push("redirect: 'manual', // curl does not follow redirects without -L")
   if (request.insecure) comments.push('// curl -k skips certificate checks; fetch() has no option for that')
@@ -266,6 +270,7 @@ export function toPython(request: CurlRequest): string {
   } else if (!request.followRedirects) args.push('allow_redirects=False')
 
   const call = known ? `requests.${lower}(` : `requests.request(\n    ${pyString(request.method)},`
+  if (request.method !== request.method.toUpperCase()) blocks.push(`# requests upper-cases the method: curl sends ${request.method}, this sends ${request.method.toUpperCase()}`)
   const lines = [...imports, '', ...blocks.flatMap((block) => [block, '']), `response = ${call}\n    ${args.join(',\n    ')},\n)`, '', 'print(response.status_code)', 'print(response.text)']
   return lines.join('\n') + '\n'
 }

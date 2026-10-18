@@ -212,3 +212,53 @@ describe('warnings', () => {
     expect(noteText(`curl https://x -d '{"a":1}'`)).toContain('sent as application/x-www-form-urlencoded')
   })
 })
+
+describe('--data-urlencode and --url-query forms (curl checks = before @)', () => {
+  const body = (arg: string) => request(`curl https://x --data-urlencode '${arg}'`).body
+  it.each([
+    ['content', 'hello world', { kind: 'text', text: 'hello%20world' }],
+    ['=content', '=a=b&c', { kind: 'text', text: 'a%3Db%26c' }],
+    ['name=content', 'msg=hello world', { kind: 'text', text: 'msg=hello%20world' }],
+    ['name=content with @ in the name', 'email@x.com=hello world', { kind: 'text', text: 'email@x.com=hello%20world' }],
+    ['name=content with @ in the content', 'to=a@b.c', { kind: 'text', text: 'to=a%40b.c' }],
+    ['@filename', '@notes.txt', { kind: 'text', text: '<contents of notes.txt>' }],
+    ['name@filename', 'notes@notes.txt', { kind: 'text', text: 'notes=<contents of notes.txt>' }],
+  ])('%s', (_form, arg, expected) => {
+    expect(body(arg)).toEqual(expected)
+  })
+
+  it('--url-query follows the same rule', () => {
+    expect(request("curl https://x --url-query 'email@x.com=a b'").url).toBe('https://x?email@x.com=a%20b')
+    expect(request("curl https://x --url-query 'q@file.txt'").url).toBe('https://x?q=<contents of file.txt>')
+  })
+})
+
+describe('user agent and method case', () => {
+  it('-A "" removes the User-Agent header, as curl does', () => {
+    const req = request("curl -A '' https://x")
+    expect(headerValue(req.headers, 'user-agent')).toBeUndefined()
+    expect(req.removed).toContain('user-agent')
+    for (const target of ['raw', 'fetch', 'python', 'go'] as const) expect(generate(target, req)).not.toMatch(/User-Agent['"]?: ?['"]?$/m)
+    expect(generate('curl', req)).toContain('-H user-agent:')
+    // A later -A wins, and a single space is still a blank header.
+    expect(headerValue(request("curl -A '' -A x https://x").headers, 'user-agent')).toBe('x')
+    expect(headerValue(request("curl -A ' ' https://x").headers, 'user-agent')).toBe(' ')
+  })
+
+  it('-X post: says requests and fetch() upper-case it while curl sends it as written', () => {
+    const parsed = parseCurl('curl -X post https://x')
+    expect(parsed.notes.some((note) => note.level === 'warn' && /-X post/.test(note.text) && /POST/.test(note.text))).toBe(true)
+    expect(generate('raw', request('curl -X post https://x'))).toMatch(/^post \//)
+    expect(generate('python', request('curl -X post https://x'))).toMatch(/requests upper-cases/)
+    expect(parseCurl('curl -X POST https://x').notes.some((note) => /exactly as written/.test(note.text))).toBe(false)
+    expect(parseCurl('curl -X MyVerb https://x').notes.map((note) => note.text)).toContain('-X MyVerb: curl sends the method exactly as written, and servers may treat method names case-sensitively; Python requests sends MYVERB instead')
+    expect(generate('python', request('curl -X MyVerb https://x'))).toMatch(/requests upper-cases/)
+  })
+
+  it('a JSON body with a raw DEL is not printed as a literal json.dumps would re-escape', () => {
+    const req = request(`curl https://x -H 'Content-Type: application/json' -d '{"a":"x\x7fy"}'`)
+    const python = generate('python', req)
+    expect(python).not.toContain('json.dumps')
+    expect(python).toContain("data = '{\"a\":\"x\\x7fy\"}'")
+  })
+})
