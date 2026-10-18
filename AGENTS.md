@@ -178,11 +178,25 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/ssl/` — `x509.ts` is a hand-written DER/X.509 parser; chain signatures
   (RSA, ECDSA, Ed25519) are verified with WebCrypto against certificates the
   user supplies — nothing is fetched.
-- `tools/regex/` — JavaScript regex match/replace. Every evaluation runs in
+- `tools/regex/` — JavaScript regex match/replace. Every evaluation — matches
+  and the Tests tab's cases, each with its own runner and worker — runs in
   `regex.worker.ts` via `runner.ts`, which terminates the worker after
   `REGEX_TIMEOUT_MS` and spawns a fresh one, so catastrophic backtracking costs
-  an error message, not a frozen tab. `pcre2/` holds a scripted PCRE2 wasm
-  build that is **not** wired in yet (see its README).
+  an error message, not a frozen tab. Nothing user-supplied runs on the main
+  thread. `syntax/parser.ts` is a hand-written ES2025 parser (Annex B, modifiers,
+  duplicate named groups, v-flag class sets); its validity is fuzzed against
+  the engine in `parser.test.ts`, so keep that test green when touching it —
+  only `\p{…}` names are looked up by compiling `\p{Name}` alone. It feeds the
+  Explain tab (`explain.ts`), the nested-quantifier / overlapping-alternative
+  warning (`redos.ts`), and group names for results. The subject is a lazy
+  CodeMirror chunk (`editor/`) that decorates only the visible range;
+  `highlight.ts` keeps UTF-16 indices (CodeMirror's unit too) and widens
+  ranges that split a surrogate pair without u/v. Share links are
+  `#r=<base64url(deflate-raw(json))>` (`share.ts`, same approach as redact):
+  pattern, flags, operation and replacement always; subject and test cases
+  only when ticked; inflation is capped. `copyjs.ts` writes literal and
+  constructor forms. `pcre2/` holds a scripted PCRE2 wasm build that is
+  **not** wired in yet (see its README).
 - `tools/redact/` — masks text with a block character. Segments by grapheme
   (`Intl.Segmenter`), so a family emoji is one block rather than seven, and
   reports what each space setting still leaks (word lengths above all).
@@ -261,6 +275,17 @@ the precache list built by `scripts/sw-manifest.ts`.
   level) and says when the form can't rebuild it byte for byte, offering
   Edit as text instead. Links only open on a
   click and show the punycode host first.
+- `tools/exif/` — photo metadata viewer/stripper, hand-written (no exifr):
+  `lib/exif.ts` is a bounds-checked TIFF reader (visited-offset set against
+  IFD loops, capped chains and entry counts); one module per container
+  (`jpeg`, `png`, `webp`, `gif`, `heif`) parses blocks and strips by copying
+  every non-metadata byte range — nothing is re-encoded. HEIF/AVIF Exif/XMP
+  items are zero-filled in place so `iloc` offsets stay valid. Each format
+  also names its image-data ranges; `processImage` SHA-256s them before and
+  after and re-parses the output, and the UI's "N found → M remain" comes from
+  that re-parse, never the stripper's own list. Work runs in `exif.worker.ts`
+  behind `runner.ts` (a queue plus the regex-style kill-on-deadline).
+  `lib/testkit.ts` builds the synthetic fixtures for every format.
 - `tools/markdown/` — marked → one HTML string → a sandboxed `srcdoc` frame
   with **no `allow-scripts`** (pasted `<script>`/`onerror` stay inert, so no
   sanitizer). The frame is the preview, the print source (PDF = the browser's
@@ -273,7 +298,10 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/csv/` — hand-written RFC 4180 parser that reports ragged rows and
   unterminated quotes rather than dropping them; `decode.ts` guesses UTF-8 /
   UTF-16 / Windows-1252 and shows the guess; `virtual.ts` windows the grid in
-  both axes for very large files.
+  both axes for very large files. "Query with SQL" re-serialises every row
+  (edits included, filters/sort ignored) as comma CSV and `sendTo('sqlite')`s
+  it, with the header choice as RFC 4180's `header=present|absent` MIME
+  parameter.
 - `tools/html-table/` — parses pasted HTML with `DOMParser` (inert: no scripts
   run, nothing touches the live document), expands colspan/rowspan into a
   grid, exports CSV, TSV, JSON or Markdown.
@@ -288,6 +316,19 @@ the precache list built by `scripts/sw-manifest.ts`.
   are always double-quoted (`quoteIdent`); schema columns come from
   `pragma_table_xinfo(?)` with a bound name. `sqljs.d.ts` declares the API
   instead of `@types/sql.js`, which would drag `@types/node` into the app.
+  `importer.ts` turns CSV/TSV/JSON/JSONL into tables (copies of the CSV
+  tool's `parse.ts`/`decode.ts` live here as `csvparse.ts`/`decode.ts`): a
+  column is INTEGER/REAL only if every value reads back as that number;
+  leading zeros, integers past 2^53 (JSON too, via reviver source +
+  `JSON.rawJSON` where the engine has them) and ISO dates stay TEXT with a
+  note; nested JSON is stored as JSON text; ragged rows are padded/widened
+  and counted. The worker's `analyze` plans a file, `import` runs all files
+  in one SAVEPOINT with prepared inserts in ~100 ms slices, posting progress
+  and yielding a macrotask so a `cancel` message can get in — cancel or any
+  error rolls the batch back. Imports are exempt from `QUERY_TIMEOUT_MS`:
+  the runner restarts their deadline on every progress report
+  (`IMPORT_STALL_MS`). `/sqlite` takes a `takeHandoff('sqlite')` payload on
+  mount and offers it as an import into a new in-memory database.
 - `tools/hash/` — SHA-1/256/384/512 digests and HMACs via WebCrypto only
   (no MD5: `crypto.subtle` lacks it, so don't advertise it). Files are read
   whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)
@@ -309,3 +350,24 @@ the precache list built by `scripts/sw-manifest.ts`.
   dropping it would shift indices), anchors/merge keys are expanded,
   comments and tags are not kept, TOML dates become strings, YAML 1.1
   readings (`no`, `0755`, `1:20`) are hinted and quoted on output.
+- `tools/otp/` — TOTP & HOTP. HMAC is WebCrypto only (`otp.ts`; tests hold
+  RFC 4226 Appendix D and RFC 6238 Appendix B). `base32.ts` forgives case,
+  spaces and padding; `uri.ts` parses and builds otpauth:// URIs;
+  `migration.ts` is a hand-written protobuf reader for Google
+  Authenticator's `otpauth-migration://` payload (schema in its header;
+  no period field, so exports are 30 s). QR images go through ZXing-C++ in
+  `scan/scan.worker.ts` (same `locateFile` override as the QR tool, copied —
+  not imported) under a deadline; re-import QR codes are drawn from `uqr`'s
+  matrix as one SVG path. Secrets are hidden until revealed and nothing is
+  persisted — no storage, no URL fragment.
+- `tools/curl/` — cURL converter. `tokenize.ts` is a hand-written, linear
+  word splitter for bash (quotes, `$'…'` with UTF-8 byte escapes read as
+  Latin-1 when invalid, backslash-newline) and Windows cmd (caret layer, then
+  argv; backslash pairs read the way Chrome/Firefox's escapeStringWin wrote
+  them). Shell constructs are notes, never run. `parse.ts` applies curl's
+  rules (method inference, -d joining, -H precedence over -A/-e/-b/-u) and
+  records each value's token + offset, which `secrets.ts` uses to rewrite
+  only the words holding a secret, re-quoted for the same shell. Generators
+  (`generate.ts`) keep bodies byte-exact (`exactJsonValue` gates JSON
+  literals). Nothing executes the request (and connect-src would block any
+  other origin).

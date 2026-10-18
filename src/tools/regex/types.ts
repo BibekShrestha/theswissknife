@@ -19,6 +19,7 @@ export interface MatchSpan {
 
 export interface RegexRequest {
   id: number
+  kind?: 'match'
   engines: RegexEngine[]
   pattern: string
   flags: string
@@ -34,7 +35,40 @@ export interface RegexResult {
   replacement: string | null
   elapsedMs: number
   error: string | null
+  /** More matches exist than MAX_MATCHES. */
   truncated: boolean
 }
 
-export type RegexWorkerMessage = { type: 'result'; id: number; result: RegexResult }
+/** One line of the Tests tab. */
+export interface TestCase {
+  text: string
+  expect: 'match' | 'no-match'
+  /** The whole line must match, not just part of it. */
+  full: boolean
+}
+
+export interface TestCaseResult {
+  pass: boolean
+  /** Whether the pattern matched as the case asks (anywhere, or the whole line). */
+  matched: boolean
+  /** The first match anywhere in the line, if any. */
+  match: { start: number; end: number; text: string } | null
+}
+
+export interface TestsRequest {
+  id: number
+  kind: 'tests'
+  pattern: string
+  flags: string
+  cases: TestCase[]
+}
+
+export interface TestsResult {
+  results: TestCaseResult[]
+  elapsedMs: number
+  error: string | null
+}
+
+export type RegexWorkerMessage =
+  | { type: 'result'; id: number; result: RegexResult }
+  | { type: 'tests'; id: number; result: TestsResult }

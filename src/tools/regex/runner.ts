@@ -1,11 +1,14 @@
-import type { RegexRequest, RegexResult, RegexWorkerMessage } from './types'
+import type { RegexRequest, RegexResult, RegexWorkerMessage, TestsRequest, TestsResult } from './types'
 
 /** The subset of Worker the runner touches — lets tests drive it with a fake. */
 export interface WorkerLike {
   onmessage: ((event: MessageEvent<RegexWorkerMessage>) => void) | null
-  postMessage(request: RegexRequest): void
+  postMessage(request: RegexRequest | TestsRequest): void
   terminate(): void
 }
+
+const stoppedMessage = (timeoutMs: number) =>
+  `Stopped after ${timeoutMs / 1000} s — this pattern backtracks catastrophically on this input. Simplify the pattern (nested quantifiers like (a+)+ are the usual cause).`
 
 /**
  * Runs each request in a worker and kills it when the deadline passes. A
@@ -16,7 +19,12 @@ export interface WorkerLike {
  * Only the latest request matters: starting a new one abandons the previous
  * (terminating its worker if it was still busy), and its promise never settles.
  */
-export function createRegexRunner(spawn: () => WorkerLike, timeoutMs: number) {
+function createDeadlineRunner<Req extends { id: number }, Res>(
+  spawn: () => WorkerLike,
+  timeoutMs: number,
+  type: RegexWorkerMessage['type'],
+  onTimeout: () => Res,
+) {
   let worker: WorkerLike | null = null
   let busy = false
   let nextId = 0
@@ -28,7 +36,7 @@ export function createRegexRunner(spawn: () => WorkerLike, timeoutMs: number) {
     busy = false
   }
 
-  function run(request: Omit<RegexRequest, 'id'>): Promise<RegexResult> {
+  function run(request: Omit<Req, 'id'>): Promise<Res> {
     clearTimeout(timer)
     if (busy) kill()
     const id = ++nextId
@@ -38,24 +46,16 @@ export function createRegexRunner(spawn: () => WorkerLike, timeoutMs: number) {
     return new Promise((resolve) => {
       w.onmessage = (event) => {
         const message = event.data
-        if (message.type !== 'result' || message.id !== id) return
+        if (message.type !== type || message.id !== id) return
         clearTimeout(timer)
         busy = false
-        resolve(message.result)
+        resolve(message.result as Res)
       }
       timer = setTimeout(() => {
         kill()
-        resolve({
-          engine: 'javascript',
-          version: 'ECMAScript',
-          matches: [],
-          replacement: null,
-          elapsedMs: timeoutMs,
-          error: `Stopped after ${timeoutMs / 1000} s — this pattern backtracks catastrophically on this subject. Simplify the pattern (nested quantifiers like (a+)+ are the usual cause).`,
-          truncated: false,
-        })
+        resolve(onTimeout())
       }, timeoutMs)
-      w.postMessage({ ...request, id })
+      w.postMessage({ ...request, id } as unknown as RegexRequest | TestsRequest)
     })
   }
 
@@ -65,4 +65,25 @@ export function createRegexRunner(spawn: () => WorkerLike, timeoutMs: number) {
   }
 
   return { run, dispose }
+}
+
+export function createRegexRunner(spawn: () => WorkerLike, timeoutMs: number) {
+  return createDeadlineRunner<RegexRequest, RegexResult>(spawn, timeoutMs, 'result', () => ({
+    engine: 'javascript',
+    version: 'ECMAScript',
+    matches: [],
+    replacement: null,
+    elapsedMs: timeoutMs,
+    error: stoppedMessage(timeoutMs),
+    truncated: false,
+  }))
+}
+
+/** The Tests tab's runner: same deadline, its own worker. */
+export function createTestsRunner(spawn: () => WorkerLike, timeoutMs: number) {
+  return createDeadlineRunner<TestsRequest, TestsResult>(spawn, timeoutMs, 'tests', () => ({
+    results: [],
+    elapsedMs: timeoutMs,
+    error: stoppedMessage(timeoutMs),
+  }))
 }

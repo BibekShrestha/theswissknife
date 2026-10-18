@@ -127,6 +127,13 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/qr'),
   },
   {
+    slug: 'exif',
+    name: 'Photo metadata viewer & stripper',
+    mark: 'EXIF',
+    category: 'image',
+    load: () => import('../tools/exif'),
+  },
+  {
     slug: 'csv',
     name: 'CSV viewer',
     mark: 'CSV',
@@ -160,5 +167,19 @@ export const tools: ToolMeta[] = [
     mark: 'SQL',
     category: 'data',
     load: () => import('../tools/sqlite'),
+  },
+  {
+    slug: 'otp',
+    name: 'TOTP & HOTP',
+    mark: 'OTP',
+    category: 'security',
+    load: () => import('../tools/otp'),
+  },
+  {
+    slug: 'curl',
+    name: 'cURL converter',
+    mark: 'cURL',
+    category: 'data',
+    load: () => import('../tools/curl'),
   },
 ]
