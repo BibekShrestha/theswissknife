@@ -1,38 +1,29 @@
 import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
+import { ErrorText } from '../components/ErrorText'
+import { describeError } from '../lib/errors'
 import { getPdfJs } from '../lib/pdfjs'
+import { extractText } from '../ops/read'
 
 export function PdfToText() {
   const [files, setFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
-  const [text, setText] = useState('')
+  const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
 
   async function handleExtract() {
     if (files.length === 0) return
     setProcessing(true)
     setError('')
-    setText('')
+    setText(null)
+    setCopied(false)
 
     try {
-      const pdfjs = await getPdfJs()
-      const buf = await files[0].arrayBuffer()
-      const doc = await pdfjs.getDocument({ data: buf.slice() }).promise
-      let allText = ''
-
-      for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i)
-        const content = await page.getTextContent()
-        const pageText = content.items.map((item) => {
-          if ('str' in item) return item.str
-          return ''
-        }).join(' ')
-        allText += pageText + '\n\n'
-        page.cleanup()
-      }
-      setText(allText.trim())
+      const pages = await extractText(await getPdfJs(), new Uint8Array(await files[0].arrayBuffer()))
+      setText(pages.join('\n\n').trim())
     } catch (e) {
-      setError('Failed to extract text')
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -40,7 +31,8 @@ export function PdfToText() {
 
   async function copyText() {
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(text ?? '')
+      setCopied(true)
     } catch { /* ignore */ }
   }
 
@@ -64,7 +56,11 @@ export function PdfToText() {
         {processing ? 'Extracting...' : 'Extract Text'}
       </button>
 
-      {error && <p style={{ color: 'var(--pdf-muted)' }}>{error}</p>}
+      <ErrorText message={error} />
+
+      {text === '' && (
+        <ErrorText message="No text found. The pages may be scanned images — this tool reads embedded text and does not do OCR." />
+      )}
 
       {text && (
         <div className="pdf-processed">
@@ -76,7 +72,7 @@ export function PdfToText() {
           </div>
           <div className="pdf-processed-actions">
             <button className="pdf-processed-preview" onClick={copyText}>
-              <span className="material-symbols-outlined">content_copy</span> Copy Text
+              <span className="material-symbols-outlined">content_copy</span> {copied ? 'Copied' : 'Copy Text'}
             </button>
           </div>
           <pre style={{

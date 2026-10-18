@@ -1,6 +1,7 @@
-import { useCallback } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useCallback, useState } from 'react'
+import { useDropzone, type FileRejection } from 'react-dropzone'
 import { formatSize } from '../lib/utils'
+import { ErrorText } from './ErrorText'
 
 interface FileDropzoneProps {
   files: File[]
@@ -23,26 +24,31 @@ export function FileDropzone({
   label = 'Drop PDF files here',
   description = 'or click to browse',
 }: FileDropzoneProps) {
+  const [notice, setNotice] = useState('')
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      if (multiple) {
-        onFilesChange([...files, ...acceptedFiles].slice(0, maxFiles))
-      } else {
-        onFilesChange(acceptedFiles.slice(0, 1))
+    (acceptedFiles: File[], rejections: FileRejection[]) => {
+      // react-dropzone drops refused files without a word; say why instead
+      const notes = rejections.map(({ file, errors }) => `${file.name}: ${errors[0]?.code === 'file-too-large' ? `larger than ${formatSize(maxSize)}` : errors[0]?.code === 'file-invalid-type' ? 'not a supported file type' : 'only one file at a time'}`)
+      let next = multiple ? [...files, ...acceptedFiles] : acceptedFiles.slice(0, 1)
+      if (next.length > maxFiles) {
+        notes.push(`only ${maxFiles} files at a time — ${next.length - maxFiles} not added`)
+        next = next.slice(0, maxFiles)
       }
+      setNotice(notes.join(' · '))
+      if (acceptedFiles.length > 0) onFilesChange(next)
     },
-    [files, onFilesChange, multiple, maxFiles],
+    [files, onFilesChange, multiple, maxFiles, maxSize],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept,
-    maxFiles: multiple ? maxFiles - files.length : 1,
     maxSize,
     multiple,
   })
 
   return (
+    <>
     <div className="pdf-dropzone" {...getRootProps()} data-active={isDragActive ? '' : undefined}>
       <input {...getInputProps()} />
       <div className="pdf-dropzone-icon">
@@ -56,6 +62,8 @@ export function FileDropzone({
         Max {formatSize(maxSize)} per file{multiple ? `, up to ${maxFiles} files` : ''}
       </p>
     </div>
+    <ErrorText message={notice} />
+    </>
   )
 }
 

@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { PDFDocument } from 'pdf-lib'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
+import { ErrorText } from '../components/ErrorText'
+import { describeError, readBytes } from '../lib/load'
+import { splitPdf } from '../ops/organize'
 import JSZip from 'jszip'
 
 type SplitMode = 'every' | 'first' | 'ranges'
@@ -14,57 +16,25 @@ export function SplitPdf() {
   const [ranges, setRanges] = useState('1-3,4-6,7-9')
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<Uint8Array | null>(null)
+  const [error, setError] = useState('')
 
   async function handleSplit() {
     if (files.length === 0) return
     setProcessing(true)
     setResult(null)
+    setError('')
 
     try {
+      const bytes = await readBytes(files[0])
+      const parts = await splitPdf(
+        bytes,
+        mode === 'every' ? { kind: 'every', pages: pagesPerFile } : mode === 'first' ? { kind: 'first', pages: firstFilePages } : { kind: 'ranges', ranges },
+      )
       const zip = new JSZip()
-      const buf = await files[0].arrayBuffer()
-      const pdf = await PDFDocument.load(buf, { ignoreEncryption: true })
-      const total = pdf.getPageCount()
-
-      let pageSets: number[][] = []
-
-      if (mode === 'every') {
-        for (let i = 0; i < total; i += pagesPerFile) {
-          const end = Math.min(i + pagesPerFile, total)
-          pageSets.push(Array.from({ length: end - i }, (_, j) => i + j))
-        }
-      } else if (mode === 'first') {
-        const firstEnd = Math.min(firstFilePages, total)
-        pageSets.push(Array.from({ length: firstEnd }, (_, j) => j))
-        if (firstEnd < total) {
-          pageSets.push(Array.from({ length: total - firstEnd }, (_, j) => firstEnd + j))
-        }
-      } else if (mode === 'ranges') {
-        const parts = ranges.split(',').map((s) => s.trim())
-        for (const part of parts) {
-          if (part.includes('-')) {
-            const [a, b] = part.split('-').map((s) => parseInt(s.trim()))
-            pageSets.push(Array.from({ length: b - a + 1 }, (_, i) => a - 1 + i))
-          } else {
-            pageSets.push([parseInt(part) - 1])
-          }
-        }
-      }
-
-      for (let i = 0; i < pageSets.length; i++) {
-        const indices = pageSets[i].filter((p) => p >= 0 && p < total)
-        if (indices.length === 0) continue
-        const newPdf = await PDFDocument.create()
-        const pages = await newPdf.copyPages(pdf, indices)
-        pages.forEach((p) => newPdf.addPage(p))
-        const bytes = await newPdf.save()
-        zip.file(`split-${i + 1}.pdf`, bytes)
-      }
-
-      const zipBytes = await zip.generateAsync({ type: 'uint8array' })
-      setResult(zipBytes)
+      for (const part of parts) zip.file(part.name, part.bytes)
+      setResult(await zip.generateAsync({ type: 'uint8array' }))
     } catch (e) {
-      console.error(e)
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -78,7 +48,7 @@ export function SplitPdf() {
         </div>
         <div className="pdf-subtool-info">
           <h2>Split PDF</h2>
-          <p>Split a PDF into multiple files</p>
+          <p>Split a PDF into multiple files, downloaded together as a ZIP</p>
         </div>
       </div>
 
@@ -117,8 +87,8 @@ export function SplitPdf() {
 
       {mode === 'ranges' && (
         <div className="pdf-form-group">
-          <label className="pdf-form-label">Page ranges (e.g., 1-3,4-6,7-9)</label>
-          <input className="pdf-text-input" type="text" value={ranges} onChange={(e) => setRanges(e.target.value)} />
+          <label className="pdf-form-label" htmlFor="pdf-split-ranges">Page ranges, one file each (e.g. 1-3,5,7-)</label>
+          <input id="pdf-split-ranges" className="pdf-text-input" type="text" value={ranges} onChange={(e) => setRanges(e.target.value)} />
         </div>
       )}
 
@@ -127,8 +97,10 @@ export function SplitPdf() {
         {processing ? 'Splitting...' : 'Split PDF'}
       </button>
 
+      <ErrorText message={error} />
+
       {result && (
-        <ProcessedPdfActions fileName="split.zip" outputBytes={result} />
+        <ProcessedPdfActions fileName="split.zip" outputBytes={result} mimeType="application/zip" />
       )}
     </div>
   )

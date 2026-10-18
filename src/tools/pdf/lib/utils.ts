@@ -24,9 +24,9 @@ export const pdfTools: PdfToolMeta[] = [
   { id: 'pdf-to-image', name: 'PDF to Image', description: 'Convert PDF pages to images', category: 'convert', icon: 'image', color: '#16a34a' },
   { id: 'image-to-pdf', name: 'Image to PDF', description: 'Convert images to a PDF document', category: 'convert', icon: 'photo_library', color: '#059669' },
   { id: 'pdf-to-text', name: 'PDF to Text', description: 'Extract text content from PDF files', category: 'convert', icon: 'text_snippet', color: '#64748b' },
-  { id: 'compress', name: 'Compress PDF', description: 'Reduce file size while maintaining quality', category: 'edit', icon: 'compress', color: '#2563eb' },
+  { id: 'compress', name: 'Compress PDF', description: 'Repack the file structure losslessly — images untouched, savings vary', category: 'edit', icon: 'compress', color: '#2563eb' },
   { id: 'page-numbers', name: 'Page Numbers', description: 'Add page numbers to your PDF', category: 'edit', icon: 'format_list_numbered', color: '#d97706' },
-  { id: 'watermark', name: 'Watermark', description: 'Add text or image watermark to PDF', category: 'edit', icon: 'water_drop', color: '#0d9488' },
+  { id: 'watermark', name: 'Watermark', description: 'Add a text watermark to PDF pages', category: 'edit', icon: 'water_drop', color: '#0d9488' },
   { id: 'protect', name: 'Protect PDF', description: 'Add password protection to your PDF', category: 'security', icon: 'lock', color: '#9333ea' },
   { id: 'unlock', name: 'Unlock PDF', description: 'Remove password from protected PDF', category: 'security', icon: 'lock_open', color: '#db2777' },
 ]

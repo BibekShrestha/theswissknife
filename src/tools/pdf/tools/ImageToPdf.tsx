@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { PDFDocument } from 'pdf-lib'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
+import { ErrorText } from '../components/ErrorText'
+import { describeError, readBytes } from '../lib/load'
+import { imagesToPdf } from '../ops/images'
 
 const IMAGE_ACCEPT = {
   'image/png': ['.png'],
@@ -9,33 +11,36 @@ const IMAGE_ACCEPT = {
   'image/webp': ['.webp'],
 }
 
+/** pdf-lib embeds only PNG and JPEG; the browser decodes anything else (WebP) to a lossless PNG. */
+async function toPng(bytes: Uint8Array): Promise<Uint8Array> {
+  const bitmap = await createImageBitmap(new Blob([bytes as BlobPart]))
+  const canvas = document.createElement('canvas')
+  canvas.width = bitmap.width
+  canvas.height = bitmap.height
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0)
+  bitmap.close()
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+  if (!blob) throw new Error('canvas could not encode the image')
+  return new Uint8Array(await blob.arrayBuffer())
+}
+
 export function ImageToPdf() {
   const [files, setFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<Uint8Array | null>(null)
+  const [error, setError] = useState('')
 
   async function handleConvert() {
     if (files.length === 0) return
     setProcessing(true)
     setResult(null)
+    setError('')
 
     try {
-      const pdf = await PDFDocument.create()
-      for (const file of files) {
-        const buf = await file.arrayBuffer()
-        let image
-        if (file.type === 'image/png') {
-          image = await pdf.embedPng(buf)
-        } else {
-          image = await pdf.embedJpg(buf)
-        }
-        const page = pdf.addPage([image.width, image.height])
-        page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height })
-      }
-      const bytes = await pdf.save()
-      setResult(bytes)
+      const inputs = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: await readBytes(f) })))
+      setResult(await imagesToPdf(inputs, toPng))
     } catch (e) {
-      console.error(e)
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -49,7 +54,7 @@ export function ImageToPdf() {
         </div>
         <div className="pdf-subtool-info">
           <h2>Image to PDF</h2>
-          <p>Convert images to a PDF document</p>
+          <p>Convert images to a PDF document, one page per image</p>
         </div>
       </div>
 
@@ -60,6 +65,8 @@ export function ImageToPdf() {
         <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Converting...' : `Convert ${files.length} image${files.length !== 1 ? 's' : ''} to PDF`}
       </button>
+
+      <ErrorText message={error} />
 
       {result && (
         <ProcessedPdfActions fileName="images.pdf" outputBytes={result} />

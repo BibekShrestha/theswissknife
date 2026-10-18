@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { PDFDocument } from 'pdf-lib'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
+import { ErrorText } from '../components/ErrorText'
+import { describeError, readBytes } from '../lib/load'
+import { unlockPdf } from '../ops/security'
 
 export function UnlockPdf() {
   const [files, setFiles] = useState<File[]>([])
@@ -17,12 +19,9 @@ export function UnlockPdf() {
     setResult(null)
 
     try {
-      const buf = await files[0].arrayBuffer()
-      const pdf = await PDFDocument.load(buf, { password } as any)
-      const bytes = await pdf.save()
-      setResult(bytes)
+      setResult(await unlockPdf(await readBytes(files[0]), password))
     } catch (e) {
-      setError('Incorrect password or PDF is not encrypted')
+      setError(describeError(e))
     } finally {
       setProcessing(false)
     }
@@ -44,17 +43,17 @@ export function UnlockPdf() {
       <FileList files={files} onFilesChange={setFiles} />
 
       <div className="pdf-form-group">
-        <label className="pdf-form-label">Current password</label>
-        <input className="pdf-text-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter the PDF password" />
-        <p className="pdf-form-hint">The output PDF will not be password protected.</p>
+        <label className="pdf-form-label" htmlFor="pdf-unlock-password">Current password</label>
+        <input id="pdf-unlock-password" className="pdf-text-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter the PDF password" />
+        <p className="pdf-form-hint">The output PDF will not be password protected. Leave the password empty for a PDF that opens without one but restricts printing or editing.</p>
       </div>
 
-      <button className="pdf-action-btn" disabled={files.length === 0 || !password || processing} onClick={handleUnlock}>
+      <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleUnlock}>
         <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Unlocking...' : 'Unlock PDF'}
       </button>
 
-      {error && <p style={{ color: 'var(--pdf-muted)' }}>{error}</p>}
+      <ErrorText message={error} />
 
       {result && (
         <ProcessedPdfActions fileName="unlocked.pdf" outputBytes={result} />

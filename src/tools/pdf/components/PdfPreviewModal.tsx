@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import { getPdfJs } from '../lib/pdfjs'
+import { renderScale } from '../ops/read'
 
 interface PdfPreviewModalProps {
   bytes: Uint8Array
@@ -12,39 +14,57 @@ export function PdfPreviewModal({ bytes, fileName, onClose }: PdfPreviewModalPro
   const [totalPages, setTotalPages] = useState(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [error, setError] = useState('')
+  const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
+
+  // Parse once per output, not once per page turn, and free pdf.js's copy on close.
+  useEffect(() => {
+    let task: PDFDocumentLoadingTask | null = null
+    let cancelled = false
+    getPdfJs().then((pdfjs) => {
+      if (cancelled) return
+      task = pdfjs.getDocument({ data: bytes.slice() })
+      task.promise.then(
+        (d) => {
+          if (cancelled) return
+          setDoc(d)
+          setTotalPages(d.numPages)
+        },
+        () => !cancelled && setError('Failed to render preview'),
+      )
+    })
+    return () => {
+      cancelled = true
+      void task?.destroy()
+    }
+  }, [bytes])
 
   useEffect(() => {
+    if (!doc) return
     let cancelled = false
+    let renderTask: RenderTask | null = null
 
-    async function render() {
+    async function render(d: PDFDocumentProxy) {
       try {
-        const pdfjs = await getPdfJs()
-        const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise
-        if (cancelled) return
-        setTotalPages(doc.numPages)
-
-        const page = await doc.getPage(pageNum)
-        if (cancelled) return
-
-        const viewport = page.getViewport({ scale: 1.5 })
-
+        const page = await d.getPage(pageNum)
         const canvas = canvasRef.current
-        if (!canvas) return
-
+        if (cancelled || !canvas) return
+        const viewport = page.getViewport({ scale: renderScale(page.view[2] - page.view[0], page.view[3] - page.view[1], 1.5) })
         canvas.height = viewport.height
         canvas.width = viewport.width
-        const ctx = canvas.getContext('2d')!
-        await page.render({ canvas, canvasContext: ctx, viewport } as any).promise
-
-        page.cleanup()
+        renderTask = page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport })
+        await renderTask.promise
       } catch (e) {
-        if (!cancelled) setError('Failed to render preview')
+        // a page turn cancels the render in flight; only real failures are errors
+        if (!cancelled && (e as { name?: string }).name !== 'RenderingCancelledException') setError('Failed to render preview')
       }
     }
 
-    render()
-    return () => { cancelled = true }
-  }, [bytes, pageNum])
+    render(doc)
+    return () => {
+      cancelled = true
+      renderTask?.cancel()
+    }
+  }, [doc, pageNum])
 
   return (
     <>
