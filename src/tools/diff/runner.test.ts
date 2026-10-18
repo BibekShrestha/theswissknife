@@ -42,7 +42,11 @@ describe('createDiffRunner', () => {
     const runner = createDiffRunner(() => { const w = fakeWorker(hang); spawned.push(w); return w }, 500)
     const pending = runner.run(request)
     vi.advanceTimersByTime(500)
-    expect((await pending).result).toEqual({ error: expect.stringMatching(/^Stopped after 0.5 s/) })
+    const stopped = (await pending).result as { error: string }
+    expect(stopped).toEqual({ error: expect.stringMatching(/^Stopped after 0.5 s/) })
+    // size or the number of changes is what runs out the clock — not how much the inputs share (DIF-5)
+    expect(stopped.error).toMatch(/too large, or differ in too many places/)
+    expect(stopped.error).not.toMatch(/too little in common/)
     expect(spawned[0].terminated).toBe(true)
 
     hang = false

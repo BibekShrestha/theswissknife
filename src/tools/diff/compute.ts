@@ -28,10 +28,32 @@ export interface Side {
   eol: 'LF' | 'CRLF' | 'CR' | 'mixed' | 'none'
 }
 
+/**
+ * One side as `patch` sees it: split on LF only, so each line keeps any CR
+ * it carries (a CRLF line ends in "\r"; a CR-only file is one line).
+ */
+export interface PatchSide {
+  lines: string[]
+  noEol: boolean
+}
+
+/** What unifiedPatch writes from: lines in patch's own terms, and their diff. */
+export interface PatchView {
+  a: PatchSide
+  b: PatchSide
+  blocks: Block[]
+}
+
 export interface DiffResult {
   a: Side
   b: Side
   blocks: Block[]
+  /**
+   * The patch's own line diff, or null in JSON mode (a patch of the re-printed
+   * documents would apply to neither input). Shares `a`/`b`/`blocks` when
+   * neither text holds a CR, because the two views are then the same.
+   */
+  patch: PatchView | null
   /** Word-level highlights for paired changed lines, by line index. */
   inlineA: Record<number, Segment[]>
   inlineB: Record<number, Segment[]>
@@ -59,7 +81,7 @@ export function computeDiff(left: string, right: string, options: DiffOptions): 
   const a = splitLines(left)
   const b = splitLines(right)
   if (options.mode === 'text' && a.eol !== b.eol && a.eol !== 'none' && b.eol !== 'none') {
-    notes.push(`Line endings differ (original ${a.eol}, changed ${b.eol}) — ignored, lines are compared by content.`)
+    notes.push(`Line endings differ (original ${a.eol}, changed ${b.eol}) — ignored here, lines are compared by content; ${options.ignoreWhitespace ? 'with whitespace ignored, the patch ignores them too' : 'the patch converts them'}.`)
   }
 
   const key = (line: string) => {
@@ -69,7 +91,7 @@ export function computeDiff(left: string, right: string, options: DiffOptions): 
     return k
   }
   const intern = createInterner()
-  const ids = (side: Side) => {
+  const ids = (side: { lines: string[]; noEol: boolean }) => {
     const out = new Int32Array(side.lines.length)
     side.lines.forEach((line, i) => { out[i] = intern(key(line)) })
     // A missing final newline is a real difference (git shows it), so the
@@ -97,7 +119,30 @@ export function computeDiff(left: string, right: string, options: DiffOptions): 
       inlineB[block.bStart + i] = inline[1]
     }
   }
-  return { a, b, blocks, inlineA, inlineB, added, removed, notes }
+
+  let patch: PatchView | null = null
+  if (options.mode === 'text') {
+    if (!left.includes('\r') && !right.includes('\r')) patch = { a, b, blocks }
+    else {
+      // patch and git apply split on LF only and compare the bytes, CR
+      // included: diff that view separately, so CRLF lines keep their CR, a
+      // line-ending-only change becomes a change, and a stray CR stays inside
+      // its line.
+      const pa = splitOnLf(left)
+      const pb = splitOnLf(right)
+      patch = { a: pa, b: pb, blocks: toBlocks(diffSequences(ids(pa), ids(pb)), pa.lines.length, pb.lines.length) }
+    }
+  }
+  return { a, b, blocks, patch, inlineA, inlineB, added, removed, notes }
+}
+
+/** Lines the way patch reads them: LF ends a line; a CR before it is content. */
+export function splitOnLf(text: string): PatchSide {
+  if (text === '') return { lines: [], noEol: false }
+  const lines = text.split('\n')
+  const noEol = lines[lines.length - 1] !== ''
+  if (!noEol) lines.pop()
+  return { lines, noEol }
 }
 
 export function splitLines(text: string): Side {
@@ -163,24 +208,54 @@ export function diffWords(left: string, right: string): [Segment[], Segment[]] |
   return [build(lt, 'aStart'), build(rt, 'bStart')]
 }
 
-/** Marks an integer literal that JSON.parse would round (beyond 2^53). */
+/** A number literal that a double cannot hold exactly, in normalised decimal form. */
 class RawNumber {
   constructor(readonly source: string) {}
 }
 
+const NUMBER = /^(-)?(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/
+
+/**
+ * A JSON number literal's exact decimal value, printed the way JavaScript
+ * prints numbers (plain up to 1e21, else d.ddde±x). Spellings of the same
+ * value print the same — 1.0, 1 and 1e0 are all "1" — and different values
+ * never do, however close.
+ */
+export function normalizeNumber(source: string): string | null {
+  const match = NUMBER.exec(source)
+  if (!match) return null
+  const [, sign = '', int, frac = '', exp = '0'] = match
+  let digits = int + frac
+  let point = int.length + Number(exp) // value = 0.<digits> × 10^point
+  const lead = digits.length - digits.replace(/^0+/, '').length
+  digits = digits.slice(lead).replace(/0+$/, '')
+  point -= lead
+  if (!digits) return '0' // -0 and 0 are the same number, as JSON.stringify says
+  const n = digits.length
+  let body: string
+  if (point > 0 && point <= 21) body = point >= n ? digits + '0'.repeat(point - n) : `${digits.slice(0, point)}.${digits.slice(point)}`
+  else if (point <= 0 && point > -6) body = `0.${'0'.repeat(-point)}${digits}`
+  else body = `${digits[0]}${n > 1 ? `.${digits.slice(1)}` : ''}e${point - 1 >= 0 ? '+' : ''}${point - 1}`
+  return sign + body
+}
+
 /**
  * Parses JSON and re-prints it with sorted keys and two-space indent, so key
- * order and formatting stop mattering. Integers too large for a double keep
- * their source digits where the browser exposes them (JSON.parse source text
- * access), so 9007199254740993 and …992 still differ.
+ * order and formatting stop mattering. Where the browser exposes each
+ * literal's source (JSON.parse source text access), a number compares by the
+ * value it spells, not by the double it rounds to: 9007199254740993 and …992,
+ * 0.1 and 0.10000000000000000555, 1e400 and null all differ. Numbers that are
+ * equal as values — 1.0 and 1, 0.10 and 0.1 — compare equal.
  */
 export function canonicalJson(text: string, label: string): { text: string; duplicates: boolean } | DiffError {
   if (!text.trim()) return { text: '', duplicates: false }
   let value: unknown
   try {
     value = JSON.parse(text, (_key, v, context?: { source?: string }) => {
-      if (typeof v === 'number' && context?.source && /^-?\d+$/.test(context.source) && !Number.isSafeInteger(v)) return new RawNumber(context.source)
-      return v
+      if (typeof v !== 'number' || !context?.source) return v
+      const exact = normalizeNumber(context.source)
+      if (exact === null || (Number.isFinite(v) && exact === String(v === 0 ? 0 : v))) return v
+      return new RawNumber(exact)
     })
   } catch (error) {
     return { error: `${label} is not valid JSON: ${(error as Error).message}` }

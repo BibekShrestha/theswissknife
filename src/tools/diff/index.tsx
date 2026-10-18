@@ -4,7 +4,7 @@ import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import type { DiffError, DiffMode, DiffResult, Segment } from './compute'
-import { unifiedPatch } from './patch'
+import { hasPatch, patchLabels, unifiedPatch } from './patch'
 import { buildRows, type Row } from './rows'
 import { createDiffRunner } from './runner'
 import './diff.css'
@@ -69,8 +69,18 @@ export default function DiffTool() {
 
   const diff = result && !('error' in result) ? result : null
   const rows = useMemo(() => (diff ? buildRows(diff, CONTEXT, expanded, layout) : []), [diff, expanded, layout])
-  const patch = useMemo(() => (diff ? unifiedPatch(diff, names[0], names[1]) : ''), [diff, names])
+  // The patch text is built only when it is copied or downloaded: on a big
+  // diff it is megabytes that nobody may ask for.
+  const exportable = useMemo(() => (diff ? hasPatch(diff) : false), [diff])
+  const buildPatch = () => {
+    if (!diff) return ''
+    const [labelA, labelB] = patchLabels(names[0], names[1])
+    return unifiedPatch(diff, labelA, labelB)
+  }
   const identical = diff && diff.added === 0 && diff.removed === 0
+  const patchTitle = mode === 'json'
+    ? 'No patch in JSON mode: both sides are re-printed with sorted keys, so a patch would apply to neither input'
+    : undefined
 
   const swap = () => {
     setLeft(right)
@@ -78,7 +88,7 @@ export default function DiffTool() {
     setNames([names[1], names[0]])
   }
   const download = () => {
-    const url = URL.createObjectURL(new Blob([patch], { type: 'text/x-diff' }))
+    const url = URL.createObjectURL(new Blob([buildPatch()], { type: 'text/x-diff' }))
     const link = Object.assign(document.createElement('a'), { href: url, download: 'changes.diff' })
     link.click()
     URL.revokeObjectURL(url)
@@ -90,8 +100,8 @@ export default function DiffTool() {
         brand={<><span className="material-symbols-outlined" aria-hidden>difference</span> Diff</>}
         localLabel="local comparison"
       >
-        <button onClick={swap} aria-label="Swap sides" title="Swap original and changed"><span className="material-symbols-outlined">swap_horiz</span></button>
-        <button onClick={() => { setLeft(SAMPLE_A); setRight(SAMPLE_B); setNames(['original', 'changed']) }} aria-label="Reset to sample" title="Reset to sample"><span className="material-symbols-outlined">auto_fix_high</span></button>
+        <button onClick={swap} aria-label="Swap sides" title="Swap original and changed"><span className="material-symbols-outlined" aria-hidden>swap_horiz</span></button>
+        <button onClick={() => { setLeft(SAMPLE_A); setRight(SAMPLE_B); setNames(['original', 'changed']) }} aria-label="Reset to sample" title="Reset to sample"><span className="material-symbols-outlined" aria-hidden>auto_fix_high</span></button>
       </ToolHeader>
 
       <main id="main-content" className="diff-main">
@@ -104,7 +114,7 @@ export default function DiffTool() {
               <label className="diff-check"><input type="checkbox" checked={ignoreCase} onChange={(e) => setIgnoreCase(e.target.checked)} /> Ignore case</label>
             </>
           ) : (
-            <p className="diff-hint">Keys are sorted and both sides re-indented, so only values and array order count.</p>
+            <p className="diff-hint">Keys are sorted and both sides re-indented, so only values and array order count (1.0 and 1 are the same number). No patch export: it would describe the re-printed documents, not your input.</p>
           )}
         </section>
 
@@ -118,19 +128,19 @@ export default function DiffTool() {
             <div><span className="diff-step">03</span><strong>Differences</strong></div>
             {diff && !identical && <span className="diff-stats"><b className="diff-add">+{diff.added.toLocaleString()}</b> <b className="diff-del">−{diff.removed.toLocaleString()}</b> lines</span>}
             <span className="diff-time">{running ? 'comparing…' : diff ? `${elapsed < 1 ? '<1' : Math.round(elapsed)} ms` : ''}</span>
-            <button onClick={() => void copy(patch, 'Patch')} disabled={!patch} title="Copy as a unified diff (diff -u)"><span className="material-symbols-outlined">content_copy</span> Patch</button>
-            <button onClick={download} disabled={!patch} aria-label="Download patch" title="Download changes.diff"><span className="material-symbols-outlined">download</span></button>
+            <button onClick={() => void copy(buildPatch(), 'Patch')} disabled={!exportable} title={patchTitle ?? 'Copy as a unified diff (diff -u)'}><span className="material-symbols-outlined" aria-hidden>content_copy</span> Patch</button>
+            <button onClick={download} disabled={!exportable} aria-label="Download patch" title={patchTitle ?? 'Download changes.diff'}><span className="material-symbols-outlined" aria-hidden>download</span></button>
           </header>
           {result && 'error' in result && <div className="diff-error" role="alert">{result.error}</div>}
           {diff?.notes.map((note) => <div className="diff-note" key={note}>{note}</div>)}
           {identical && <div className="diff-same">No differences{mode === 'json' ? ' — the two documents hold the same data.' : '.'}</div>}
           {diff && !identical && (
-            <div className={`diff-grid diff-${layout}`} role="table">
+            <div className={`diff-grid diff-${layout}`} role="table" aria-label={layout === 'split' ? 'Differences: original line, original text, changed line, changed text' : 'Differences: original line, changed line, change, text'}>
               {rows.slice(0, limit).map((row, i) => (
                 <DiffRow key={i} row={row} diff={diff} layout={layout} onExpand={(id) => setExpanded(new Set([...expanded, id]))} />
               ))}
               {rows.length > limit && (
-                <button className="diff-more" onClick={() => setLimit(limit + PAGE)}>Show {Math.min(PAGE, rows.length - limit).toLocaleString()} more of {(rows.length - limit).toLocaleString()} rows</button>
+                <div className="diff-wide" role="row"><div className="diff-wide" role="cell"><button className="diff-more" onClick={() => setLimit(limit + PAGE)}>Show {Math.min(PAGE, rows.length - limit).toLocaleString()} more of {(rows.length - limit).toLocaleString()} rows</button></div></div>
               )}
             </div>
           )}
@@ -185,8 +195,8 @@ function InputPane({ step, title, name, value, onChange, onFile, onError }: Inpu
       <header>
         <div><span className="diff-step">{step}</span><strong>{title}</strong></div>
         <span title={name}>{name} · {lines.toLocaleString()} lines</span>
-        <button onClick={() => fileRef.current?.click()} aria-label={`Open file as ${title.toLowerCase()}`} title="Open a file (or drop one here)"><span className="material-symbols-outlined">folder_open</span></button>
-        <button onClick={() => onChange('')} disabled={!value} aria-label={`Clear ${title.toLowerCase()}`}><span className="material-symbols-outlined">close</span></button>
+        <button onClick={() => fileRef.current?.click()} aria-label={`Open file as ${title.toLowerCase()}`} title="Open a file (or drop one here)"><span className="material-symbols-outlined" aria-hidden>folder_open</span></button>
+        <button onClick={() => onChange('')} disabled={!value} aria-label={`Clear ${title.toLowerCase()}`}><span className="material-symbols-outlined" aria-hidden>close</span></button>
         <input ref={fileRef} type="file" hidden onChange={(e) => { void load(e.target.files?.[0]); e.target.value = '' }} />
       </header>
       <textarea value={value} onChange={(e) => onChange(e.target.value)} spellCheck={false} aria-label={`${title} text`} placeholder="Paste text or drop a file" wrap="off" />
@@ -201,7 +211,13 @@ function Line({ text, inline }: { text: string; inline?: Segment[] }): ReactNode
 
 function DiffRow({ row, diff, layout, onExpand }: { row: Row; diff: DiffResult; layout: Layout; onExpand: (id: number) => void }) {
   if (row.kind === 'fold') {
-    return <button className="diff-fold" onClick={() => onExpand(row.id)}><span className="material-symbols-outlined">unfold_more</span> {row.count.toLocaleString()} unchanged lines</button>
+    return (
+      <div className="diff-wide" role="row">
+        <div className="diff-wide" role="cell">
+          <button className="diff-fold" onClick={() => onExpand(row.id)}><span className="material-symbols-outlined" aria-hidden>unfold_more</span> {row.count.toLocaleString()} unchanged lines</button>
+        </div>
+      </div>
+    )
   }
   const eol = (side: 'a' | 'b', i: number | null) => (i !== null && diff[side].noEol && i === diff[side].lines.length - 1 && diff.a.noEol !== diff.b.noEol ? <em className="diff-noeol"> no newline at end</em> : null)
   const cellA = row.a === null ? null : <><Line text={diff.a.lines[row.a]} inline={row.kind === 'change' ? diff.inlineA[row.a] : undefined} />{eol('a', row.a)}</>
@@ -211,20 +227,20 @@ function DiffRow({ row, diff, layout, onExpand }: { row: Row; diff: DiffResult; 
     const tone = (i: number | null, kind: string) => (row.kind === 'equal' ? '' : i === null ? ' is-empty' : ` is-${kind}`)
     return (
       <div className="diff-row" role="row">
-        <span className={`diff-num${tone(row.a, 'del')}`}>{row.a === null ? '' : row.a + 1}</span>
-        <span className={`diff-code${tone(row.a, 'del')}`}>{cellA}</span>
-        <span className={`diff-num${tone(row.b, 'add')}`}>{row.b === null ? '' : row.b + 1}</span>
-        <span className={`diff-code${tone(row.b, 'add')}`}>{cellB}</span>
+        <span role="cell" className={`diff-num${tone(row.a, 'del')}`}>{row.a === null ? '' : row.a + 1}</span>
+        <span role="cell" className={`diff-code${tone(row.a, 'del')}`}>{cellA}</span>
+        <span role="cell" className={`diff-num${tone(row.b, 'add')}`}>{row.b === null ? '' : row.b + 1}</span>
+        <span role="cell" className={`diff-code${tone(row.b, 'add')}`}>{cellB}</span>
       </div>
     )
   }
   const tone = row.kind === 'equal' ? '' : row.a !== null ? ' is-del' : ' is-add'
   return (
     <div className={`diff-row${tone}`} role="row">
-      <span className="diff-num">{row.a === null ? '' : row.a + 1}</span>
-      <span className="diff-num">{row.b === null ? '' : row.b + 1}</span>
-      <span className="diff-sign">{row.kind === 'equal' ? ' ' : row.a !== null ? '−' : '+'}</span>
-      <span className="diff-code">{row.a !== null ? cellA : cellB}</span>
+      <span role="cell" className="diff-num">{row.a === null ? '' : row.a + 1}</span>
+      <span role="cell" className="diff-num">{row.b === null ? '' : row.b + 1}</span>
+      <span role="cell" className="diff-sign" aria-label={row.kind === 'equal' ? 'unchanged' : row.a !== null ? 'removed' : 'added'}>{row.kind === 'equal' ? ' ' : row.a !== null ? '−' : '+'}</span>
+      <span role="cell" className="diff-code">{row.a !== null ? cellA : cellB}</span>
     </div>
   )
 }
