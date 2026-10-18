@@ -3,7 +3,7 @@
 .dates-main code { font-family: var(--font-mono); }
 .dates-main [hidden] { display: none !important; }
 
-.dates-tabs { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.dates-tabs { border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; overflow: hidden; }
 .dates-tabs button { background: transparent; border: none; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
 .dates-tabs button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
 
@@ -41,12 +41,12 @@
 .dates-cell-other { opacity: .72; }
 .dates-cell-midnight { border-left: 2px solid var(--text); }
 .dates-cell-day { font-size: 9.5px; font-weight: 700; }
-.dates-overlap { background: var(--ok); border-radius: 2px; margin-top: 3px; }
-.dates-sel { border: 2px solid var(--accent); border-radius: 3px; box-shadow: 0 0 0 1px var(--panel) inset; pointer-events: none; z-index: 1; }
+.dates-overlap { background: var(--ok); border-radius: var(--radius-xs); margin-top: 3px; }
+.dates-sel { border: 2px solid var(--accent); border-radius: var(--radius-xs); box-shadow: 0 0 0 1px var(--panel) inset; pointer-events: none; z-index: 1; }
 
 .dates-hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }
 .dates-legend { align-items: center; display: inline-flex; gap: 6px; margin-left: 10px; }
-.dates-swatch { border-radius: 2px; display: inline-block; height: 10px; width: 14px; }
+.dates-swatch { border-radius: var(--radius-xs); display: inline-block; height: 10px; width: 14px; }
 .dates-swatch-work { background: var(--accent-dim); border: 1px solid var(--border-strong); }
 .dates-swatch-overlap { background: var(--ok); margin-left: 6px; }
 .dates-transitions { font-size: 12px; line-height: 1.5; margin: 0; padding-left: 18px; }
@@ -99,7 +99,7 @@
 .dates-iso-out code { font-size: 14px; font-weight: 700; }
 .dates-iso-out small { color: var(--muted); font-size: 11px; }
 .dates-add-row { gap: 10px; }
-.dates-seg { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.dates-seg { border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; overflow: hidden; }
 .dates-seg button { background: transparent; border: none; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 5px 14px; }
 .dates-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
 .dates-iso { flex: 1 1 200px; font-size: 16px; min-width: 0; }

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "icons": "node scripts/gen-icons.mjs",
     "icon-font": "node scripts/icon-font.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "display-font": "python3 scripts/fonts/display.py"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

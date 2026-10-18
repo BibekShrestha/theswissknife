@@ -22,7 +22,7 @@
 
 .convert-controls p { color: var(--muted); font-size: 12px; margin: 0 0 0 auto; }
 
-.convert-seg { align-items: center; border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.convert-seg { align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; overflow: hidden; }
 .convert-seg > span { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; padding: 0 10px; text-transform: uppercase; }
 .convert-seg button { background: transparent; border: 0; border-left: 1px solid var(--border); border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
 .convert-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }

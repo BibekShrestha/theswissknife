@@ -134,7 +134,7 @@
 
 .csv-search kbd {
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   color: var(--muted);
   font: 10px var(--font-mono);
   padding: 1px 5px;

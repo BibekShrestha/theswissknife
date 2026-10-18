@@ -160,7 +160,7 @@ button.sqlite-schema-name:hover { color: var(--accent); }
 .sqlite-col-type { color: var(--tok-str); }
 .sqlite-badge {
   border: 1px solid var(--border-strong);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   color: var(--muted);
   font: 9.5px/1.4 var(--font-mono);
   padding: 0 3px;

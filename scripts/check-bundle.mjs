@@ -84,6 +84,18 @@ if (fontBytes > ICON_FONT_BUDGET_KIB * 1024) {
   )
 }
 
+// The display face (hero, brands) is a subset too (`npm run display-font`).
+const DISPLAY_FONT_BUDGET_KIB = 32
+const displayFonts = readdirSync('dist/assets').filter((file) => /^InterTight-display-.*\.woff2$/.test(file))
+if (displayFonts.length !== 1) throw new Error(`Expected one display font in dist/assets, found ${displayFonts.length}.`)
+const displayBytes = statSync(`dist/assets/${displayFonts[0]}`).size
+if (!core.some((url) => url.endsWith(`/assets/${displayFonts[0]}`))) {
+  throw new Error(`dist/sw.js does not precache the display font ${displayFonts[0]}.`)
+}
+if (displayBytes > DISPLAY_FONT_BUDGET_KIB * 1024) {
+  throw new Error(`Display font is ${(displayBytes / 1024).toFixed(1)} KiB, over its ${DISPLAY_FONT_BUDGET_KIB} KiB budget — run \`npm run display-font\`.`)
+}
+
 // The served pages, not just the source: a blocked theme script would make
 // every load paint unthemed until React starts.
 for (const page of ['dist/index.html', 'dist/404.html']) {
@@ -92,5 +104,5 @@ for (const page of ['dist/index.html', 'dist/404.html']) {
 }
 
 console.log(
-  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB} KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB · icon font ${(fontBytes / 1024).toFixed(1)} KiB precached`,
+  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB} KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB · icon font ${(fontBytes / 1024).toFixed(1)} KiB · display font ${(displayBytes / 1024).toFixed(1)} KiB precached`,
 )

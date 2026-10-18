@@ -36,7 +36,7 @@ export default function PdfTool() {
   return (
     <div className="pdf-app">
       <ToolHeader
-        brand={<><span className="tool-mark-accent" style={{ background: 'var(--accent)', color: 'var(--on-accent)', width: 22, height: 22, fontSize: 11, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}>PDF</span> PDF Buddy</>}
+        brand={<><span className="tool-mark-accent" style={{ background: 'var(--accent)', color: 'var(--on-accent)', width: 22, height: 22, fontSize: 11, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-xs)' }}>PDF</span> PDF Buddy</>}
         localLabel="local, no-upload"
       >
         {subtool && (

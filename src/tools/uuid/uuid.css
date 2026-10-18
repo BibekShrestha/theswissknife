@@ -10,7 +10,7 @@
 
 .uuid-main { display: flex; flex: 1; flex-direction: column; gap: 14px; min-width: 0; }
 
-.uuid-tabs, .uuid-seg { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.uuid-tabs, .uuid-seg { border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; overflow: hidden; }
 .uuid-tabs button, .uuid-seg button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
 .uuid-tabs button + button, .uuid-seg button + button { border-left: 1px solid var(--border); }
 .uuid-tabs button.on, .uuid-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }

@@ -28,7 +28,7 @@
 .codec-controls label > span { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
 .codec-controls p { color: var(--muted); font-size: 12px; margin: 0 0 0 auto; }
 
-.codec-direction { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.codec-direction { border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; overflow: hidden; }
 .codec-direction button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
 .codec-direction button + button { border-left: 1px solid var(--border); }
 .codec-direction button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
@@ -78,7 +78,7 @@
 
 .codec-pane textarea:focus { outline-offset: -2px; }
 .codec-pane.has-error { border-color: var(--err); }
-.codec-error { background: var(--err-bg); border: 1px solid var(--err); border-radius: 6px; color: var(--err); font: 13px/1.5 var(--font-mono); padding: 10px 12px; }
+.codec-error { background: var(--err-bg); border: 1px solid var(--err); border-radius: var(--radius-sm); color: var(--err); font: 13px/1.5 var(--font-mono); padding: 10px 12px; }
 
 .codec-swap {
   align-self: center;
