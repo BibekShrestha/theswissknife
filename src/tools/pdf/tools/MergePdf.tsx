@@ -10,6 +10,7 @@ export function MergePdf() {
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<Uint8Array | null>(null)
+  const [notes, setNotes] = useState<string[]>([])
   const [error, setError] = useState('')
 
   async function handleMerge() {
@@ -17,11 +18,14 @@ export function MergePdf() {
     setProcessing(true)
     setProgress(0)
     setResult(null)
+    setNotes([])
     setError('')
 
     try {
       const inputs = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: await readBytes(f) })))
-      setResult(await mergePdfs(inputs, (done) => setProgress((done / files.length) * 100)))
+      const merged = await mergePdfs(inputs, (done) => setProgress((done / files.length) * 100))
+      setResult(merged.bytes)
+      setNotes(merged.notes)
     } catch (e) {
       setError(describeError(e))
     } finally {
@@ -43,6 +47,10 @@ export function MergePdf() {
 
       <FileDropzone files={files} onFilesChange={setFiles} />
       <FileList files={files} onFilesChange={setFiles} />
+      <p className="pdf-form-hint">
+        Links, bookmarks, form fields, page labels, attachments and accessibility tags of every file are kept. Title, author, XMP metadata and viewer
+        settings come from the first file; those of the others are not carried over.
+      </p>
 
       <button className="pdf-action-btn" disabled={files.length < 2 || processing} onClick={handleMerge}>
         <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
@@ -61,7 +69,14 @@ export function MergePdf() {
       <ErrorText message={error} />
 
       {result && (
-        <ProcessedPdfActions fileName="merged.pdf" outputBytes={result} />
+        <>
+          {notes.length > 0 && (
+            <ul className="pdf-notes">
+              {notes.map((note) => <li key={note}>{note}</li>)}
+            </ul>
+          )}
+          <ProcessedPdfActions fileName="merged.pdf" outputBytes={result} />
+        </>
       )}
     </div>
   )

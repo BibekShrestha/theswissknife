@@ -419,6 +419,16 @@
   margin-bottom: 6px;
 }
 
+.pdf-notes {
+  margin: 12px 0 0;
+  padding: 8px 12px 8px 28px;
+  border: 1px solid var(--pdf-border);
+  background: var(--warn-bg);
+  color: var(--pdf-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .pdf-form-hint {
   font-size: 11px;
   color: var(--pdf-muted);

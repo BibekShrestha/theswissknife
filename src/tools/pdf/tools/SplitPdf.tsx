@@ -54,6 +54,10 @@ export function SplitPdf() {
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
+      <p className="pdf-form-hint">
+        Each file keeps the document properties and the bookmarks, links, form fields and page labels of its own pages; links and bookmarks that lead
+        to pages in another file are removed.
+      </p>
 
       <div className="pdf-form-group">
         <label className="pdf-form-label">Split mode</label>

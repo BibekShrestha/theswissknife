@@ -44,7 +44,8 @@ export function ReorderPages() {
 
       <div className="pdf-form-group">
         <label className="pdf-form-label" htmlFor="pdf-reorder">New page order, listing every page once (e.g. 3,1,2,4 or 10-1)</label>
-        <input id="pdf-reorder" className="pdf-text-input" type="text" value={order} onChange={(e) => setOrder(e.target.value)} placeholder="3,1,2,4" />
+        <input id="pdf-reorder" className="pdf-text-input" type="text" value={order} onChange={(e) => setOrder(e.target.value)} placeholder="3,1,2,4" aria-describedby="pdf-reorder-hint" />
+        <p className="pdf-form-hint" id="pdf-reorder-hint">Links, bookmarks, form fields and page labels move with their pages.</p>
       </div>
 
       <button className="pdf-action-btn" disabled={files.length === 0 || !order || processing} onClick={handleReorder}>

@@ -87,7 +87,7 @@ describe('Merge PDF', () => {
   it('appends every page in file order, keeping sizes and rotations', async () => {
     const a = await makePdf(3)
     const b = await makePdf([{ size: [595, 842], rotate: 90, text: 'B1' }, { size: [842, 595], text: 'B2' }])
-    const out = await mergePdfs([named('a.pdf', a), named('b.pdf', b)])
+    const { bytes: out } = await mergePdfs([named('a.pdf', a), named('b.pdf', b)])
     expect(await pageTexts(out)).toEqual(['Page 1', 'Page 2', 'Page 3', 'B1', 'B2'])
     expect((await pageInfo(out)).slice(3)).toEqual([
       { width: 595, height: 842, rotate: 90 },
@@ -98,7 +98,7 @@ describe('Merge PDF', () => {
   it('needs two files, and at least one page between them', async () => {
     await expect(mergePdfs([named('a.pdf', await makePdf(1))])).rejects.toThrow(/at least two/)
     await expect(mergePdfs([named('a.pdf', await emptyPdf()), named('b.pdf', await emptyPdf())])).rejects.toThrow(/has any pages/)
-    expect(await pageTexts(await mergePdfs([named('a.pdf', await emptyPdf()), named('b.pdf', await makePdf(1))]))).toEqual(['Page 1'])
+    expect(await pageTexts((await mergePdfs([named('a.pdf', await emptyPdf()), named('b.pdf', await makePdf(1))])).bytes)).toEqual(['Page 1'])
   })
 
   it('reports progress per file', async () => {

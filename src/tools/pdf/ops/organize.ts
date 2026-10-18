@@ -1,17 +1,18 @@
-/** Merge, split, rotate, remove and reorder: page-level edits with pdf-lib. */
+/**
+ * Merge, split, rotate, remove and reorder: page-level edits with pdf-lib.
+ * None of them copies pages with pdf-lib's copyPages (see lib/structure.ts):
+ * Remove, Reorder and Split edit the parsed document in place, Merge
+ * imports whole documents, so nothing that was not asked for comes along
+ * and every link, bookmark and form field still points at its own page.
+ */
 import { PDFDocument, degrees } from 'pdf-lib'
 import { loadPdf, PdfInputError } from '../lib/load'
 import { describePages, parsePageGroups, parsePageList } from '../lib/pages'
+import { finishMerge, forkDocument, keepPages, mergeInto, readPageLabels, type Label } from '../lib/structure'
 
 export interface NamedBytes {
   name: string
   bytes: Uint8Array
-}
-
-async function copyInto(source: PDFDocument, indices: number[]): Promise<Uint8Array> {
-  const out = await PDFDocument.create()
-  for (const page of await out.copyPages(source, indices)) out.addPage(page)
-  return out.save()
 }
 
 function requirePages(doc: PDFDocument, name = 'This PDF'): number {
@@ -20,16 +21,33 @@ function requirePages(doc: PDFDocument, name = 'This PDF'): number {
   return total
 }
 
-export async function mergePdfs(inputs: NamedBytes[], onProgress?: (done: number) => void): Promise<Uint8Array> {
+export interface MergeResult {
+  bytes: Uint8Array
+  /** What had to change on the way in (renamed form fields or attachments), for the person merging. */
+  notes: string[]
+}
+
+/**
+ * Document properties (title, author, XMP metadata), viewer settings and
+ * named destinations come from the first file; every file's form fields,
+ * bookmarks, page labels, attachments, layers and structure tree are kept.
+ */
+export async function mergePdfs(inputs: NamedBytes[], onProgress?: (done: number) => void): Promise<MergeResult> {
   if (inputs.length < 2) throw new PdfInputError('Choose at least two PDFs to merge.')
-  const merged = await PDFDocument.create()
-  for (let i = 0; i < inputs.length; i++) {
+  const merged = await loadPdf(inputs[0].bytes, inputs[0].name)
+  const labels: (Label[] | null)[] = [readPageLabels(merged)]
+  const counts = [merged.getPageCount()]
+  const notes: string[] = []
+  onProgress?.(1)
+  for (let i = 1; i < inputs.length; i++) {
     const doc = await loadPdf(inputs[i].bytes, inputs[i].name)
-    for (const page of await merged.copyPages(doc, doc.getPageIndices())) merged.addPage(page)
+    counts.push(doc.getPageCount())
+    notes.push(...mergeInto(merged, doc, inputs[i].name, labels))
     onProgress?.(i + 1)
   }
   if (merged.getPageCount() === 0) throw new PdfInputError('None of these PDFs has any pages.')
-  return merged.save()
+  finishMerge(merged, labels, counts)
+  return { bytes: await merged.save(), notes }
 }
 
 export type SplitMode =
@@ -52,7 +70,12 @@ export async function splitPdf(bytes: Uint8Array, mode: SplitMode): Promise<Name
     sets = parsePageGroups(mode.ranges, total)
   }
   const files: NamedBytes[] = []
-  for (let i = 0; i < sets.length; i++) files.push({ name: `split-${i + 1}.pdf`, bytes: await copyInto(doc, sets[i]) })
+  for (let i = 0; i < sets.length; i++) {
+    // each part is cut from its own copy of the parsed file; the last can use the original
+    const part = i === sets.length - 1 ? doc : forkDocument(doc)
+    keepPages(part, sets[i])
+    files.push({ name: `split-${i + 1}.pdf`, bytes: await part.save() })
+  }
   return files
 }
 
@@ -69,13 +92,15 @@ export async function rotatePdf(bytes: Uint8Array, rotation: Rotation): Promise<
   return doc.save()
 }
 
+/** Links, bookmarks and form fields that only led to removed pages are removed with them. */
 export async function removePages(bytes: Uint8Array, spec: string): Promise<Uint8Array> {
   const doc = await loadPdf(bytes)
   const total = requirePages(doc)
   const remove = new Set(parsePageList(spec, total))
   const keep = doc.getPageIndices().filter((i) => !remove.has(i))
   if (keep.length === 0) throw new PdfInputError('That would remove every page — a PDF needs at least one.')
-  return copyInto(doc, keep)
+  keepPages(doc, keep)
+  return doc.save()
 }
 
 /** The new order must name every page exactly once (ranges such as 5-1 count). */
@@ -91,5 +116,6 @@ export async function reorderPages(bytes: Uint8Array, spec: string): Promise<Uin
   if (missing.length) {
     throw new PdfInputError(`The order leaves out page${missing.length === 1 ? '' : 's'} ${describePages(missing)} — list every page once (ranges like ${missing[0] + 1}-${total} work).`)
   }
-  return copyInto(doc, order)
+  keepPages(doc, order)
+  return doc.save()
 }

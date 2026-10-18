@@ -44,7 +44,10 @@ export function RemovePages() {
 
       <div className="pdf-form-group">
         <label className="pdf-form-label" htmlFor="pdf-remove-pages">Pages to remove (e.g. 1,3,5 or 2-4,7-)</label>
-        <input id="pdf-remove-pages" className="pdf-text-input" type="text" value={pagesToRemove} onChange={(e) => setPagesToRemove(e.target.value)} />
+        <input id="pdf-remove-pages" className="pdf-text-input" type="text" value={pagesToRemove} onChange={(e) => setPagesToRemove(e.target.value)} aria-describedby="pdf-remove-hint" />
+        <p className="pdf-form-hint" id="pdf-remove-hint">
+          Links and bookmarks that lead to removed pages are removed with them, and so are form fields that appear only on them.
+        </p>
       </div>
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleRemove}>
