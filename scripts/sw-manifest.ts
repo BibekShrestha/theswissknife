@@ -180,11 +180,13 @@ export function buildWebManifest({ base, description }: WebManifestOptions): str
       start_url: base,
       scope: base,
       display: 'standalone',
-      // Matches the light-scheme <meta name="theme-color"> in index.html; the
-      // page switches those metas with the theme, but a manifest colour has
-      // to be static.
-      theme_color: '#f7f7f5',
-      background_color: '#f7f7f5',
+      // The icon tile's colour (scripts/gen-icons.mjs), so an installed app's
+      // splash screen and title bar match its icon. A manifest colour has to
+      // be static; once the page loads, the per-scheme
+      // <meta name="theme-color"> tags in index.html take over where the
+      // browser honours them.
+      theme_color: '#1b1a18',
+      background_color: '#1b1a18',
       icons: [
         icon('icon-192.png', 192, 'any'),
         icon('icon-512.png', 512, 'any'),

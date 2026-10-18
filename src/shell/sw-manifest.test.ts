@@ -191,10 +191,10 @@ describe('buildWebManifest', () => {
     expect(data.icons.some((i: { purpose: string }) => i.purpose === 'maskable')).toBe(true)
   })
 
-  it('uses the shell paper colour during installation and launch', () => {
+  it('uses the icon tile colour during installation and launch, so the splash matches the icon', () => {
     const data = JSON.parse(buildWebManifest({ base: '/', description: 'tools' }))
-    expect(data.theme_color).toBe('#f7f7f5')
-    expect(data.background_color).toBe('#f7f7f5')
+    expect(data.theme_color).toBe('#1b1a18')
+    expect(data.background_color).toBe('#1b1a18')
   })
 })
 
