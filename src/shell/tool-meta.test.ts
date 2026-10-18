@@ -11,10 +11,12 @@ import {
 } from '../../scripts/tool-meta'
 // the same file the build parses, read as text rather than imported
 import registrySource from './registry.ts?raw'
+import copySource from './tool-copy.ts?raw'
 import { tools } from './registry'
+import { taglines } from './tool-copy'
 
 const ORIGIN = 'https://theswissknife.com'
-const meta = parseToolMeta(registrySource)
+const meta = parseToolMeta(registrySource, copySource)
 
 describe('parseToolMeta', () => {
   /**
@@ -25,8 +27,12 @@ describe('parseToolMeta', () => {
   it('matches the real registry exactly', () => {
     expect(meta.map((t) => t.slug)).toEqual(tools.map((t) => t.slug))
     expect(meta.map((t) => t.name)).toEqual(tools.map((t) => t.name))
-    expect(meta.map((t) => t.tagline)).toEqual(tools.map((t) => t.tagline))
+    expect(meta.map((t) => t.tagline)).toEqual(tools.map((t) => taglines[t.slug]))
     expect(meta.map((t) => t.category)).toEqual(tools.map((t) => t.category))
+  })
+
+  it('has exactly one tagline per registered tool', () => {
+    expect(Object.keys(taglines).sort()).toEqual(tools.map((t) => t.slug).sort())
   })
 
   it('ignores the ToolMeta interface declaration', () => {
@@ -35,15 +41,17 @@ describe('parseToolMeta', () => {
 
   it('unescapes quoted values', () => {
     const source = `
-      { slug: 'x', name: 'Bob\\'s tool', tagline: 'It\\'s fine', mark: 'X', category: 'text', load: () => import('../tools/x') },
+      { slug: 'x', name: 'Bob\\'s tool', mark: 'X', category: 'text', load: () => import('../tools/x') },
     `
-    expect(parseToolMeta(source)).toEqual([
+    expect(parseToolMeta(source, "  x: 'It\\'s fine',\n")).toEqual([
       { slug: 'x', name: "Bob's tool", tagline: "It's fine", category: 'text' },
     ])
   })
 
   it('skips entries missing required fields', () => {
-    expect(parseToolMeta(`{ slug: 'y', name: 'Y' }`)).toEqual([])
+    expect(parseToolMeta(`{ slug: 'y', name: 'Y' }`, '')).toEqual([])
+    // a tool without a tagline is skipped too (and the test above catches it)
+    expect(parseToolMeta(`{ slug: 'z', name: 'Z', category: 'text' }`, '')).toEqual([])
   })
 })
 

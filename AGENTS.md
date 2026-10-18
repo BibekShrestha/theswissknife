@@ -19,16 +19,20 @@ src/
 scripts/            build-time helpers (bundle check, sw precache, SEO metadata, icons)
 ```
 
-**A tool is one folder plus one registry line** (plus a README row). To add one:
+**A tool is one folder plus one registry line** (plus its tagline and a README
+row). To add one:
 
 1. Create `src/tools/<slug>/index.tsx` default-exporting the tool component.
    Put ALL of its code there: components, helpers, workers, styles
    (`import './<slug>.css'`), tests (`*.test.ts`).
-2. Add one entry to `src/shell/registry.ts` (`slug`, `name`, `tagline`, `mark`,
+2. Add one entry to `src/shell/registry.ts` (`slug`, `name`, `mark`,
    `category`, and a `load: () => import(...)` thunk). That dynamic import is
    what makes the tool a lazy chunk. `category` must be one of the ids in
    `categories` in `src/shell/Landing.tsx`.
-3. Add a row to the tool table in `README.md` — `| <name> | [/<slug>](https://theswissknife.com/<slug>) | … |`,
+3. Add its one-line `tagline` to `src/shell/tool-copy.ts`, keyed by slug. It is
+   kept out of the registry because the registry ships in the entry chunk;
+   the palette and search load taglines lazily.
+4. Add a row to the tool table in `README.md` — `| <name> | [/<slug>](https://theswissknife.com/<slug>) | … |`,
    with `<name>` exactly as in the registry.
 
 Everything else derives from the registry: landing page, sidebar, ⌘K palette,
@@ -52,9 +56,14 @@ missing from any of them, including the README table.
     mounted — a live region created together with its text often goes
     unannounced.
   - `useCopy.ts`: `useCopy(showToast)` — clipboard helper with toast feedback.
+  - `handoff.ts`: `sendTo(slug, { name, text?, bytes?, type? })` hands one
+    payload to another tool and navigates there; that tool calls
+    `takeHandoff(slug)` on mount (single use, memory only — never the URL or
+    storage, since it is the user's data).
 
   Everything else in `shell/` (App, Landing, ToolSidebar, CommandPalette,
-  palette, sidebar, BladeMark, ErrorBoundary, pwa) is shell-internal; App
+  palette, sidebar, BladeMark, ErrorBoundary, pwa, taglines, tool-copy) is
+  shell-internal; App
   already wraps every tool in `ErrorBoundary` and `Suspense`.
 - **Keep the shell tiny.** Shared additions must be generic UI patterns (toast,
   toolbar, copy) — never tool-specific logic. Anything with a tool's flavour
@@ -69,10 +78,11 @@ missing from any of them, including the README table.
   wired up.
 - **Tools must stay lazy.** Nothing outside `shell/` may be imported by
   `main.tsx`/landing. `npm run build` ends with `scripts/check-bundle.mjs`:
-  the entry chunk plus its static imports is ~66 KiB gz (react + shell)
-  against a 68 KiB budget.
-  Adding a tool should move it by ~0.1 KiB (its registry line); a jump of
-  kilobytes means the tool leaked into the eager graph.
+  the entry chunk plus its static imports is ~66.3 KiB gz (react + shell +
+  registry) against a budget of 65.9 KiB + 0.08 KiB per tool, so registry
+  lines alone never trip it. Adding a tool should move it by ~0.05 KiB (its
+  registry line; taglines load lazily); a jump of kilobytes means the tool
+  leaked into the eager graph.
 - **Sub-tools within a tool must also be lazy** when there are many (PDF
   Buddy's 13 sub-tools are each a `lazy()` chunk), and so must heavy optional
   paths (image's GIF encoder, pdf.js).

@@ -3,6 +3,7 @@ import { BladeMark } from './BladeMark'
 import { categories } from './Landing'
 import { tools } from './registry'
 import { Link, navigate } from './router'
+import { toolMatches, useTaglines } from './taglines'
 
 interface ToolSidebarProps {
   path: string
@@ -12,9 +13,8 @@ interface ToolSidebarProps {
 
 export function ToolSidebar({ path, open, onClose }: ToolSidebarProps) {
   const [query, setQuery] = useState('')
-  const value = query.trim().toLowerCase()
-  const matches = (tool: (typeof tools)[number]) => !value
-    || `${tool.name} ${tool.tagline} ${tool.category}`.toLowerCase().includes(value)
+  const taglines = useTaglines(query)
+  const matches = (tool: (typeof tools)[number]) => toolMatches(tool, query, taglines)
   const groups = categories
     .map((category) => ({ category, list: tools.filter((tool) => tool.category === category.id && matches(tool)) }))
     .filter(({ list }) => list.length)

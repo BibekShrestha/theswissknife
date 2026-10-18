@@ -13,7 +13,8 @@
  * `load: () => import('../tools/…')` thunks, and pulling those into the Vite
  * config bundle would drag the whole app (and its CSS) along with it.
  * src/shell/tool-meta.test.ts asserts this parser and the real registry stay
- * in agreement.
+ * in agreement. Taglines live in src/shell/tool-copy.ts (kept out of the
+ * entry chunk) and are joined in by slug.
  */
 
 export interface ToolSeoMeta {
@@ -36,7 +37,17 @@ function quotedField(chunk: string, field: string): string | undefined {
   return match ? match[1].replace(/\\(.)/g, '$1') : undefined
 }
 
-export function parseToolMeta(source: string): ToolSeoMeta[] {
+/** `slug: 'tagline'` pairs from src/shell/tool-copy.ts (slugs bare or quoted). */
+export function parseTaglines(source: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const match of source.matchAll(/^\s*'?([a-z0-9-]+)'?:\s*'((?:[^'\\]|\\.)*)',?\s*$/gm)) {
+    out[match[1]] = match[2].replace(/\\(.)/g, '$1')
+  }
+  return out
+}
+
+export function parseToolMeta(source: string, copySource: string): ToolSeoMeta[] {
+  const taglines = parseTaglines(copySource)
   // Split at each entry's slug — the ToolMeta interface declares `slug: string`
   // without quotes, so the type definition never matches.
   const chunks = source.split(/(?=\bslug:\s*')/g).slice(1)
@@ -44,7 +55,7 @@ export function parseToolMeta(source: string): ToolSeoMeta[] {
   for (const chunk of chunks) {
     const slug = quotedField(chunk, 'slug')
     const name = quotedField(chunk, 'name')
-    const tagline = quotedField(chunk, 'tagline')
+    const tagline = slug ? taglines[slug] : undefined
     const category = quotedField(chunk, 'category')
     if (slug && name && tagline && category) tools.push({ slug, name, tagline, category })
   }

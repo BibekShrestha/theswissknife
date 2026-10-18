@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest'
 import readme from '../../README.md?raw'
 import { buildDescription, buildJsonLd, buildSitemap, parseToolMeta } from '../../scripts/tool-meta'
 import registrySource from './registry.ts?raw'
+import copySource from './tool-copy.ts?raw'
 import { categories } from './Landing'
 import { tools } from './registry'
 import { ToolSidebar } from './ToolSidebar'
 
 /**
- * "One folder plus one registry line" only holds if a registry line is enough
+ * "One folder plus one registry line (and a tagline)" only holds if a registry line is enough
  * to appear everywhere. It has not always been: the landing page, the README
  * table and the meta descriptions were each maintained by hand, and each went
  * stale the moment a tool was added.
@@ -18,7 +19,7 @@ import { ToolSidebar } from './ToolSidebar'
  * exists but nobody can find it — not a cosmetic problem.
  */
 
-const meta = parseToolMeta(registrySource)
+const meta = parseToolMeta(registrySource, copySource)
 
 describe('the landing page lists every tool', () => {
   it('has a category for each tool', () => {

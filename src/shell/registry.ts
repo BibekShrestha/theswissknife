@@ -5,12 +5,15 @@ import type { ComponentType } from 'react'
  * src/tools/<slug>/ whose index.tsx default-exports its component; the
  * dynamic import here is what makes it a lazy chunk — tool code loads
  * only when its route is opened.
+ *
+ * This file ships in the entry chunk, so it holds only what first paint
+ * draws. Each tool's tagline lives in ./tool-copy.ts, which loads with the
+ * palette or the first search keystroke.
  */
 
 export interface ToolMeta {
   slug: string
   name: string
-  tagline: string
   /** Short typographic mark shown on the landing card. */
   mark: string
   category: 'data' | 'security' | 'text' | 'docs' | 'time' | 'pdf' | 'image'
@@ -21,7 +24,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'jq',
     name: 'jq playground',
-    tagline: 'Run real jq 1.8.2 on your JSON — every flag, autocomplete, all in your browser',
     mark: 'jq',
     category: 'data',
     load: () => import('../tools/jq'),
@@ -29,7 +31,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'jwt',
     name: 'JWT decode & generate',
-    tagline: 'Decode, verify, generate and sign JSON Web Tokens — keys never leave your machine',
     mark: 'JWT',
     category: 'security',
     load: () => import('../tools/jwt'),
@@ -37,7 +38,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'ssl',
     name: 'SSL certificate verifier',
-    tagline: 'Inspect certificates, check expiry and hostname coverage, and verify chain signatures locally',
     mark: 'TLS',
     category: 'security',
     load: () => import('../tools/ssl'),
@@ -45,7 +45,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'hash',
     name: 'Hash & HMAC',
-    tagline: 'SHA-1, SHA-256, SHA-384 and SHA-512 digests and HMACs of text or files, with checksum compare',
     mark: '#',
     category: 'security',
     load: () => import('../tools/hash'),
@@ -53,7 +52,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'regex',
     name: 'Regex lab',
-    tagline: 'Match and replace with JavaScript regex in a local worker that stops runaway patterns',
     mark: '.*',
     category: 'text',
     load: () => import('../tools/regex'),
@@ -61,7 +59,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'redact',
     name: 'Text redactor',
-    tagline: 'Black out text with block characters — the shape stays, the words are gone for good',
     mark: '█',
     category: 'text',
     load: () => import('../tools/redact'),
@@ -69,7 +66,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'codec',
     name: 'Codec studio',
-    tagline: 'Encode and decode Base64, URLs, HTML entities and UTF-8 hex without uploads',
     mark: '⇄',
     category: 'text',
     load: () => import('../tools/codec'),
@@ -77,7 +73,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'diff',
     name: 'Diff',
-    tagline: 'Compare text or JSON line by line with word highlights, and export a unified patch',
     mark: '±',
     category: 'text',
     load: () => import('../tools/diff'),
@@ -85,7 +80,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'markdown',
     name: 'Markdown preview & export',
-    tagline: 'Live Markdown preview with math and diagrams — export one self-contained HTML file or a PDF',
     mark: 'M↓',
     category: 'docs',
     load: () => import('../tools/markdown'),
@@ -93,7 +87,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'time',
     name: 'Unix time',
-    tagline: 'Convert seconds through nanoseconds into precise local, UTC and zoned time',
     mark: 'UTC',
     category: 'time',
     load: () => import('../tools/time'),
@@ -101,7 +94,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'cron',
     name: 'Cron explainer',
-    tagline: 'Read a cron expression in plain English and see its next run times in any time zone',
     mark: '*/5',
     category: 'time',
     load: () => import('../tools/cron'),
@@ -109,7 +101,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'dates',
     name: 'Dates & time zones',
-    tagline: 'Plan a meeting across time zones with DST-aware hour strips, and do date differences and ISO 8601 duration math',
     mark: 'TZ',
     category: 'time',
     load: () => import('../tools/dates'),
@@ -117,7 +108,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'pdf',
     name: 'PDF Buddy',
-    tagline: 'Merge, split, convert, compress, watermark, protect, and unlock PDFs — all client-side',
     mark: 'PDF',
     category: 'pdf',
     load: () => import('../tools/pdf'),
@@ -125,7 +115,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'image',
     name: 'Image converter',
-    tagline: 'Convert, resize and compress JPEG, PNG, WebP and GIF — batch, with a size target',
     mark: 'IMG',
     category: 'image',
     load: () => import('../tools/image'),
@@ -133,7 +122,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'qr',
     name: 'QR code generator & scanner',
-    tagline: 'Make QR codes for links, Wi-Fi, contacts and events, or read one from an image or paste — all offline',
     mark: 'QR',
     category: 'image',
     load: () => import('../tools/qr'),
@@ -141,7 +129,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'csv',
     name: 'CSV viewer',
-    tagline: 'Paste or drop a CSV and read it as a real table — sort, search, filter, group, edit and export offline',
     mark: 'CSV',
     category: 'data',
     load: () => import('../tools/csv'),
@@ -149,7 +136,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'html-table',
     name: 'HTML table extractor',
-    tagline: 'Pull any HTML table into CSV, JSON or Markdown — colspan and rowspan handled',
     mark: '▦',
     category: 'data',
     load: () => import('../tools/html-table'),
@@ -157,7 +143,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'uuid',
     name: 'UUID & ULID',
-    tagline: 'Generate v4, v7 and ULID batches, or inspect any UUID or ULID — version, variant, embedded time, and conversions to ULID, hex and base64url',
     mark: 'ID',
     category: 'data',
     load: () => import('../tools/uuid'),
@@ -165,7 +150,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'convert',
     name: 'YAML / JSON / TOML converter',
-    tagline: 'Convert between YAML, JSON and TOML with exact big integers, line-and-column errors and a warning for anything lost',
     mark: 'YJT',
     category: 'data',
     load: () => import('../tools/convert'),
@@ -173,7 +157,6 @@ export const tools: ToolMeta[] = [
   {
     slug: 'sqlite',
     name: 'SQLite viewer',
-    tagline: 'Open a SQLite file in your browser — browse tables, run SQL, export CSV, JSON or the edited database',
     mark: 'SQL',
     category: 'data',
     load: () => import('../tools/sqlite'),
