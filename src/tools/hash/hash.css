@@ -86,14 +86,14 @@
 
 .hash-input { font: 13px var(--font-mono); width: 100%; }
 
-.hash-seg { align-self: flex-start; border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.hash-seg { align-self: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; overflow: hidden; }
 .hash-pane > header .hash-seg { margin-left: auto; }
 .hash-seg button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12px; padding: 3px 12px; }
 .hash-seg button + button { border-left: 1px solid var(--border); }
 .hash-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
 
 .hash-note { color: var(--muted); font-size: 12px; margin: 0; }
-.hash-error { background: var(--err-bg); border: 1px solid var(--err); border-radius: 6px; color: var(--err); font: 12.5px/1.5 var(--font-mono); margin: 0; padding: 8px 10px; }
+.hash-error { background: var(--err-bg); border: 1px solid var(--err); border-radius: var(--radius-sm); color: var(--err); font: 12.5px/1.5 var(--font-mono); margin: 0; padding: 8px 10px; }
 
 .hash-compare { border-left: 3px solid var(--border); font-size: 12.5px; margin: 0; padding: 4px 10px; }
 .hash-compare.is-empty { color: var(--muted); }

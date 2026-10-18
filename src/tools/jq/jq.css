@@ -38,7 +38,7 @@
   resize: none;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 9px 12px;
   font-family: var(--font-mono);
   font-size: 14px;
@@ -60,7 +60,7 @@
 .filter-editor .cm-editor {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   max-height: 40vh;
   font-size: 14px;
 }
@@ -106,7 +106,7 @@
 .cm-tooltip {
   background: var(--panel-2) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: var(--text);
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -168,7 +168,7 @@
   color: var(--on-accent);
   font-weight: 600;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   white-space: nowrap;
 }
 
@@ -190,7 +190,7 @@
 .options {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 6px 10px;
 }
 
@@ -366,7 +366,7 @@ button.settings-on {
 .icon-btn {
   padding: 3px 8px;
   color: var(--muted);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
 }
 
@@ -397,7 +397,7 @@ button.settings-on {
   flex: 1;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   overflow: hidden;
 }
 
@@ -493,7 +493,7 @@ button.settings-on {
   background: var(--warn-bg);
   color: var(--warn);
   border: 1px solid var(--warn);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 8px 10px;
   margin-bottom: 10px;
   font-size: 12.5px;
@@ -516,7 +516,7 @@ button.settings-on {
   color: var(--warn);
   background: color-mix(in srgb, var(--warn) 10%, transparent);
   border: 1px dashed var(--warn);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 6px 10px;
   margin-bottom: 8px;
   white-space: normal;
@@ -684,7 +684,7 @@ body.dragging .divider::after {
   background: transparent;
   border: none;
   padding: 3px 4px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   overflow-wrap: break-word;
 }
 

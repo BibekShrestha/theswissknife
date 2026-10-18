@@ -87,8 +87,14 @@ missing from any of them, including the README table.
   only go down.
 - Use the CSS variables from `src/shell/theme.css` (both themes come free).
   Text on an accent fill uses `--on-accent` (white fails contrast on the dark
-  accent); form-field outlines use `--control-border` (≥3:1 on every surface);
-  prefix tool class names with the slug (`.jwt-…`) to avoid collisions —
+  accent); form-field outlines use `--control-border` (≥3:1 on every surface).
+  Corners are square: use the `--radius-*` tokens (all 0), never a px radius —
+  pills (`--radius-pill`) are for status badges and toasts, `50%` for dots.
+  Sizes come from `--fs-*` (10.5px floor, mono labels only), uppercase mono
+  labels from `font: var(--label); letter-spacing: var(--label-track)`, and
+  spacing/elevation from `--sp-*` / `--elev-*`. Text is the platform UI font;
+  `--font-display` (self-hosted Inter Tight subset) is for the hero and brands.
+  Prefix tool class names with the slug (`.jwt-…`) to avoid collisions —
   tool CSS is global once loaded. `html-table` uses `htable-`. jq predates the
   rule and still has unprefixed classes; don't copy that, and don't add new
   bare class names that another tool might also define.
@@ -122,6 +128,10 @@ the precache list built by `scripts/sw-manifest.ts`.
   if the font is not precached or exceeds 64 KiB. `font-display: block` stays:
   with a precached 25 KB font the block period is negligible, and `swap` would
   flash the names as words.
+- **So is the display face.** `src/shell/InterTight-display.woff2` (~16 KB,
+  Inter Tight, OFL — licence in `scripts/fonts/inter-tight/`) holds weights
+  600–900 and printable ASCII only; it rides in with the shell like the icon
+  font. `check-bundle.mjs` fails if it is not precached or exceeds 32 KiB.
 - `src/shell/pwa.ts` registers the worker and renders the update prompt; it is
   imported lazily from `main.tsx` to stay out of the entry chunk, and is plain
   DOM rather than React for the same reason. Dev never registers a worker.
@@ -142,6 +152,9 @@ the precache list built by `scripts/sw-manifest.ts`.
   `scripts/fonts/MaterialSymbolsOutlined-full.woff2` (one-shot; commit the
   output). Needs Node >= 22.18 and Python 3 with `pip install fonttools brotli`
   (`PYTHON=/path/to/venv/python` to pick the interpreter)
+- `npm run display-font` — rebuild the display font subset from
+  `scripts/fonts/inter-tight/` (one-shot; commit the output; same fontTools
+  prerequisite)
 - `npm run icons` — regenerate `public/icons/*.png` from the site mark
   (one-shot; commit the output — the build does not run it)
 

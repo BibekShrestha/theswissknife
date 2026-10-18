@@ -20,7 +20,7 @@
 .jwt-tabs {
   display: inline-flex;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -74,7 +74,7 @@
 .jwt-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -201,7 +201,7 @@
   background: var(--err-bg);
   color: var(--err);
   border: 1px solid var(--err);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 8px 10px;
   font-size: 12.5px;
 }
@@ -309,7 +309,7 @@
   min-width: 120px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 5px 9px;
 }
 
@@ -338,7 +338,7 @@
   resize: vertical;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 8px 10px;
   font-size: 11.5px;
   line-height: 1.45;

@@ -40,7 +40,7 @@
 .md-check { align-items: center; cursor: pointer; display: inline-flex; font-size: 13px; gap: 7px; }
 .md-check input { accent-color: var(--accent); margin: 0; }
 
-.md-seg { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; max-width: 100%; overflow: hidden; width: max-content; }
+.md-seg { border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; max-width: 100%; overflow: hidden; width: max-content; }
 .md-seg button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; min-height: 28px; padding: 3px 12px; white-space: nowrap; }
 .md-seg button + button { border-left: 1px solid var(--border); }
 .md-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
@@ -113,7 +113,7 @@
 .md-gutter { cursor: col-resize; position: relative; touch-action: none; }
 .md-gutter::after {
   background: var(--border);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   content: '';
   height: 36px;
   left: 3px;
@@ -150,7 +150,7 @@
 @container (max-width: 900px) {
   .md-tabs {
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     display: inline-flex;
     margin: 10px clamp(10px, 2vw, 20px) 0;
     overflow: hidden;

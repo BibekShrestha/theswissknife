@@ -26,7 +26,7 @@
 
 .diff-toggle-wrap { align-items: center; display: flex; gap: 9px; }
 .diff-toggle-wrap > span { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
-.diff-toggle { border: 1px solid var(--border); border-radius: 999px; display: inline-flex; overflow: hidden; }
+.diff-toggle { border: 1px solid var(--border); border-radius: var(--radius-sm); display: inline-flex; overflow: hidden; }
 .diff-toggle button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
 .diff-toggle button + button { border-left: 1px solid var(--border); }
 .diff-toggle button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
@@ -108,7 +108,7 @@
 .diff-row.is-add .diff-sign { color: var(--ok); }
 .diff-row.is-del .diff-sign { color: var(--err); }
 
-.diff-code mark { background: transparent; border-radius: 2px; color: inherit; }
+.diff-code mark { background: transparent; border-radius: var(--radius-xs); color: inherit; }
 .diff-split .diff-code.is-add mark, .diff-unified .is-add mark { background: var(--diff-add-mark); }
 .diff-split .diff-code.is-del mark, .diff-unified .is-del mark { background: var(--diff-del-mark); }
 .diff-noeol { color: var(--muted); font-size: 11px; }
