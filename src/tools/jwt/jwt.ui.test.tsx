@@ -27,7 +27,26 @@ async function render(node: React.ReactNode): Promise<HTMLDivElement> {
   return host
 }
 
-const settle = (ms = 450) => act(async () => { await new Promise((r) => setTimeout(r, ms)) })
+/**
+ * Let time pass in short act() slices. act() defers React's renders and
+ * effects to the end of its scope, so one long act would hide any effect
+ * that a state update triggers (e.g. the private key → derive public key
+ * chain) until after the wait; whether that second async stage then landed
+ * in time depended on how the Node version schedules WebCrypto callbacks.
+ */
+async function settle(ms = 450) {
+  for (const end = Date.now() + ms; Date.now() < end; ) {
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)) })
+  }
+}
+
+/** Wait (in act slices) until `ready()` holds, failing after `ms`. */
+async function waitFor(ready: () => boolean, ms = 5000) {
+  for (const end = Date.now() + ms; !ready(); ) {
+    if (Date.now() > end) throw new Error('timed out waiting for the UI')
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)) })
+  }
+}
 
 async function type(el: HTMLTextAreaElement | HTMLInputElement | HTMLSelectElement, value: string) {
   const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype
@@ -106,20 +125,21 @@ describe('GenerateView public key (JWT-5)', () => {
   it('re-derives the shown public key when the private key or alg changes', async () => {
     const el = await render(<GenerateView onCopy={() => {}} />)
     await type(byLabel(el, 'Signing algorithm'), 'ES256')
+    const pub = () => el.querySelector<HTMLTextAreaElement>('[aria-label="Generated public key"]')
     await act(async () => el.querySelector<HTMLButtonElement>('.jwt-card-actions button')!.click())
-    await settle(200)
-    const first = byLabel<HTMLTextAreaElement>(el, 'Generated public key').value
+    await waitFor(() => Boolean(pub()))
+    const first = pub()!.value
     expect(first).toContain('BEGIN PUBLIC KEY')
 
     const other = await generateKeyMaterial('ES256')
     if (other.kind !== 'pair') throw new Error('expected pair')
     await type(byLabel(el, 'Private key to sign with'), other.privatePem)
-    await settle(200)
-    expect(byLabel<HTMLTextAreaElement>(el, 'Generated public key').value).toBe(other.publicPem)
+    await waitFor(() => pub()?.value === other.publicPem)
+    expect(pub()!.value).not.toBe(first)
 
     await type(byLabel(el, 'Signing algorithm'), 'ES384')
-    await settle(200)
-    expect(el.querySelector('[aria-label="Generated public key"]')).toBeNull()
+    await settle(300) // a P-256 key cannot be used for ES384: nothing may appear
+    expect(pub()).toBeNull()
   })
 })
 
