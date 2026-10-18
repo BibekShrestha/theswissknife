@@ -203,3 +203,12 @@ export function nextRuns(cron: CronExpression, zone: string, from: number, count
   }
   return { runs, skipped, never: runs.length === 0 }
 }
+
+/**
+ * Why a schedule has no runs: no date in the 400-year cycle matches at all
+ * (30 February), or every match is a wall time a DST gap skips.
+ */
+export function emptyReason(result: NextRunsResult): 'no-date' | 'dst-gaps' | null {
+  if (!result.never) return null
+  return result.skipped.length > 0 ? 'dst-gaps' : 'no-date'
+}

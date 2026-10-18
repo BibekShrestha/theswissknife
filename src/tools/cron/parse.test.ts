@@ -97,6 +97,16 @@ describe('parse errors', () => {
     expect(err('0 0 L * *').message).toMatch(/Quartz/)
     expect(err('0 0 * * 5#2').message).toMatch(/Quartz/)
     expect(err('0 0 ? * *').message).toMatch(/Quartz/)
+  })
+
+  it('gives the Quartz message for L, W and ? in the name fields too (CRON-4)', () => {
+    expect(err('0 0 * * L').message).toMatch(/Quartz/)
+    expect(err('0 0 * * 5L').message).toMatch(/Quartz/)
+    expect(err('0 0 * * ?').message).toMatch(/Quartz/)
+    expect(err('0 0 * L *').message).toMatch(/Quartz/)
+    // Real names that start with W or end in L still parse.
+    expect(ok('0 0 * JUL WED').dayOfWeek.values).toEqual([3])
+    expect(ok('0 0 * JUL WED').month.values).toEqual([7])
     expect(err('0 0 * * MON-').message).toMatch(/missing its end/)
     expect(err('-5 * * * *').message).toMatch(/negative/)
     expect(err('1-2-3 * * * *').message).toMatch(/not a valid range/)
