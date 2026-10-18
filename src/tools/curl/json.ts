@@ -193,11 +193,25 @@ export function stringMembers(text: string, tokens = scanJson(text)): JsonMember
   return members
 }
 
+/** Every object member whose value is a number, at any depth; the span is the number itself. */
+export function numberMembers(text: string, tokens = scanJson(text)): JsonMember[] {
+  if (!tokens) return []
+  const members: JsonMember[] = []
+  for (let k = 0; k + 2 < tokens.length; k++) {
+    const key = tokens[k]
+    if (key.type !== 'string' || tokens[k + 1].type !== ':' || tokens[k + 2].type !== 'number') continue
+    members.push({ key: JSON.parse(text.slice(key.start, key.end)) as string, start: tokens[k + 2].start, end: tokens[k + 2].end })
+  }
+  return members
+}
+
 /**
  * The parsed value when a generator may print it as a literal and serialise
  * it back byte for byte: the text is already compact (what JSON.stringify
- * writes), every number is a safe integer, and no key is __proto__ (which an
- * object literal would treat as the prototype).
+ * writes), every number is a safe integer, no key is __proto__ (which an
+ * object literal would treat as the prototype), and no control character
+ * sits raw in a string (DEL is legal unescaped JSON, but json.dumps writes
+ * it as \u007f).
  */
 export function exactJsonValue(text: string): unknown {
   const tokens = scanJson(text)
@@ -208,6 +222,8 @@ export function exactJsonValue(text: string): unknown {
     if (!/^-?(?:0|[1-9]\d*)$/.test(raw) || !Number.isSafeInteger(Number(raw)) || raw === '-0') return undefined
   }
   if (text.includes('"__proto__"')) return undefined
+  // JSON leaves DEL and C1 controls raw; json.dumps and other encoders escape them.
+  if (/[\u007f-\u009f]/.test(text)) return undefined
   const value = JSON.parse(text) as unknown
   return JSON.stringify(value) === text ? value : undefined
 }

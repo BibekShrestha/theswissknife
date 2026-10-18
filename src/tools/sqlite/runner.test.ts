@@ -68,7 +68,7 @@ describe('sqlite runner', () => {
     await runner.open(fileBytes())
     expect(await runner.call('count', { table: 't' })).toBe(2)
     const out = await runner.call('exec', { sql: 'SELECT a FROM t' })
-    expect(out.results[0].rows).toEqual([[1], [2]])
+    expect(out.results[0].rows).toEqual([[1n], [2n]])
     expect(spawn).toHaveBeenCalledTimes(1)
   })
 

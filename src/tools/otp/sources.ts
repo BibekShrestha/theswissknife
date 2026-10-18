@@ -9,11 +9,15 @@ import { parseOtpauth, type Account } from './uri'
  * whose groups of four may be separated by spaces.
  */
 
-export type Source =
+export type Source = (
   | { kind: 'secret'; origin: string; secret: Uint8Array; normalized: string }
   | { kind: 'otpauth'; origin: string; account: Account; warnings: string[] }
   | { kind: 'migration'; origin: string; payload: MigrationPayload }
   | { kind: 'invalid'; origin: string; error: string }
+) & {
+  /** Which input it came from (the text field, one scanned image's code), so entry ids survive edits elsewhere. */
+  group?: string
+}
 
 export function parseToken(token: string, origin: string): Source {
   if (/^otpauth-migration:/i.test(token)) {

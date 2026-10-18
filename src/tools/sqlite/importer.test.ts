@@ -13,6 +13,7 @@ import {
   type ImportProgress,
   type ReadOptions,
 } from './importer'
+import { runScript } from './engine'
 import { toCsv, type Cell } from './sql'
 
 // The real sql.js wasm, as in engine.test.ts.
@@ -51,14 +52,15 @@ describe('CSV round trip', () => {
   const CORPUS = [
     'id,"name, full","quote ""q""",note,zip,big,when,price',
     '1,"Alvarez, R","said ""no""","two\r\nlines",00501,9007199254740993,2024-02-29,1.5',
-    '2,Ünïcödé 名前,"""",plain,02134,12345678901234567890,2024-03-01T10:20:30Z,2',
+    '2,Ünïcödé 名前,"""",plain,02134,12345678901234567890,2024-03-01T10:20:30Z,2.0',
     '3,,,",",10001,-9007199254740993,1999-12-31 23:59,-0.25',
     '4,tab\there,x,"line\nfeed",99999,1,2000-01-01,3e-7',
   ].join('\r\n') + '\r\n'
 
   it('exports exactly the CSV it imported', async () => {
     const db = await importOne(CORPUS)
-    const { columns, values } = rows(db, 'SELECT * FROM t')
+    // Through the engine, as the tool reads it: INTEGER as bigint, REAL as number.
+    const { columns, rows: values } = runScript(db, 'SELECT * FROM t').results[0]
     expect(toCsv(columns, values)).toBe(CORPUS)
   })
 
@@ -98,7 +100,8 @@ describe('type inference', () => {
 
   it('widens integers to REAL and flags numbers whose text would change', () => {
     const [a, b] = plan('a,b\n1,1.50\n2.5,+3\n')
-    expect(a).toMatchObject({ type: 'REAL', note: null })
+    expect(a).toMatchObject({ type: 'REAL', note: 'stored as numbers: 1 reads back as 1.0' })
+    expect(plan('a\n1.0\n2.5\n')[0]).toMatchObject({ type: 'REAL', note: null })
     expect(b).toMatchObject({ type: 'REAL', note: expect.stringContaining('1.50 reads back as 1.5') })
   })
 
@@ -202,9 +205,11 @@ describe('JSON and JSON Lines', () => {
     expect(a.issues.join(' ')).toMatch(/2 lines not valid JSON and skipped \(line 2, 5\)/)
   })
 
-  it('recovers a .json file that is really JSON Lines, and unwraps {"data": [...]}', () => {
+  it('recovers a .json file that is really JSON Lines, and unwraps {"data": [...]} when asked', () => {
     expect(analyze(file('x.json', '{"a":1}\n{"a":2}\n'), opts())).toMatchObject({ format: 'jsonl', rows: 2 })
-    const wrapped = analyze(file('x.json', '{"data":[{"a":1},{"a":2}],"total":2}'), opts())
+    const text = '{"data":[{"a":1},{"a":2}],"total":2}'
+    expect(analyze(file('x.json', text), opts())).toMatchObject({ rows: 1, jsonArrays: ['data'] })
+    const wrapped = analyze(file('x.json', text), opts({ jsonRows: 'data' }))
     expect(wrapped).toMatchObject({ rows: 2, columns: [{ name: 'a' }] })
     expect(wrapped.issues[0]).toContain('"data"')
   })

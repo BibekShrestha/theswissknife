@@ -43,9 +43,14 @@ export function parseUuid(input: string): UuidParse {
   }
   let hex: string
   if (text.length === 36) {
-    for (const at of [8, 13, 18, 23]) {
+    const groups = [8, 13, 18, 23]
+    for (const at of groups) {
       if (text[at] !== '-') return { bytes: null, error: `Expected '-' at position ${at + 1} (8-4-4-4-12 groups).` }
     }
+    // Every other position must be a hex digit, or a stray '-' elsewhere would
+    // leave 31 digits that still look like 16 bytes.
+    const stray = [...text].findIndex((char, at) => char === '-' && !groups.includes(at))
+    if (stray >= 0) return { bytes: null, error: `Unexpected '-' at position ${stray + 1} (8-4-4-4-12 groups).` }
     hex = text.replaceAll('-', '')
   } else if (text.length === 32) {
     hex = text
@@ -270,7 +275,8 @@ export function uuidV4(rng: Rng = cryptoRng): Uint8Array {
  * bits of rand_a and rand_b act as one counter. A new millisecond seeds it
  * from getRandomValues; within the same millisecond (or if the clock steps
  * back) it is incremented by one. On counter overflow the timestamp moves
- * to the next millisecond, which §6.2 permits.
+ * to the next millisecond, which §6.2 permits — unless that would leave the
+ * 48-bit range, which throws rather than wrapping to 1970.
  */
 export function createV7Generator(rng: Rng = cryptoRng, now: () => number = Date.now) {
   let lastTime = -1
@@ -286,7 +292,11 @@ export function createV7Generator(rng: Rng = cryptoRng, now: () => number = Date
     if (!Number.isInteger(time) || time < 0 || time >= 2 ** 48) throw new RangeError('Clock is outside the 48-bit v7 range.')
     if (time <= lastTime) {
       time = lastTime
-      if (counter === COUNTER_MAX) { time += 1; counter = seed() } else counter += 1n
+      if (counter === COUNTER_MAX) {
+        time += 1
+        if (time >= 2 ** 48) throw new RangeError('Counter overflow at the end of the 48-bit v7 timestamp range.')
+        counter = seed()
+      } else counter += 1n
     } else {
       counter = seed()
     }

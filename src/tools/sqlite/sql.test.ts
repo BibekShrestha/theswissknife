@@ -119,7 +119,9 @@ describe('formatCell', () => {
   })
 
   it('formats numbers and previews long text', () => {
-    expect(formatCell(42)).toEqual({ kind: 'number', text: '42' })
+    expect(formatCell(42n)).toEqual({ kind: 'number', text: '42' })
+    expect(formatCell(42)).toEqual({ kind: 'number', text: '42.0' })
+    expect(formatCell(1.5)).toEqual({ kind: 'number', text: '1.5' })
     expect(formatCell(9007199254740993n)).toEqual({ kind: 'number', text: '9007199254740993' })
     const long = formatCell('x'.repeat(1000))
     expect(long.text).toHaveLength(301)
@@ -130,9 +132,9 @@ describe('formatCell', () => {
 describe('export', () => {
   it('escapes CSV fields per RFC 4180', () => {
     const csv = toCsv(['id', 'note, with comma', 'q'], [
-      [1, 'plain', 'say "hi"'],
-      [2, 'line\nbreak', null],
-      [3, 'cr\rhere', new Uint8Array([0xde, 0xad])],
+      [1n, 'plain', 'say "hi"'],
+      [2n, 'line\nbreak', null],
+      [3n, 'cr\rhere', new Uint8Array([0xde, 0xad])],
     ])
     expect(csv).toBe(
       'id,"note, with comma",q\r\n' +
@@ -143,7 +145,7 @@ describe('export', () => {
   })
 
   it('writes JSON objects, de-duplicating column names', () => {
-    const json = JSON.parse(toJson(['a', 'a', 'b', 'c'], [[1, 2, new Uint8Array([1]), 9007199254740993n], [null, 'x', null, 3]]))
+    const json = JSON.parse(toJson(['a', 'a', 'b', 'c'], [[1n, 2n, new Uint8Array([1]), 9007199254740993n], [null, 'x', null, 3n]]))
     expect(json).toEqual([
       { a: 1, 'a (2)': 2, b: "X'01'", c: '9007199254740993' },
       { a: null, 'a (2)': 'x', b: null, c: 3 },

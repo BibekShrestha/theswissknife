@@ -1,5 +1,5 @@
-import { stringMembers } from './json'
-import { headerValue, type Arg, type Parsed } from './parse'
+import { numberMembers, stringMembers } from './json'
+import { headerValue, proxyUserinfo, urlencodeSplit, type Arg, type Parsed } from './parse'
 import { quoteFor, type Token } from './tokenize'
 
 /**
@@ -18,6 +18,8 @@ export interface Secret {
   /** Span in tokens[token].value. */
   start: number
   end: number
+  /** A JSON number: the placeholder goes in as a "string" so the body stays JSON. */
+  quote?: boolean
 }
 
 type Found = Omit<Secret, 'placeholder'> & { base: string }
@@ -28,8 +30,12 @@ export const MAX_SECRETS = 500
 const JWT = /^eyJ[\w-]{4,}\.[\w-]{4,}\.[\w-]*$/
 const SECRET_WORD = /(?:^|[-_.\s[\]])(?:token|tokens|key|apikey|sig|signature|password|passwd|pwd|pass|secret|auth|credential|credentials|session|sessionid|session_id|sid|jwt|bearer|otp|csrftoken)$/
 
-/** accessToken → access_token; X-Amz-Signature → x-amz-signature. */
-const words = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
+/** accessToken → access_token; XSessionId → x_session_id; X-Amz-Signature → x_amz_signature. */
+const words = (name: string) => name
+  .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+  .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
+  .toLowerCase()
+  .replace(/[-.\s]+/g, '_')
 
 export const isSecretName = (name: string) => SECRET_WORD.test(words(name.trim()))
 
@@ -52,11 +58,11 @@ export function findSecrets(parsed: Parsed): Secret[] {
   if (!parsed.ok) return []
   const { sources, tokens } = parsed
   const found: Found[] = []
-  const push = (arg: Arg, start: number, end: number, label: string, base: string) => {
+  const push = (arg: Arg, start: number, end: number, label: string, base: string, quote = false) => {
     if (found.length >= MAX_SECRETS) return
     const value = arg.value.slice(start, end)
     if (!value || PLACEHOLDER.test(value)) return
-    found.push({ label, value, token: arg.token, start: arg.offset + start, end: arg.offset + end, base })
+    found.push({ label, value, token: arg.token, start: arg.offset + start, end: arg.offset + end, base, ...(quote ? { quote } : {}) })
   }
 
   /** name=value&… inside arg.value[from, to). */
@@ -76,9 +82,13 @@ export function findSecrets(parsed: Parsed): Secret[] {
   }
 
   const json = (arg: Arg, where: string) => {
-    for (const member of stringMembers(arg.value)) {
+    const members = [
+      ...stringMembers(arg.value).map((member) => ({ ...member, number: false })),
+      ...numberMembers(arg.value).map((member) => ({ ...member, number: true })),
+    ].sort((a, b) => a.start - b.start)
+    for (const member of members) {
       const value = arg.value.slice(member.start, member.end)
-      if (isSecretName(member.key) || JWT.test(value)) push(arg, member.start, member.end, `${where} ${member.key}`, member.key)
+      if (isSecretName(member.key) || (!member.number && JWT.test(value))) push(arg, member.start, member.end, `${where} ${member.key}`, member.key, member.number)
     }
   }
 
@@ -116,6 +126,30 @@ export function findSecrets(parsed: Parsed): Secret[] {
     }
   }
   if (sources.bearer) push(sources.bearer, 0, sources.bearer.value.length, '--oauth2-bearer', 'TOKEN')
+
+  // ---- flags that are not converted but carry credentials
+  const userPassword = (arg: Arg, from: number, to: number, label: string, prefix: string) => {
+    const colon = arg.value.indexOf(':', from)
+    if (colon < 0 || colon >= to) push(arg, from, to, `${label} user`, `${prefix}USER`)
+    else {
+      push(arg, from, colon, `${label} user`, `${prefix}USER`)
+      push(arg, colon + 1, to, `${label} password`, `${prefix}PASSWORD`)
+    }
+  }
+  for (const { arg, flag } of sources.credentials) {
+    const value = arg.value
+    const label = `--${flag}`
+    if (flag === 'proxy-user') userPassword(arg, 0, value.length, label, 'PROXY_')
+    else if (flag === 'pass') push(arg, 0, value.length, label, 'KEY_PASSWORD')
+    else if (flag === 'proxy-pass') push(arg, 0, value.length, label, 'PROXY_KEY_PASSWORD')
+    else if (flag === 'cert' || flag === 'proxy-cert') {
+      const colon = certPasswordColon(value)
+      if (colon >= 0) push(arg, colon + 1, value.length, `${label} password`, flag === 'cert' ? 'CERT_PASSWORD' : 'PROXY_CERT_PASSWORD')
+    } else if (flag !== 'proxy-header') {
+      const userinfo = proxyUserinfo(value)
+      if (userinfo) userPassword(arg, userinfo.start, userinfo.end, label, 'PROXY_')
+    }
+  }
 
   // ---- headers, -b, -e
   for (const { arg, name, valueOffset } of sources.headers) {
@@ -159,11 +193,11 @@ export function findSecrets(parsed: Parsed): Secret[] {
     if (value.startsWith('@') && kind !== 'raw' && kind !== 'urlencode') continue
     const where = sources.get ? 'Query' : 'Body'
     if (kind === 'urlencode') {
-      const at = value.search(/[=@]/)
+      const at = urlencodeSplit(value)
       if (at > 0 && value[at] === '=' && isSecretName(value.slice(0, at))) push(arg, at + 1, value.length, `${where} ${value.slice(0, at)}`, value.slice(0, at))
     } else if (/^\s*[{[]/.test(value)) json(arg, 'JSON')
     else if (boundary) multipart(arg, boundary[1] ?? boundary[2], push)
-    else if (!/\s/.test(value) && value.includes('=')) pairs(arg, 0, value.length, where)
+    else if (isFormBody(value)) pairs(arg, 0, value.length, where)
   }
   for (const { arg, literal } of sources.forms) {
     const value = arg.value
@@ -183,6 +217,22 @@ export function findSecrets(parsed: Parsed): Secret[] {
   }
 
   return finish(found, tokens)
+}
+
+/** name=value&…: every name free of spaces (values may hold them), so prose with an "=" is not taken for a form. */
+const isFormBody = (value: string) => value.includes('=') && value.split('&').every((piece) => /^[^\s=]*(?:=|$)/.test(piece))
+
+/**
+ * -E/--cert certificate[:password]: the first ':' not escaped as '\:' and
+ * not a Windows drive letter's. A PKCS#11 URI has no password part.
+ */
+function certPasswordColon(value: string): number {
+  if (/^pkcs11:/i.test(value)) return -1
+  for (let i = /^[A-Za-z]:[\\/]/.test(value) ? 2 : 0; i < value.length; i++) {
+    if (value[i] === '\\' && value[i + 1] === ':') i++
+    else if (value[i] === ':') return i
+  }
+  return -1
 }
 
 /** Raw multipart bodies (what browsers copy for FormData): fields whose name looks secret. */
@@ -275,7 +325,7 @@ export function redactInput(parsed: Parsed, secrets: Secret[]): string {
     const parts: string[] = []
     let at = 0
     for (const secret of [...list].sort((a, b) => a.start - b.start)) {
-      parts.push(value.slice(at, secret.start), secret.placeholder)
+      parts.push(value.slice(at, secret.start), secret.quote ? `"${secret.placeholder}"` : secret.placeholder)
       at = secret.end
     }
     parts.push(value.slice(at))
