@@ -89,29 +89,54 @@ function score(command: Command, query: string): number {
   return 0
 }
 
-/** Best match first; ties keep registry order so the list never jitters. */
-export function rank(commands: Command[], query: string): Command[] {
+/**
+ * Best match first; ties keep registry order so the list never jitters.
+ * `minScore` 3 keeps only prefix and substring matches (no subsequences).
+ */
+export function rank(commands: Command[], query: string, minScore = 1): Command[] {
   const q = query.trim().toLowerCase()
   if (q === '') return commands
   return commands
     .map((command, index) => ({ command, index, score: score(command, q) }))
-    .filter((row) => row.score > 0)
+    .filter((row) => row.score >= minScore)
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((row) => row.command)
 }
 
 /**
+ * Everyday names for what a tool does that appear in neither its name nor its
+ * slug, for mistyped URLs ("/base64" → Codec studio). Word prefix → slug;
+ * slugs missing from the registry are ignored.
+ */
+export const PATH_ALIASES: Record<string, string> = {
+  base64: 'codec',
+  urlencode: 'codec',
+  sha1: 'hash',
+  sha256: 'hash',
+  sha384: 'hash',
+  sha512: 'hash',
+  epoch: 'time',
+  x509: 'ssl',
+  '2fa': 'otp',
+}
+
+/**
  * Tools whose name or slug matches a word of a mistyped path — "jwt-decoder"
- * suggests JWT, "pdfs" PDF Buddy. Taglines are ignored so a stray word doesn't match half the
- * site.
+ * suggests JWT, "pdfs" PDF Buddy. Taglines are ignored so a stray word doesn't
+ * match half the site, and a path of several words only matches by prefix or
+ * substring: letter-by-letter subsequences turned "/api/v1/users" into
+ * Markdown.
  */
 export function suggestForPath<T extends ToolMeta>(list: T[], path: string, limit = 3): T[] {
   const byName = toCommands(list).slice(1).map((command) => ({ ...command, hint: '' }))
+  const words = path.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2)
+  const minScore = words.length > 1 ? 3 : 1
   const seen = new Set<string>()
-  for (const word of path.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2)) {
-    for (const command of rank(byName, word)) seen.add(command.to.slice(1))
+  for (const word of words) {
+    for (const command of rank(byName, word, minScore)) seen.add(command.to.slice(1))
     // "pdfs" or "jwtdecode": the word starts with a slug.
     for (const tool of list) if (tool.slug.length >= 2 && word.startsWith(tool.slug)) seen.add(tool.slug)
+    for (const [alias, slug] of Object.entries(PATH_ALIASES)) if (word.startsWith(alias)) seen.add(slug)
   }
   return list.filter((tool) => seen.has(tool.slug)).slice(0, limit)
 }

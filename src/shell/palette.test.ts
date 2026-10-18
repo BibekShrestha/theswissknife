@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPaletteKey, rank, suggestForPath, toCommands, type KeyLike } from './palette'
+import { isPaletteKey, PATH_ALIASES, rank, suggestForPath, toCommands, type KeyLike } from './palette'
 import { tools } from './registry'
 import { taglines } from './tool-copy'
 
@@ -118,5 +118,23 @@ describe('suggestForPath', () => {
 
   it('caps the list at three', () => {
     expect(suggestForPath(tools, 'c-co-con-conv').length).toBeLessThanOrEqual(3)
+  })
+
+  it('does not stretch a loose subsequence over a multi-word path', () => {
+    // Stray words like "users" and "admin" used to match tool names letter by letter.
+    expect(slugs('api/v1/users')).toEqual([])
+    expect(slugs('wp-admin/login.php')).toEqual([])
+    expect(slugs('tools/json-format')).toEqual(['convert'])
+  })
+
+  it('knows a few everyday names for what a tool does', () => {
+    expect(slugs('base64')).toEqual(['codec'])
+    expect(slugs('sha256sum')).toEqual(['hash'])
+    expect(slugs('epoch-converter')).toContain('time')
+  })
+
+  it('only aliases tools that exist', () => {
+    const known = new Set(tools.map((tool) => tool.slug))
+    expect(Object.values(PATH_ALIASES).filter((slug) => !known.has(slug))).toEqual([])
   })
 })
