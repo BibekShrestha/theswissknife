@@ -4,6 +4,7 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { mergePdfs } from '../ops/organize'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function MergePdf() {
   const [files, setFiles] = useState<File[]>([])
@@ -35,15 +36,7 @@ export function MergePdf() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#fee2e2' }}>
-          <span className="material-symbols-outlined" style={{ color: '#dc2626' }}>merge</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Merge PDF</h2>
-          <p>Combine multiple PDFs into one document, in the order listed</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="merge" color="#dc2626" title="Merge PDF" description="Combine multiple PDFs into one document, in the order listed" />
 
       <FileDropzone files={files} onFilesChange={setFiles} />
       <FileList files={files} onFilesChange={setFiles} />
@@ -53,7 +46,7 @@ export function MergePdf() {
       </p>
 
       <button className="pdf-action-btn" disabled={files.length < 2 || processing} onClick={handleMerge}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Merging...' : files.length < 2 ? 'Select at least 2 PDFs' : `Merge ${files.length} PDFs`}
       </button>
 

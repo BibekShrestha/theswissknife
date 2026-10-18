@@ -4,6 +4,7 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { removePages } from '../ops/organize'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function RemovePages() {
   const [files, setFiles] = useState<File[]>([])
@@ -29,15 +30,7 @@ export function RemovePages() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#ffe4e6' }}>
-          <span className="material-symbols-outlined" style={{ color: '#e11d48' }}>delete</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Remove Pages</h2>
-          <p>Delete unwanted pages from your PDF</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="delete" color="#e11d48" title="Remove Pages" description="Delete unwanted pages from your PDF" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
@@ -51,7 +44,7 @@ export function RemovePages() {
       </div>
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleRemove}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Removing pages...' : 'Remove Pages'}
       </button>
 

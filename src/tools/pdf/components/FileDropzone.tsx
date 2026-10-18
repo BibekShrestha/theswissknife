@@ -52,7 +52,7 @@ export function FileDropzone({
     <div className="pdf-dropzone" {...getRootProps()} data-active={isDragActive ? '' : undefined}>
       <input {...getInputProps()} />
       <div className="pdf-dropzone-icon">
-        <span className="material-symbols-outlined">upload_file</span>
+        <span className="material-symbols-outlined" aria-hidden="true">upload_file</span>
       </div>
       <p className="pdf-dropzone-label">
         {files.length > 0 ? 'Add more files' : label}
@@ -77,12 +77,12 @@ export function FileList({ files, onFilesChange }: { files: File[]; onFilesChang
         {files.map((file, index) => (
           <div className="pdf-file-row" key={`${file.name}-${index}`}>
             <div className="pdf-file-icon">
-              <span className="material-symbols-outlined">description</span>
+              <span className="material-symbols-outlined" aria-hidden="true">description</span>
             </div>
             <span className="pdf-file-name">{file.name}</span>
             <span className="pdf-file-size">{formatSize(file.size)}</span>
             <button className="pdf-file-remove" onClick={() => removeFile(index)} aria-label={`Remove ${file.name}`}>
-              <span className="material-symbols-outlined">close</span>
+              <span className="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
         ))}

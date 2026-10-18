@@ -4,6 +4,7 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { reorderPages } from '../ops/organize'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function ReorderPages() {
   const [files, setFiles] = useState<File[]>([])
@@ -29,15 +30,7 @@ export function ReorderPages() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#fae8ff' }}>
-          <span className="material-symbols-outlined" style={{ color: '#d946ef' }}>swap_vert</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Reorder Pages</h2>
-          <p>Rearrange PDF pages by specifying a new order</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="swap_vert" color="#d946ef" title="Reorder Pages" description="Rearrange PDF pages by specifying a new order" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
@@ -49,7 +42,7 @@ export function ReorderPages() {
       </div>
 
       <button className="pdf-action-btn" disabled={files.length === 0 || !order || processing} onClick={handleReorder}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Reordering...' : 'Reorder Pages'}
       </button>
 
