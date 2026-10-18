@@ -114,7 +114,8 @@ function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 /**
  * Compare an expected checksum against every computed row. Whitespace is
  * ignored; hex is matched case-insensitively; Base64/Base64URL with or
- * without padding. A string that is valid as both is tried both ways. A
+ * without padding; hex may be colon-separated (AB:CD:…) or 0x-prefixed.
+ * A string that is valid as both is tried both ways. A
  * whole checksum line also works: `sha256sum` output ("<hash>  file") is
  * read by its first word, BSD style ("SHA256 (file) = <hash>") by its last.
  */
@@ -128,7 +129,12 @@ export function compareDigest(expected: string, rows: DigestRow[]): CompareResul
   let parsed = false
   const matches: CompareMatch[] = []
   for (const candidate of candidates) {
-    const asHex = parseHex(candidate)
+    // fingerprints are often written AB:CD:… (openssl, browsers) or 0x…;
+    // neither ':' nor a leading 0x changes what the Base64 reading sees
+    const hexForm = /^(?:[0-9a-f]{2}:)+[0-9a-f]{2}$/i.test(candidate)
+      ? candidate.replace(/:/g, '')
+      : /^0x[0-9a-f]+$/i.test(candidate) ? candidate.slice(2) : candidate
+    const asHex = parseHex(hexForm)
     const asBase64 = parseBase64(candidate)
     if (!asHex && !asBase64) continue
     parsed = true

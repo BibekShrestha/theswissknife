@@ -93,6 +93,7 @@
 .hash-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
 
 .hash-note { color: var(--muted); font-size: 12px; margin: 0; }
+.hash-computing { padding: 12px 14px; }
 .hash-error { background: var(--err-bg); border: 1px solid var(--err); border-radius: var(--radius-sm); color: var(--err); font: 12.5px/1.5 var(--font-mono); margin: 0; padding: 8px 10px; }
 
 .hash-compare { border-left: 3px solid var(--border); font-size: 12.5px; margin: 0; padding: 4px 10px; }

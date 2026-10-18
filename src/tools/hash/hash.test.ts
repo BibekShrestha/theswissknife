@@ -106,6 +106,17 @@ describe('compare', () => {
     expect(compareDigest('b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7', rows)).toEqual({ status: 'match', matches: [{ id: 'HMAC-SHA-256', encoding: 'hex' }] })
   })
 
+  it('accepts colon-separated fingerprints and a 0x prefix (HASH-2)', async () => {
+    const rows = await digestAll(utf8('abc'))
+    const match = { status: 'match', matches: [{ id: 'SHA-256', encoding: 'hex' }] }
+    const colons = sha256abc.toUpperCase().match(/../g)!.join(':')
+    expect(compareDigest(colons, rows)).toEqual(match)
+    expect(compareDigest(`0x${sha256abc}`, rows)).toEqual(match)
+    expect(compareDigest(`0X${sha256abc.toUpperCase()}`, rows)).toEqual(match)
+    expect(compareDigest(colons.replace(/:/g, ' : '), rows)).toEqual(match)
+    expect(compareDigest('ab:c:de', rows)).toEqual({ status: 'invalid' })
+  })
+
   it('reports none, invalid and empty', async () => {
     const rows = await digestAll(utf8('abc'))
     expect(compareDigest(sha256abc.replace('b', 'c'), rows)).toEqual({ status: 'none' })
