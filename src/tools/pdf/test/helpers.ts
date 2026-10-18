@@ -4,7 +4,7 @@
  * that wrote them.
  */
 import { readFile } from './node'
-import { PDFDocument, PDFName, PDFString, StandardFonts, degrees } from 'pdf-lib'
+import { PDFDict, PDFDocument, PDFName, PDFObject, PDFRawStream, PDFRef, PDFString, StandardFonts, decodePDFRawStream, degrees } from 'pdf-lib'
 
 type PdfJs = typeof import('pdfjs-dist')
 let pdfjsPromise: Promise<PdfJs> | null = null
@@ -101,4 +101,51 @@ export async function makeRichPdf(): Promise<Uint8Array> {
   doc.setTitle('Rich fixture')
   doc.setAuthor('Fixture author')
   return doc.save()
+}
+
+/**
+ * Appends an incremental update with a classic xref table (no /XRefStm) on
+ * top of `base`, the way many editors save: `objects` maps object numbers to
+ * their new bodies (PDF syntax).
+ */
+export function appendClassicUpdate(base: Uint8Array, objects: Record<number, string>): Uint8Array {
+  const text = new TextDecoder('latin1').decode(base)
+  const prev = Number([...text.matchAll(/startxref\s+(\d+)/g)].pop()![1])
+  const root = [...text.matchAll(/\/Root (\d+ \d+ R)/g)].pop()![1]
+  const size = Math.max(Number([...text.matchAll(/\/Size (\d+)/g)].pop()![1]), ...Object.keys(objects).map((n) => Number(n) + 1))
+  let body = '\n'
+  const offsets: [number, number][] = []
+  for (const [n, value] of Object.entries(objects)) {
+    offsets.push([Number(n), base.length + body.length])
+    body += `${n} 0 obj\n${value}\nendobj\n`
+  }
+  const xrefAt = base.length + body.length
+  body += 'xref\n0 1\n0000000000 65535 f \n'
+  for (const [n, at] of offsets) body += `${n} 1\n${String(at).padStart(10, '0')} 00000 n \n`
+  body += `trailer\n<< /Size ${size} /Root ${root} /Prev ${prev} >>\nstartxref\n${xrefAt}\n%%EOF\n`
+  const out = new Uint8Array(base.length + body.length)
+  out.set(base)
+  out.set(Uint8Array.from(body, (c) => c.charCodeAt(0)), base.length)
+  return out
+}
+
+/** Every indirect object of a file as pdf-lib parses it, streams decoded to latin1 text. */
+export async function rawObjects(bytes: Uint8Array): Promise<{ ref: PDFRef; object: PDFObject; text: string }[]> {
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false })
+  return doc.context.enumerateIndirectObjects().map(([ref, object]) => {
+    let text = object.toString()
+    if (object instanceof PDFRawStream) {
+      try {
+        text = new TextDecoder('latin1').decode(decodePDFRawStream(object).decode())
+      } catch {
+        text = new TextDecoder('latin1').decode(object.contents)
+      }
+    }
+    return { ref, object, text }
+  })
+}
+
+/** Number of /Type /Page dictionaries anywhere in the file (orphans included). */
+export async function pageObjectCount(bytes: Uint8Array): Promise<number> {
+  return (await rawObjects(bytes)).filter(({ object }) => object instanceof PDFDict && object.get(PDFName.of('Type')) === PDFName.of('Page')).length
 }

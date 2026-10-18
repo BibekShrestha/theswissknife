@@ -24,7 +24,7 @@ import {
   PDFString,
   PDFWriter,
 } from 'pdf-lib'
-import { objectStreamsCanBeLive, parsePdf } from '../parse'
+import { objectStreamsToUnpack, parsePdf } from '../parse'
 import { authenticate, createR6, ObjectCipher, type Method, type SecurityParams } from './standard'
 import { randomBytes } from './primitives'
 
@@ -195,7 +195,7 @@ export async function decryptPdf(bytes: Uint8Array, password: string): Promise<U
   }
   const cipher = new ObjectCipher(fileKey, params)
 
-  const context = await parsePdf(bytes, { unpackObjectStreams: objectStreamsCanBeLive(bytes), hook: async (ref, object) => {
+  const context = await parsePdf(bytes, { unpackObjectStreams: objectStreamsToUnpack(bytes), hook: async (ref, object) => {
     if (ref === encRef) return object
     const { objectNumber: n, generationNumber: g } = ref
     if (object instanceof PDFRawStream) {
