@@ -67,7 +67,7 @@ function showUpdateBanner(worker: ServiceWorker) {
  */
 function showActivatedBanner() {
   const { label, reload } = banner()
-  label.textContent = 'A new version is active. Reload to use it.'
+  label.textContent = 'A new version is active.'
   reload.disabled = false
   reload.onclick = reloadNow
 }
