@@ -14,24 +14,47 @@
 .uuid-tabs button, .uuid-seg button { background: transparent; border: 0; border-radius: 0; color: var(--muted); font-size: 12.5px; padding: 4px 14px; }
 .uuid-tabs button + button, .uuid-seg button + button { border-left: 1px solid var(--border); }
 .uuid-tabs button.on, .uuid-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+/* Size each segment for its bold label (an invisible, zero-height bold copy),
+   so picking a kind or case can't change the settings' width and rewrap them. */
+.uuid-seg button { align-items: center; display: inline-flex; flex-direction: column; }
+.uuid-seg button::after { content: attr(data-label); font-weight: 600; height: 0; overflow: hidden; pointer-events: none; user-select: none; visibility: hidden; }
 
+/*
+ * Generator settings: a grid, not one wrapping flex row. The settings wrap
+ * inside their own cell, the Generate button owns the top-right cell, and the
+ * kind's hint has a full-width row of its own beneath both, so hints of
+ * different lengths can never move the button or reflow the settings. The
+ * hint reserves its tallest height so the pane below holds still too.
+ */
 .uuid-controls {
-  align-items: center;
+  align-items: start;
   background: var(--panel);
   border: 1px solid var(--border);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  padding: 12px 14px;
+  display: grid;
+  gap: var(--sp-2) var(--sp-4);
+  grid-template-areas:
+    'settings action'
+    'hint hint';
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--sp-3) var(--sp-4);
 }
 
-.uuid-controls label { align-items: center; display: flex; gap: 8px; }
-.uuid-controls label > span { color: var(--muted); font: 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
-.uuid-controls input[type='number'] { font: 13px var(--font-mono); width: 80px; }
+.uuid-settings { align-items: center; display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-4); grid-area: settings; min-width: 0; }
+.uuid-controls label { align-items: center; display: flex; gap: var(--sp-2); }
+.uuid-controls label > span { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); text-transform: uppercase; }
+.uuid-controls input[type='number'] { font: var(--fs-md) var(--font-mono); width: 80px; }
 .uuid-check input:disabled + span { opacity: .5; }
-.uuid-controls p { color: var(--muted); font-size: 12px; margin: 0 0 0 auto; }
-.uuid-primary { align-items: center; background: var(--accent); border-color: var(--accent); color: var(--on-accent); display: inline-flex; gap: 6px; }
+.uuid-hint { color: var(--muted); font-size: var(--fs-sm); grid-area: hint; line-height: 1.5; margin: 0; min-height: 1.5em; }
+.uuid-primary { align-items: center; background: var(--accent); border-color: var(--accent); color: var(--on-accent); display: inline-flex; gap: 6px; grid-area: action; justify-self: end; white-space: nowrap; }
 .uuid-primary .material-symbols-outlined { font-size: 18px; }
+
+/* Phones: the button takes its own row under the settings, still above the hint. */
+@media (max-width: 600px) {
+  .uuid-controls { grid-template-areas: 'settings' 'action' 'hint'; grid-template-columns: minmax(0, 1fr); }
+  .uuid-primary { justify-self: start; }
+  /* The longest hint wraps to two lines at the narrowest widths: reserve both. */
+  .uuid-hint { min-height: 3em; }
+}
 
 .uuid-pane {
   background: var(--panel);
@@ -115,6 +138,5 @@
   .uuid-app { padding: 10px; }
   .uuid-inspect { grid-template-columns: 1fr; }
   .uuid-inspect .uuid-pane textarea { min-height: 200px; }
-  .uuid-controls p { margin-left: 0; width: 100%; }
   .uuid-fields > div, .uuid-forms > div { grid-template-columns: 1fr; gap: 2px; }
 }
