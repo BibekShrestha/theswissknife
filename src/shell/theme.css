@@ -624,6 +624,23 @@ code {
   color: var(--text);
 }
 
+/* Centred with left: 50%, the banner may only use the right half of a phone
+   screen and wrapped onto four lines over the footer. Pin both edges instead. */
+@media (max-width: 560px) {
+  .pwa-update {
+    animation: none;
+    bottom: 12px;
+    font-size: 12px;
+    gap: 8px;
+    left: 12px;
+    padding: 6px 6px 6px 14px;
+    right: 12px;
+    transform: none;
+  }
+  .pwa-update > span { flex: 1; min-width: 0; }
+  .pwa-update button { padding: 5px 10px; white-space: nowrap; }
+}
+
 /* Shared mark for tool brand symbols in ToolHeader. */
 .tool-mark-accent {
   color: var(--accent);

@@ -9,37 +9,67 @@
 
 const BASE = import.meta.env.BASE_URL
 
+/** Indirection so the tests can watch reloads (jsdom cannot navigate). */
+export const page = { reload: () => location.reload() }
+
 /** Set when the user asks for the update, so clients.claim() on a first install can't trigger a reload. */
 let updateRequested = false
 let reloading = false
+/** Whether a worker already ran this page — a controllerchange without one is a first install's claim. */
+let controlled = Boolean(navigator.serviceWorker.controller)
+
+function reloadNow() {
+  if (reloading) return
+  reloading = true
+  page.reload()
+}
+
+/** The banner, created on first use; reused (and re-shown after "Later") when its message changes. */
+function banner(): { label: HTMLSpanElement; reload: HTMLButtonElement } {
+  let root = document.querySelector<HTMLDivElement>('.pwa-update')
+  if (!root) {
+    root = document.createElement('div')
+    root.className = 'pwa-update'
+    root.role = 'status'
+
+    const label = document.createElement('span')
+    const reload = document.createElement('button')
+    reload.type = 'button'
+    reload.textContent = 'Reload'
+
+    const later = document.createElement('button')
+    later.type = 'button'
+    later.className = 'pwa-update-later'
+    later.textContent = 'Later'
+    later.onclick = () => root?.remove()
+
+    root.append(label, reload, later)
+  }
+  if (!root.isConnected) document.body.append(root)
+  return { label: root.querySelector('span')!, reload: root.querySelector('button')! }
+}
 
 function showUpdateBanner(worker: ServiceWorker) {
   if (document.querySelector('.pwa-update')) return
-
-  const banner = document.createElement('div')
-  banner.className = 'pwa-update'
-  banner.role = 'status'
-
-  const label = document.createElement('span')
+  const { label, reload } = banner()
   label.textContent = 'A new version is ready.'
-
-  const reload = document.createElement('button')
-  reload.type = 'button'
-  reload.textContent = 'Reload'
   reload.onclick = () => {
     reload.disabled = true
     updateRequested = true
     worker.postMessage('SKIP_WAITING')
   }
+}
 
-  const later = document.createElement('button')
-  later.type = 'button'
-  later.className = 'pwa-update-later'
-  later.textContent = 'Later'
-  later.onclick = () => banner.remove()
-
-  banner.append(label, reload, later)
-  document.body.append(banner)
+/**
+ * Another tab took the update: this page is now controlled by the new worker,
+ * which has pruned the runtime entries the old build relied on. Asking that
+ * worker to skip waiting would do nothing, so Reload just reloads.
+ */
+function showActivatedBanner() {
+  const { label, reload } = banner()
+  label.textContent = 'A new version is active. Reload to use it.'
+  reload.disabled = false
+  reload.onclick = reloadNow
 }
 
 async function register() {
@@ -68,9 +98,10 @@ async function register() {
 }
 
 navigator.serviceWorker.addEventListener('controllerchange', () => {
-  if (!updateRequested || reloading) return
-  reloading = true
-  location.reload()
+  const wasControlled = controlled
+  controlled = true
+  if (updateRequested) reloadNow()
+  else if (wasControlled) showActivatedBanner()
 })
 
 register().catch((error) => {
