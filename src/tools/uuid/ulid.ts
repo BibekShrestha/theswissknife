@@ -74,7 +74,8 @@ export function ulidTime(bytes: Uint8Array): number {
  * backwards) the previous 80-bit random part is incremented by one, as the
  * spec's monotonic mode describes, so a batch sorts in generation order.
  * Where the spec would throw on random overflow we move to the next
- * millisecond instead — 2^80 IDs in one millisecond will not happen.
+ * millisecond instead — 2^80 IDs in one millisecond will not happen — and
+ * throw only when that would leave the 48-bit range.
  */
 export function createUlidGenerator(rng: Rng = cryptoRng, now: () => number = Date.now) {
   let lastTime = -1
@@ -88,6 +89,7 @@ export function createUlidGenerator(rng: Rng = cryptoRng, now: () => number = Da
       time = lastTime
       if (lastRandom === RANDOM_MAX) {
         time += 1
+        if (time > ULID_TIME_MAX) throw new RangeError('Random overflow at the end of the 48-bit ULID timestamp range.')
         random = freshRandom(rng)
       } else {
         random = lastRandom + 1n
