@@ -261,6 +261,17 @@ the precache list built by `scripts/sw-manifest.ts`.
   level) and says when the form can't rebuild it byte for byte, offering
   Edit as text instead. Links only open on a
   click and show the punycode host first.
+- `tools/exif/` — photo metadata viewer/stripper, hand-written (no exifr):
+  `lib/exif.ts` is a bounds-checked TIFF reader (visited-offset set against
+  IFD loops, capped chains and entry counts); one module per container
+  (`jpeg`, `png`, `webp`, `gif`, `heif`) parses blocks and strips by copying
+  every non-metadata byte range — nothing is re-encoded. HEIF/AVIF Exif/XMP
+  items are zero-filled in place so `iloc` offsets stay valid. Each format
+  also names its image-data ranges; `processImage` SHA-256s them before and
+  after and re-parses the output, and the UI's "N found → M remain" comes from
+  that re-parse, never the stripper's own list. Work runs in `exif.worker.ts`
+  behind `runner.ts` (a queue plus the regex-style kill-on-deadline).
+  `lib/testkit.ts` builds the synthetic fixtures for every format.
 - `tools/markdown/` — marked → one HTML string → a sandboxed `srcdoc` frame
   with **no `allow-scripts`** (pasted `<script>`/`onerror` stay inert, so no
   sanitizer). The frame is the preview, the print source (PDF = the browser's
