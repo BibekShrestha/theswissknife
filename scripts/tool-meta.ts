@@ -167,6 +167,65 @@ export function injectMeta(html: string, tools: ToolSeoMeta[]): string {
 
 const JSON_LD_BLOCK = /<script type="application\/ld\+json">[\s\S]*?<\/script>/
 
+const indentJson = (json: string) =>
+  json
+    .split('\n')
+    .map((line) => (line ? `    ${line}` : line))
+    .join('\n')
+
+/**
+ * Each tool's page is emitted as `<slug>.html`, which GitHub Pages serves for
+ * `/<slug>` with a 200 — no redirect, so the URL the router uses, the
+ * canonical and the sitemap entry are all the same `/<slug>`. (A
+ * `<slug>/index.html` would instead 301 `/<slug>` to `/<slug>/`.) Unknown
+ * paths still fall through to 404.html.
+ */
+export const toolPageFile = (slug: string) => `${slug}.html`
+
+/**
+ * One tool's page: the built index.html with that tool's title, description,
+ * canonical/og URL and JSON-LD, so a crawler (or a link preview) that runs no
+ * script sees the tool rather than the homepage. Only head metadata changes —
+ * the inline boot script is left byte-identical, so the CSP hash holds.
+ */
+export function buildToolPage(html: string, tool: ToolSeoMeta, origin = DEFAULT_ORIGIN): string {
+  const url = `${origin}/${tool.slug}`
+  const title = attributeEscape(`${tool.name} · The Swiss Knife`)
+  const description = attributeEscape(tool.tagline)
+
+  const swaps: [name: string, pattern: RegExp, value: string][] = [
+    ['<title>', /(<title>)[^<]*(<\/title>)/, title],
+    ['canonical', /(<link rel="canonical" href=")[^"]*(")/, url],
+    ['og:url', /(<meta property="og:url" content=")[^"]*(")/, url],
+    ['og:title', /(<meta property="og:title" content=")[^"]*(")/, title],
+    ['og:description', /(<meta property="og:description" content=")[^"]*(")/, description],
+    ['twitter:title', /(<meta name="twitter:title" content=")[^"]*(")/, title],
+    ...DESCRIBED_TAGS.map((name): [string, RegExp, string] => [name, metaPattern(name), description]),
+  ]
+
+  let out = html
+  for (const [name, pattern, value] of swaps) {
+    // Loud failure: a silent no-op would ship a tool page that claims to be the homepage.
+    if (!pattern.test(out)) throw new Error(`tool-meta: no ${name} tag found to rewrite for /${tool.slug}`)
+    out = out.replace(pattern, (_, open: string, close: string) => `${open}${value}${close}`)
+  }
+
+  if (!JSON_LD_BLOCK.test(out)) throw new Error('tool-meta: no <script type="application/ld+json"> block found in index.html')
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: tool.name,
+    url,
+    applicationCategory: schemaCategory(tool.category),
+    operatingSystem: 'Any',
+    description: tool.tagline,
+    isPartOf: { '@type': 'WebSite', name: 'The Swiss Knife', url: `${origin}/` },
+  }
+  // `<` is escaped so a tagline can never close the script element.
+  const json = JSON.stringify(data, null, 2).replace(/</g, '\\u003c')
+  return out.replace(JSON_LD_BLOCK, () => `<script type="application/ld+json">\n${indentJson(json)}\n    </script>`)
+}
+
 /** Swap the JSON-LD block in index.html for freshly generated data. */
 export function injectJsonLd(html: string, tools: ToolSeoMeta[], origin = DEFAULT_ORIGIN): string {
   if (!JSON_LD_BLOCK.test(html)) {

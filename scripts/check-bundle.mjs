@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { gzipSync } from 'node:zlib'
-import { cspProblems } from './csp-hash.mjs'
+import { cspProblems, inlineScripts } from './csp-hash.mjs'
 
 const manifest = JSON.parse(readFileSync('dist/.vite/manifest.json', 'utf8'))
 const entry = manifest['index.html'] ?? manifest['src/main.tsx']
@@ -101,13 +101,49 @@ if (displayBytes > DISPLAY_FONT_BUDGET_KIB * 1024) {
   throw new Error(`Display font is ${(displayBytes / 1024).toFixed(1)} KiB, over its ${DISPLAY_FONT_BUDGET_KIB} KiB budget — run \`npm run display-font\`.`)
 }
 
+// The palette is how people get around; it is precached so search works
+// offline before anyone has opened it (scripts/sw-manifest.ts, isShellChunk).
+const palette = manifest['src/shell/CommandPalette.tsx']?.file
+if (!palette || !core.some((url) => url.endsWith(`/${palette}`))) {
+  throw new Error(`dist/sw.js does not precache the command palette chunk (${palette ?? 'not found'}).`)
+}
+
+// Every tool has its own page (vite.config.ts, toolPages) so /<slug> is served
+// with a 200 and its own canonical — the same URL the sitemap lists.
+const origin = (() => {
+  try {
+    const host = readFileSync('public/CNAME', 'utf8').trim()
+    return host ? `https://${host}` : 'https://theswissknife.com'
+  } catch {
+    return 'https://theswissknife.com'
+  }
+})()
+const sitemap = readFileSync('dist/sitemap.xml', 'utf8')
+const indexHtml = readFileSync('dist/index.html', 'utf8')
+const toolPages = required.map((slug) => `dist/${slug}.html`)
+for (const [i, page] of toolPages.entries()) {
+  let html
+  try {
+    html = readFileSync(page, 'utf8')
+  } catch {
+    throw new Error(`${page} is missing — /${required[i]} would be served as a 404.`)
+  }
+  const url = `${origin}/${required[i]}`
+  const canonical = /<link rel="canonical" href="([^"]*)"/.exec(html)?.[1]
+  if (canonical !== url) throw new Error(`${page}: canonical is ${canonical}, expected ${url}`)
+  if (!sitemap.includes(`<loc>${url}</loc>`)) throw new Error(`sitemap.xml does not list ${url}, the canonical of ${page}`)
+  if (inlineScripts(html).join('\0') !== inlineScripts(indexHtml).join('\0')) {
+    throw new Error(`${page}: inline scripts differ from dist/index.html`)
+  }
+}
+
 // The served pages, not just the source: a blocked theme script would make
 // every load paint unthemed until React starts.
-for (const page of ['dist/index.html', 'dist/404.html']) {
+for (const page of ['dist/index.html', 'dist/404.html', ...toolPages]) {
   const problems = cspProblems(readFileSync(page, 'utf8'))
   if (problems.length) throw new Error(`${page}: ${problems.join('; ')}`)
 }
 
 console.log(
-  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB.toFixed(2)} KiB budget) · ${required.length} lazy tool chunks · sw.js ${(sw.length / 1024).toFixed(2)} KiB · icon font ${(fontBytes / 1024).toFixed(1)} KiB · display font ${(displayBytes / 1024).toFixed(1)} KiB precached`,
+  `main bundle ${(bytes / 1024).toFixed(2)} KiB gzip (${((budget - bytes) / 1024).toFixed(2)} KiB under the ${BUDGET_KIB.toFixed(2)} KiB budget) · ${required.length} lazy tool chunks and pages · sw.js ${(sw.length / 1024).toFixed(2)} KiB · icon font ${(fontBytes / 1024).toFixed(1)} KiB · display font ${(displayBytes / 1024).toFixed(1)} KiB precached`,
 )

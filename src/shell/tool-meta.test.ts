@@ -3,12 +3,16 @@ import {
   buildDescription,
   buildJsonLd,
   buildSitemap,
+  buildToolPage,
   DESCRIPTION_LIMIT,
   injectJsonLd,
   injectMeta,
   originFromCname,
   parseToolMeta,
+  toolPageFile,
 } from '../../scripts/tool-meta'
+// @ts-expect-error — a plain .mjs helper shared with scripts/check-bundle.mjs
+import { cspProblems, inlineScripts } from '../../scripts/csp-hash.mjs'
 // the same file the build parses, read as text rather than imported
 import registrySource from './registry.ts?raw'
 import copySource from './tool-copy.ts?raw'
@@ -208,5 +212,52 @@ describe('injectJsonLd', () => {
 
   it('throws instead of silently shipping a stale list', () => {
     expect(() => injectJsonLd('<head></head>', meta, ORIGIN)).toThrow(/no <script/)
+  })
+})
+
+describe('buildToolPage', () => {
+  const html = Object.values(import.meta.glob<string>('/index.html', { query: '?raw', import: 'default', eager: true }))[0]
+  const jq = meta.find((tool) => tool.slug === 'jq')!
+  const page = buildToolPage(injectMeta(injectJsonLd(html, meta, ORIGIN), meta), jq, ORIGIN)
+  const attr = (pattern: RegExp) => pattern.exec(page)?.[1]
+
+  it('names the file so GitHub Pages serves /<slug> with a 200', () => {
+    expect(toolPageFile('jq')).toBe('jq.html')
+  })
+
+  it('gives the tool its own title, description and canonical URL', () => {
+    expect(attr(/<title>([^<]*)<\/title>/)).toBe('jq playground · The Swiss Knife')
+    expect(attr(/<meta name="description" content="([^"]*)"/)).toBe(jq.tagline)
+    expect(attr(/<link rel="canonical" href="([^"]*)"/)).toBe(`${ORIGIN}/jq`)
+    expect(attr(/<meta property="og:url" content="([^"]*)"/)).toBe(`${ORIGIN}/jq`)
+    expect(attr(/<meta property="og:title" content="([^"]*)"/)).toBe('jq playground · The Swiss Knife')
+    expect(attr(/<meta property="og:description" content="([^"]*)"/)).toBe(jq.tagline)
+    expect(attr(/<meta name="twitter:title" content="([^"]*)"/)).toBe('jq playground · The Swiss Knife')
+    expect(attr(/<meta name="twitter:description" content="([^"]*)"/)).toBe(jq.tagline)
+  })
+
+  it('canonicalises to the same URL the sitemap lists', () => {
+    expect(buildSitemap(meta, ORIGIN)).toContain(`<loc>${attr(/<link rel="canonical" href="([^"]*)"/)}</loc>`)
+  })
+
+  it('describes the tool, not the whole collection, in its JSON-LD', () => {
+    const data = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(page)![1])
+    expect(data).toMatchObject({ '@type': 'WebApplication', name: 'jq playground', url: `${ORIGIN}/jq` })
+  })
+
+  it('keeps the inline boot script byte-identical, so the CSP hash still matches', () => {
+    expect(cspProblems(page)).toEqual([])
+    expect(inlineScripts(page)).toEqual(inlineScripts(html))
+  })
+
+  it('escapes names and taglines', () => {
+    const out = buildToolPage(html, { ...jq, name: 'A & "B"', tagline: '<x>' }, ORIGIN)
+    expect(out).toContain('content="A &amp; &quot;B&quot; · The Swiss Knife"')
+    expect(out).toContain('<title>A &amp; &quot;B&quot; · The Swiss Knife</title>')
+    expect(out).toContain('content="&lt;x&gt;"')
+  })
+
+  it('fails loudly if index.html loses a tag it rewrites', () => {
+    expect(() => buildToolPage(html.replace(/<link rel="canonical"[^>]*>/, ''), jq, ORIGIN)).toThrow(/canonical/)
   })
 })
