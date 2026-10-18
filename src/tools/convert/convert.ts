@@ -220,6 +220,10 @@ const YAML11_BOOL = /^(?:yes|Yes|YES|no|No|NO|on|On|ON|off|Off|OFF)$/
 const YAML11_BOOL_ANY = /^(?:y|Y|n|N|yes|Yes|YES|no|No|NO|on|On|ON|off|Off|OFF)$/
 const YAML11_SEXAGESIMAL = /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+(?:\.[0-9_]*)?$/
 const YAML11_OCTAL = /^[-+]?0[0-7_]+$/
+// YAML 1.1 ints and floats allow `_` separators and 0b binary; 1.2 reads these as strings.
+const YAML11_NUMBER = /^[-+]?(?:0b[01_]+|0x[0-9a-fA-F_]+|[0-9][0-9_]*(?:\.[0-9_]*)?(?:[eE][-+]?[0-9]+)?|\.[0-9_]+(?:[eE][-+]?[0-9]+)?)$/
+// YAML 1.1 !!timestamp: a date, optionally with a time and zone.
+const YAML11_TIMESTAMP = /^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}(?:(?:[Tt]|[ \t]+)[0-9]{1,2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]*)?(?:[ \t]*(?:Z|[-+][0-9]{1,2}(?::?[0-9]{2})?))?)?$/
 
 function stripYamlPosition(message: string) {
   return message.replace(/ at line \d+, column \d+:[\s\S]*$/, '').trim()
@@ -309,6 +313,7 @@ const jsonReplacer = (_key: string, value: unknown) => typeof value === 'bigint'
 /** Plain scalars that a YAML 1.1 parser would not read as the same string. */
 function yaml11Ambiguous(value: string) {
   return YAML11_BOOL_ANY.test(value) || YAML11_SEXAGESIMAL.test(value) || YAML11_OCTAL.test(value)
+    || YAML11_NUMBER.test(value) || YAML11_TIMESTAMP.test(value)
 }
 
 function writeYaml(value: Value, indent: number): string {
@@ -319,6 +324,8 @@ function writeYaml(value: Value, indent: number): string {
       if (typeof node.value === 'number' && Number.isInteger(node.value)) node.minFractionDigits = 1
       // YAML 1.2 writes `no` bare; quote it so YAML 1.1 readers agree.
       if (typeof node.value === 'string' && yaml11Ambiguous(node.value)) node.type = 'QUOTE_DOUBLE'
+      // A bare `<<` key is a merge key on the way back in; quoted, it is just a key.
+      if (node.value === '<<') node.type = 'QUOTE_DOUBLE'
     },
   })
   return doc.toString({ indent, lineWidth: 0 })
@@ -358,7 +365,81 @@ function parseTomlText(text: string, notes: Notes): Value {
     throw error
   }
   if (tomlHasComment(text)) notes.add('info', 'Comments are not carried over.')
-  return fromToml(parsed)
+  const value = fromToml(parsed)
+  restoreFractions(text, value, notes)
+  return value
+}
+
+/** The text with string contents and comments blanked out, so a scan sees only TOML syntax. */
+function tomlSyntaxOnly(text: string) {
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '#') {
+      const end = text.indexOf('\n', i)
+      const stop = end < 0 ? text.length : end
+      out += ' '.repeat(stop - i)
+      i = stop - 1
+      continue
+    }
+    if (c !== '"' && c !== "'") { out += c; continue }
+    const start = i
+    const triple = text.startsWith(c.repeat(3), i)
+    const close = triple ? c.repeat(3) : c
+    i += close.length
+    while (i < text.length && !text.startsWith(close, i)) {
+      if (!triple && text[i] === '\n') break
+      if (c === '"' && text[i] === '\\') i++
+      i++
+    }
+    i += close.length - 1
+    if (triple) while (text[i + 1] === c) i++
+    out += ' '.repeat(Math.min(i, text.length - 1) - start + 1)
+  }
+  return out
+}
+
+const TOML_FRACTION = /(?:\d{4}-\d{2}-\d{2}[Tt ])?\d{2}:\d{2}:\d{2}\.(\d+)(?:[Zz]|[-+]\d{2}:\d{2})?/g
+const FRACTION_MARK = '\u0000fraction:'
+
+/**
+ * smol-toml's TomlDate is a JS Date, which holds whole milliseconds, and it
+ * keeps no source text: `00:32:00.999999` would come out as `.999`. So we
+ * find the finer literals in the source, parse a copy with each one swapped
+ * for a marker string to learn which value it became, and give that date
+ * back its full fraction (every writer, smol-toml's included, goes through
+ * toISOString).
+ */
+function restoreFractions(text: string, value: Value, notes: Notes) {
+  const fractions: string[] = []
+  let marked = ''
+  let last = 0
+  for (const match of tomlSyntaxOnly(text).matchAll(TOML_FRACTION)) {
+    if (match[1].length <= 3) continue
+    marked += text.slice(last, match.index) + JSON.stringify(FRACTION_MARK + fractions.length)
+    fractions.push(match[1])
+    last = match.index + match[0].length
+  }
+  if (!fractions.length) return
+  let shape: unknown
+  try {
+    shape = parseToml(marked + text.slice(last))
+  } catch {
+    notes.add('warn', 'TOML times are kept to the millisecond: a finer fraction in this input was cut.')
+    return
+  }
+  const walk = (real: Value, mark: unknown) => {
+    if (real instanceof TomlDate) {
+      if (typeof mark !== 'string' || !mark.startsWith(FRACTION_MARK)) return
+      const iso = real.toISOString().replace(/(\d{2}:\d{2}:\d{2})(?:\.\d+)?/, `$1.${fractions[Number(mark.slice(FRACTION_MARK.length))]}`)
+      Object.defineProperty(real, 'toISOString', { value: () => iso })
+    } else if (Array.isArray(real)) {
+      if (Array.isArray(mark)) real.forEach((item, index) => walk(item, mark[index]))
+    } else if (isObj(real) && mark && typeof mark === 'object') {
+      for (const key of Object.keys(real)) walk(real[key], (mark as Record<string, unknown>)[key])
+    }
+  }
+  walk(value, shape)
 }
 
 function fromToml(value: unknown): Value {

@@ -102,6 +102,22 @@ describe('TOML limits', () => {
     expect(ok(toml, 'toml', 'toml').notes).toEqual([])
   })
 
+  it('keeps TOML time fractions finer than a millisecond', () => {
+    const toml = 'odt = 1979-05-27T00:32:00.999999-07:00\nexact = 1979-05-27T00:32:00.5\nzeros = 07:32:00.123000\n'
+      + 'note = "1979-05-27T00:32:00.999999Z is only text"\n[t]\nlt = 07:32:00.1234 # c 00:00:00.12345\nlist = [1979-05-27 00:32:00.0000001Z]\n'
+    const expected = {
+      odt: '1979-05-27T00:32:00.999999-07:00', exact: '1979-05-27T00:32:00.500', zeros: '07:32:00.123000',
+      note: '1979-05-27T00:32:00.999999Z is only text', t: { lt: '07:32:00.1234', list: ['1979-05-27T00:32:00.0000001Z'] },
+    }
+    expect(JSON.parse(ok(toml, 'toml', 'json').output)).toEqual(expected)
+    expect(parseYamlLib(ok(toml, 'toml', 'yaml').output)).toEqual(expected)
+    const back = ok(toml, 'toml', 'toml')
+    expect(back.notes.map((note) => note.text)).toEqual(['Comments are not carried over.'])
+    expect(back.output).toMatch(/odt = 1979-05-27T00:32:00\.999999-07:00/)
+    expect(back.output).toMatch(/lt = 07:32:00\.1234\b/)
+    expect(back.output).toMatch(/1979-05-27T00:32:00\.0000001Z/)
+  })
+
   it('says TOML comments are not carried over', () => {
     expect(noteText(ok('# top\na = 1 # trailing\n', 'toml', 'json'))).toMatch(/Comments/)
     expect(noteText(ok('a = "# not a comment"\nb = \'#\'\nc = """\n# still a string\n"""\n', 'toml', 'json'))).not.toMatch(/Comments/)
@@ -142,6 +158,21 @@ describe('YAML specifics', () => {
 
   it('quotes YAML 1.1 booleans it writes', () => {
     expect(ok('{"country": "no", "yes": "on"}', 'json', 'yaml').output).toBe('country: "no"\n"yes": "on"\n')
+  })
+
+  it('quotes a << key so the YAML reads back as the same data', () => {
+    for (const json of ['{"<<": {"a": 1}, "b": 2}', '{"<<": "x"}', '{"m": {"<<": [{"a": 1}]}}']) {
+      const yaml = ok(json, 'json', 'yaml').output
+      expect(yaml).toMatch(/"<<":/)
+      expect(JSON.parse(ok(yaml, 'yaml', 'json').output)).toEqual(JSON.parse(json))
+    }
+  })
+
+  it('quotes strings YAML 1.1 reads as numbers or dates', () => {
+    const json = '{"a": "1_000", "b": "2001-12-14", "c": "2001-12-14 21:59:43.10 -5", "d": "0b101", "e": "1_0.5", "f": "+12_3", "g": "1.2.3", "h": "v1"}'
+    const yaml = ok(json, 'json', 'yaml').output
+    expect(yaml).toBe('a: "1_000"\nb: "2001-12-14"\nc: "2001-12-14 21:59:43.10 -5"\nd: "0b101"\ne: "1_0.5"\nf: "+12_3"\ng: 1.2.3\nh: v1\n')
+    expect(JSON.parse(ok(yaml, 'yaml', 'json').output)).toEqual(JSON.parse(json))
   })
 
   it('hints about 1.1 octal and base-60 readings', () => {
