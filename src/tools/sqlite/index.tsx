@@ -1,17 +1,43 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
+import { takeHandoff, type Handoff } from '../../shell/handoff'
 import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { ROW_CAP, type DbInfo, type Page, type ResultSet, type SchemaObject, type ScriptResult } from './engine'
+import {
+  DEFAULT_READ,
+  handoffSource,
+  isDataFileName,
+  suggestTableName,
+  tableNameProblem,
+  type DataSource,
+  type ReadOptions,
+} from './importer'
+import { ImportPanel, type DraftItem, type ImportRun, type ImportTarget } from './ImportPanel'
 import { ResultGrid } from './ResultGrid'
 import { createSqliteRunner, QUERY_TIMEOUT_MS, SqliteTimeoutError, type SqliteRunner } from './runner'
 import { Schema } from './Schema'
-import { fileStem, formatBytes, nextSort, parseHeader, quoteIdent, rejectReason, toCsv, toJson, type Cell, type FileHeader, type Sort } from './sql'
+import {
+  fileStem,
+  formatBytes,
+  hasSqliteMagic,
+  nextSort,
+  parseHeader,
+  quoteIdent,
+  rejectReason,
+  toCsv,
+  toJson,
+  type Cell,
+  type FileHeader,
+  type Sort,
+} from './sql'
 import './sqlite.css'
 
 const PAGE_SIZE = 100
 const ACCEPT = '.db,.sqlite,.sqlite3,.db3,.s3db,.sl3,application/vnd.sqlite3,application/x-sqlite3'
+const DATA_ACCEPT = '.csv,.tsv,.tab,.txt,.json,.jsonl,.ndjson,text/csv,text/tab-separated-values,application/json,application/x-ndjson'
+const DB_NAME = /\.(?:db3?|sqlite3?|s3db|sl3)$/i
 
 const EMPTY_SQL = `CREATE TABLE notes (
   id INTEGER PRIMARY KEY,
@@ -24,6 +50,16 @@ INSERT INTO notes (title, body) VALUES
   ('NULL vs ''NULL''', NULL),
   ('The string', 'NULL');
 SELECT * FROM notes;`
+
+interface Draft {
+  items: DraftItem[]
+  target: ImportTarget
+  emptyAsNull: boolean
+  /** Why the last attempt did not finish — a cancel or an error. */
+  outcome: string | null
+}
+
+let nextDraftKey = 0
 
 interface Opened {
   name: string
@@ -48,6 +84,7 @@ export default function SqliteTool() {
   const copy = useCopy(showToast)
   const runnerRef = useRef<SqliteRunner | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const dataInput = useRef<HTMLInputElement>(null)
 
   const [opened, setOpened] = useState<Opened | null>(null)
   const [opening, setOpening] = useState(false)
@@ -70,6 +107,13 @@ export default function SqliteTool() {
   /** Bumped whenever the data may have changed, so the browser refetches its page. */
   const [generation, setGeneration] = useState(0)
   const countRun = useRef(0)
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [importRun, setImportRun] = useState<ImportRun | null>(null)
+  const importAbort = useRef<AbortController | null>(null)
+  const openedRef = useRef(opened)
+  openedRef.current = opened
+  const schemaRef = useRef(schema)
+  schemaRef.current = schema
 
   useEffect(() => {
     const runner = createSqliteRunner(
@@ -163,25 +207,177 @@ export default function SqliteTool() {
     [refresh],
   )
 
-  const openFile = useCallback(
-    async (file: File | undefined) => {
-      if (!file) return
-      // Read into memory here; the bytes go to a worker in this tab, never over the network.
-      const bytes = new Uint8Array(await file.arrayBuffer())
-      await openBytes(file.name, bytes)
+  // ---- import ------------------------------------------------------------
+
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+
+  /** Plans one file's table in the worker; a stale answer (options changed meanwhile) is dropped. */
+  const analyzeItem = useCallback(async (key: number, source: DataSource, options: ReadOptions) => {
+    const runner = runnerRef.current
+    if (!runner) return
+    const patch = (fields: Partial<DraftItem>) =>
+      setDraft((prev) =>
+        prev && {
+          ...prev,
+          items: prev.items.map((item) => (item.key === key && item.options === options ? { ...item, ...fields } : item)),
+        },
+      )
+    try {
+      const analysis = await runner.analyze({ source, options })
+      patch({ analysis, error: null, loading: false })
+    } catch (error) {
+      patch({ error: error instanceof Error ? error.message : String(error), loading: false })
+    }
+  }, [])
+
+  /** Adds data files to the import panel, opening it if needed. */
+  const stageFiles = useCallback(
+    (sources: DataSource[], target?: ImportTarget) => {
+      if (sources.length === 0) return
+      const prev = draftRef.current
+      const into = prev?.target ?? target ?? (openedRef.current ? 'current' : 'new')
+      const taken = [
+        ...(into === 'current' ? schemaRef.current.map((o) => o.name) : []),
+        ...(prev?.items.map((item) => item.table) ?? []),
+      ]
+      const emptyAsNull = prev?.emptyAsNull ?? true
+      const added: DraftItem[] = sources.map((source) => {
+        const table = suggestTableName(source.name, taken)
+        taken.push(table)
+        return { key: ++nextDraftKey, source, options: { ...DEFAULT_READ, emptyAsNull }, table, analysis: null, error: null, loading: true }
+      })
+      const next: Draft = prev
+        ? { ...prev, items: [...prev.items, ...added], outcome: null }
+        : { items: added, target: into, emptyAsNull, outcome: null }
+      draftRef.current = next
+      setDraft(next)
+      for (const item of added) void analyzeItem(item.key, item.source, item.options)
     },
-    [openBytes],
+    [analyzeItem],
+  )
+
+  const updateItem = (key: number, patch: Partial<ReadOptions>) => {
+    const item = draft?.items.find((i) => i.key === key)
+    if (!item) return
+    const options = { ...item.options, ...patch }
+    setDraft((prev) => prev && { ...prev, items: prev.items.map((i) => (i.key === key ? { ...i, options, loading: true, error: null } : i)) })
+    void analyzeItem(key, item.source, options)
+  }
+
+  const setEmptyAsNull = (emptyAsNull: boolean) => {
+    if (!draft) return
+    const items = draft.items.map((item) => ({ ...item, options: { ...item.options, emptyAsNull }, loading: true, error: null }))
+    setDraft({ ...draft, emptyAsNull, items })
+    for (const item of items) void analyzeItem(item.key, item.source, item.options)
+  }
+
+  const takenNames = draft?.target === 'current' && opened ? schema.map((o) => o.name) : []
+  const problems: Record<number, string | null> = {}
+  draft?.items.forEach((item, i) => {
+    problems[item.key] = tableNameProblem(item.table, [...takenNames, ...draft.items.slice(0, i).map((other) => other.table)])
+  })
+
+  const runImport = async () => {
+    const runner = runnerRef.current
+    if (!runner || !draft || importRun) return
+    const jobs = draft.items.map((item) => ({ source: item.source, options: item.options, table: item.table }))
+    const controller = new AbortController()
+    importAbort.current = controller
+    setImportRun({ progress: null, cancelling: false })
+    setDraft({ ...draft, outcome: null })
+    try {
+      if (draft.target === 'new' || !opened) {
+        await openBytes('New database', null)
+        setDraft((prev) => prev && { ...prev, target: 'current' })
+      }
+      const done = await runner.importData(jobs, {
+        signal: controller.signal,
+        onProgress: (progress) => setImportRun((prev) => prev && { ...prev, progress }),
+      })
+      setDraft(null)
+      setDirty(true)
+      const first = done[0]?.table
+      if (first) {
+        setTable(first)
+        setSort(null)
+        setOffset(0)
+        setPage(null)
+        setTab('browse')
+        setSql(`SELECT * FROM ${quoteIdent(first)} LIMIT 100;`)
+      }
+      const rowsIn = done.reduce((sum, t) => sum + t.rows, 0)
+      showToast(`Imported ${done.length === 1 ? first : `${done.length} tables`} · ${rowsIn.toLocaleString()} row${rowsIn === 1 ? '' : 's'}`)
+      await refresh()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setDraft((prev) => prev && { ...prev, outcome: message })
+      if (error instanceof SqliteTimeoutError) report(error)
+    } finally {
+      importAbort.current = null
+      setImportRun(null)
+    }
+  }
+
+  const cancelImport = () => {
+    importAbort.current?.abort()
+    setImportRun((prev) => prev && { ...prev, cancelling: true })
+  }
+
+  // Another tool ("Query with SQL" in the CSV viewer) handed over a file. The
+  // ref keeps it across StrictMode's mount-unmount-mount, which would
+  // otherwise consume it on the first, discarded mount.
+  const handoff = useRef<Handoff | null | undefined>(undefined)
+  useEffect(() => {
+    if (handoff.current === undefined) handoff.current = takeHandoff('sqlite')
+    const payload = handoff.current
+    if (!payload) return
+    stageFiles([handoffSource(payload)], 'new')
+    return () => {
+      draftRef.current = null
+      setDraft(null)
+    }
+  }, [stageFiles])
+
+  // ---- files -------------------------------------------------------------
+
+  /**
+   * Dropped or picked files: a SQLite file (by its header, not its name) is
+   * opened; data files are staged for import — into that database when one
+   * came in the same drop.
+   */
+  const takeFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return
+      // Read into memory here; the bytes go to a worker in this tab, never over the network.
+      const loaded = await Promise.all(
+        files.map(async (file) => ({ name: file.name, type: file.type, bytes: new Uint8Array(await file.arrayBuffer()) })),
+      )
+      const db = loaded.find((file) => hasSqliteMagic(file.bytes))
+      const data = loaded.filter((file) => file !== db && (isDataFileName(file.name) || !DB_NAME.test(file.name)))
+      const other = loaded.find((file) => file !== db && !data.includes(file))
+      if (db) {
+        await openBytes(db.name, db.bytes)
+        schemaRef.current = await (runnerRef.current?.call('schema', {}) ?? Promise.resolve([]))
+      } else if (other && data.length === 0) {
+        // A .db that is not SQLite: let openBytes say why.
+        await openBytes(other.name, other.bytes)
+      }
+      stageFiles(data, db ? 'current' : undefined)
+    },
+    [openBytes, stageFiles],
   )
 
   const onPick = (event: ChangeEvent<HTMLInputElement>) => {
-    void openFile(event.target.files?.[0])
+    void takeFiles([...(event.target.files ?? [])])
     event.target.value = ''
   }
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     setDragging(false)
-    void openFile(event.dataTransfer.files?.[0])
+    if (importRun) return
+    void takeFiles([...(event.dataTransfer.files ?? [])])
   }
 
   // ---- browse ------------------------------------------------------------
@@ -354,9 +550,19 @@ export default function SqliteTool() {
         localLabel="local database"
       >
         <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={onPick} />
+        <input ref={dataInput} type="file" accept={DATA_ACCEPT} multiple hidden onChange={onPick} />
         <button type="button" onClick={() => fileInput.current?.click()} title="Open a SQLite file">
           <span className="material-symbols-outlined" aria-hidden>folder_open</span>
           <span className="sqlite-btn-label">Open</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => dataInput.current?.click()}
+          disabled={importRun !== null}
+          title="Import CSV, TSV, JSON or JSON Lines files as tables"
+        >
+          <span className="material-symbols-outlined" aria-hidden>upload_file</span>
+          <span className="sqlite-btn-label">Import</span>
         </button>
         {opened && (
           <>
@@ -393,7 +599,11 @@ export default function SqliteTool() {
               <button type="button" onClick={() => void openBytes('New database', null)} disabled={opening}>
                 New empty database
               </button>
+              <button type="button" onClick={() => dataInput.current?.click()} disabled={opening}>
+                Import CSV / JSON…
+              </button>
             </div>
+            <p>Or drop CSV, TSV, JSON or JSON Lines files: each becomes a table in a new in-memory database.</p>
             <p className="sqlite-fine">Edits only ever change the copy in this tab; the original file is never written. Export a <code>.sqlite</code> file to keep them.</p>
           </div>
         </main>
@@ -536,7 +746,28 @@ export default function SqliteTool() {
         </div>
       )}
 
-      {dragging && <div className="sqlite-dropveil">Drop a SQLite file</div>}
+      {draft && (
+        <ImportPanel
+          items={draft.items}
+          target={draft.target}
+          currentName={opened?.name ?? null}
+          currentDirty={dirty}
+          emptyAsNull={draft.emptyAsNull}
+          problems={problems}
+          running={importRun}
+          outcome={draft.outcome}
+          onTarget={(target) => setDraft({ ...draft, target })}
+          onEmptyAsNull={setEmptyAsNull}
+          onOptions={updateItem}
+          onRename={(key, table) => setDraft({ ...draft, items: draft.items.map((i) => (i.key === key ? { ...i, table } : i)) })}
+          onRemove={(key) => setDraft({ ...draft, items: draft.items.filter((i) => i.key !== key) })}
+          onAddFiles={() => dataInput.current?.click()}
+          onImport={() => void runImport()}
+          onCancel={cancelImport}
+          onClose={() => setDraft(null)}
+        />
+      )}
+      {dragging && <div className="sqlite-dropveil">Drop a SQLite file, or CSV / JSON data to import</div>}
       <Toast message={toast} />
     </div>
   )

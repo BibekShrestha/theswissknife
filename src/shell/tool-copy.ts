@@ -22,10 +22,10 @@ export const taglines: Record<string, string> = {
   pdf: 'Merge, split, convert, compress, watermark, protect, and unlock PDFs — all client-side',
   image: 'Convert, resize and compress JPEG, PNG, WebP and GIF — batch, with a size target',
   qr: 'Make QR codes for links, Wi-Fi, contacts and events, or read one from an image or paste — all offline',
-  csv: 'Paste or drop a CSV and read it as a real table — sort, search, filter, group, edit and export offline',
+  csv: 'Paste or drop a CSV and read it as a real table — sort, search, filter, group, edit, export, or query it with SQL offline',
   'html-table': 'Pull any HTML table into CSV, JSON or Markdown — colspan and rowspan handled',
   uuid: 'Generate v4, v7 and ULID batches, or inspect any UUID or ULID — version, variant, embedded time, and conversions to ULID, hex and base64url',
   convert: 'Convert between YAML, JSON and TOML with exact big integers, line-and-column errors and a warning for anything lost',
-  sqlite: 'Open a SQLite file in your browser — browse tables, run SQL, export CSV, JSON or the edited database',
+  sqlite: 'Open a SQLite file or import CSV, TSV and JSON as typed tables — browse, run SQL, export CSV, JSON or the edited database',
   otp: 'Generate and check TOTP and HOTP codes from a Base32 secret, an otpauth URI, a Google Authenticator export or its QR images — nothing is stored',
 }

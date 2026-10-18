@@ -9,6 +9,8 @@ declare module 'sql.js' {
 
   export interface Statement {
     step(): boolean
+    /** Binds, steps once and resets — the prepared-statement INSERT loop. */
+    run(params?: BindParams): void
     get(params?: BindParams, config?: { useBigInt?: boolean }): SqlValue[]
     getColumnNames(): string[]
     getSQL(): string
