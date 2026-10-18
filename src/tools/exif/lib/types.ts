@@ -40,6 +40,8 @@ export interface Block {
   note?: string
   /** A HEIF item whose payload is all zeros: the entry is still there but carries nothing. */
   empty?: boolean
+  /** Why this block's bytes could not be located to remove them (a HEIF item with no usable iloc extent). Never counts as clean. */
+  unremovable?: string
   /** An EXIF block holding IFD0 Orientation and nothing else — what "Keep orientation" writes. */
   orientationOnly?: boolean
 }

@@ -1,7 +1,9 @@
 /**
- * PNG: chunk walk with CRC checks. Stripping drops whole chunks — eXIf, tEXt,
- * zTXt, iTXt, tIME and (unless kept) iCCP — and copies every other chunk,
- * CRC included, byte for byte.
+ * PNG: chunk walk with CRC checks, and an allow-list stripper. It copies,
+ * CRC included and byte for byte, only the chunks a viewer needs to show the
+ * image as intended (`DISPLAY` below) plus iCCP when it is kept; every other
+ * chunk — eXIf and text, but also C2PA (caBX), the pre-standard exIf, prVW
+ * previews and any chunk it does not know — is dropped and listed.
  */
 import { ascii, complement, concat, crc32, formatBytes, hex, inflate, putU32be, startsWith, text, u32be, type Range } from './bytes'
 import { exifBlock, orientationTiff, readOrientation, tiffStart } from './exif'
@@ -22,7 +24,27 @@ interface Chunk {
   end: number
 }
 
-const METADATA = new Set(['eXIf', 'tEXt', 'zTXt', 'iTXt', 'tIME', 'iCCP'])
+/**
+ * Chunks kept: the critical four; tRNS (transparency); gAMA, cHRM, sRGB and
+ * cICP/mDCV/cLLI (colour and HDR rendering — numbers only, no text); sBIT
+ * and pHYs (bit depths and pixel density, which some viewers use to size or
+ * scale the image); and APNG's acTL/fcTL/fdAT. iCCP is metadata that the
+ * "keep colour profile" option may keep. bKGD, hIST, sPLT and the rest are
+ * not used to display the image, so they go.
+ */
+const DISPLAY = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND', 'tRNS', 'gAMA', 'cHRM', 'sRGB', 'cICP', 'mDCV', 'cLLI', 'sBIT', 'pHYs', 'acTL', 'fcTL', 'fdAT'])
+
+const isMetadata = (type: string) => !DISPLAY.has(type)
+
+/** Names for chunks that are not metadata as such but are not needed to display the image either. */
+const NAMED: Record<string, [Block['kind'], string]> = {
+  caBX: ['other', 'C2PA content credentials'],
+  prVW: ['thumbnail', 'Preview image (prVW)'],
+  bKGD: ['other', 'Background colour (bKGD)'],
+  hIST: ['other', 'Palette histogram (hIST)'],
+  sPLT: ['other', 'Suggested palette (sPLT)'],
+  iDOT: ['other', 'Apple decoding hint (iDOT)'],
+}
 
 export const isPng = (b: Uint8Array) => SIGNATURE.every((v, i) => b[i] === v)
 
@@ -100,11 +122,17 @@ export async function pngBlocks(b: Uint8Array, ctx: Ctx): Promise<{ blocks: Bloc
   const blocks: Block[] = []
   const ihdr = chunks.find((c) => c.type === 'IHDR')
   for (const c of chunks) {
-    if (!METADATA.has(c.type)) continue
+    if (!isMetadata(c.type)) continue
     const where = `${c.type} chunk at ${hex(c.start)}`
     const size = c.end - c.start
+    if (c.type !== 'tIME' && c.type !== 'iCCP' && c.type !== 'tEXt' && c.type !== 'zTXt' && c.type !== 'iTXt' && c.type !== 'eXIf' && c.type !== 'exIf') {
+      const [kind, label] = NAMED[c.type] ?? ['other', `Chunk “${c.type}”`]
+      blocks.push({ kind, label, where, size, sections: [], note: 'Not needed to display the image — removed.' })
+      continue
+    }
     switch (c.type) {
       case 'eXIf':
+      case 'exIf': // the pre-standard spelling, with the same TIFF payload
         blocks.push(exifBlock(b, tiffStart(b, c.data), c.data + c.length, where, ctx, size))
         break
       case 'tIME': {
@@ -173,8 +201,18 @@ export async function pngBlocks(b: Uint8Array, ctx: Ctx): Promise<{ blocks: Bloc
       }
     }
   }
-  if (imageEnd < b.length) blocks.push({ kind: 'trailing', label: 'Data after IEND', where: `${hex(imageEnd)}–${hex(b.length)}`, size: b.length - imageEnd, sections: [], note: 'Bytes no decoder reads — removed.' })
-  const imageRanges = complement(imageEnd, chunks.filter((c) => METADATA.has(c.type)).map((c) => [c.start, c.end] as const))
+  if (imageEnd < b.length) {
+    const iend = chunks.some((c) => c.type === 'IEND')
+    blocks.push({
+      kind: 'trailing',
+      label: iend ? 'Data after IEND' : 'Unreadable data where a chunk should start',
+      where: `${hex(imageEnd)}–${hex(b.length)}`,
+      size: b.length - imageEnd,
+      sections: [],
+      note: iend ? 'Bytes no decoder reads — removed.' : 'The chunk structure breaks here, so these bytes cannot be told apart — they are removed, and the copy may not display.',
+    })
+  }
+  const imageRanges = complement(imageEnd, chunks.filter((c) => isMetadata(c.type)).map((c) => [c.start, c.end] as const))
   const width = ihdr && ihdr.length >= 8 ? u32be(b, ihdr.data) : undefined
   const height = ihdr && ihdr.length >= 8 ? u32be(b, ihdr.data + 4) : undefined
   return { blocks, width, height, imageRanges }
@@ -197,12 +235,12 @@ export function stripPng(b: Uint8Array, options: StripOptions): Stripped {
   const counts = new Map<string, number>()
   let orientation: number | undefined
   for (const c of chunks) {
-    if (!METADATA.has(c.type)) continue
+    if (!isMetadata(c.type)) continue
     if (c.type === 'iCCP' && options.keepIcc) {
       kept.push('iCCP colour profile')
       continue
     }
-    if (c.type === 'eXIf' && orientation === undefined) orientation = readOrientation(b, tiffStart(b, c.data), c.data + c.length)
+    if ((c.type === 'eXIf' || c.type === 'exIf') && orientation === undefined) orientation = readOrientation(b, tiffStart(b, c.data), c.data + c.length)
     drop.push([c.start, c.end])
     counts.set(c.type, (counts.get(c.type) ?? 0) + 1)
   }

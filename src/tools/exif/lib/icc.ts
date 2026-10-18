@@ -59,6 +59,20 @@ export function parseIcc(b: Uint8Array, start: number, end: number): Icc {
   }
   const description = read('desc')
   if (description) rows.push({ key: 'Description', value: description })
+  // A profile made for one device can name it: the header signatures and the dmnd/dmdd text tags.
+  const signature = (o: number) => {
+    if (u32be(p, o) === 0) return undefined
+    const s = ascii(p, o, o + 4)
+    return /^[\x20-\x7e]{4}$/.test(s) ? s.trim() : `0x${u32be(p, o).toString(16).padStart(8, '0')}`
+  }
+  // Stock profiles carry generic signatures ("APPL", "IEC "); device text, or a camera/scanner profile, is what can point at one device.
+  const inputDevice = ascii(p, 12, 16) === 'scnr'
+  const device = (key: string, textValue: string | undefined, sig: string | undefined) => {
+    const value = textValue && sig ? `${textValue} (${sig})` : textValue || sig
+    if (value) rows.push({ key, value, sensitive: !!textValue || inputDevice })
+  }
+  device('Device maker', read('dmnd'), signature(48))
+  device('Device model', read('dmdd'), signature(52))
   rows.push({ key: 'Version', value: `${p[8]}.${p[9] >> 4}.${p[9] & 0xf}` })
   rows.push({ key: 'Class', value: CLASSES[ascii(p, 12, 16)] ?? fourcc(p, 12) })
   rows.push({ key: 'Colour space', value: fourcc(p, 16) })

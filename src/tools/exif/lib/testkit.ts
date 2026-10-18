@@ -155,16 +155,38 @@ export const CAMERA_TIFF: TiffSpec = {
 
 // ---- ICC --------------------------------------------------------------------
 
-/** A tiny ICC v2 header with a desc tag. */
-export function icc(description = 'Test RGB'): Uint8Array<ArrayBuffer> {
-  const descData = concat([latin('desc'), new Uint8Array(4), (() => {
-    const n = new Uint8Array(4)
-    putU32be(n, 0, description.length + 1)
-    return n
-  })(), latin(description), new Uint8Array(1)])
-  const size = 128 + 4 + 12 + descData.length
-  const out = new Uint8Array(size)
-  putU32be(out, 0, size)
+export interface IccDevice {
+  /** Header device manufacturer and model signatures (bytes 48–55). */
+  manufacturer?: string
+  model?: string
+  /** dmnd / dmdd text tags. */
+  makerText?: string
+  modelText?: string
+}
+
+/** A tiny ICC v2 header with a desc tag (and, when given, device fields). */
+export function icc(description = 'Test RGB', device: IccDevice = {}): Uint8Array<ArrayBuffer> {
+  const descTag = (value: string) =>
+    concat([latin('desc'), new Uint8Array(4), (() => {
+      const n = new Uint8Array(4)
+      putU32be(n, 0, value.length + 1)
+      return n
+    })(), latin(value), new Uint8Array(1)])
+  const tags: [string, Uint8Array][] = [['desc', descTag(description)]]
+  if (device.makerText) tags.push(['dmnd', descTag(device.makerText)])
+  if (device.modelText) tags.push(['dmdd', descTag(device.modelText)])
+  const tableEnd = 128 + 4 + 12 * tags.length
+  const datas: Uint8Array[] = []
+  const entries: [string, number, number][] = []
+  let at = tableEnd
+  for (const [sig, data] of tags) {
+    entries.push([sig, at, data.length])
+    const padded = concat([data, new Uint8Array((4 - (data.length % 4)) % 4)])
+    datas.push(padded)
+    at += padded.length
+  }
+  const out = new Uint8Array(at)
+  putU32be(out, 0, at)
   out.set(latin('test'), 4)
   out[8] = 2
   out[9] = 0x10
@@ -173,11 +195,15 @@ export function icc(description = 'Test RGB'): Uint8Array<ArrayBuffer> {
   putU16be(out, 26, 1)
   putU16be(out, 28, 2)
   out.set(latin('acsp'), 36)
-  putU32be(out, 128, 1)
-  out.set(latin('desc'), 132)
-  putU32be(out, 136, 144)
-  putU32be(out, 140, descData.length)
-  out.set(descData, 144)
+  if (device.manufacturer) out.set(latin(device.manufacturer.padEnd(4, ' ').slice(0, 4)), 48)
+  if (device.model) out.set(latin(device.model.padEnd(4, ' ').slice(0, 4)), 52)
+  putU32be(out, 128, tags.length)
+  entries.forEach(([sig, offset, size], i) => {
+    out.set(latin(sig), 132 + i * 12)
+    putU32be(out, 136 + i * 12, offset)
+    putU32be(out, 140 + i * 12, size)
+  })
+  out.set(concat(datas), tableEnd)
   return out
 }
 
@@ -384,6 +410,10 @@ export interface HeifSpec {
   exif?: Uint8Array
   xmp?: string
   profile?: Uint8Array
+  /** Item ids (2 = Exif, 3 = XMP) left out of iloc. */
+  omitFromIloc?: number[]
+  /** iloc construction_method per item id (0 file offset, 1 idat, 2 item). */
+  constructionMethod?: Record<number, number>
 }
 
 /** ftyp + meta (iinf, iloc v1, iprp/ipco with colr, ispe, irot) + mdat holding the image, Exif and XMP payloads. */
@@ -398,11 +428,15 @@ export function heif(spec: HeifSpec): Uint8Array<ArrayBuffer> {
   const build = (mdatStart: number) => {
     const entries: Uint8Array[] = []
     let at = mdatStart + 8
+    let listed = 0
     for (const [id, data] of payloads) {
-      entries.push(u16(id), u16(0), u16(0), u16(1), u32(at), u32(data.length))
+      if (!spec.omitFromIloc?.includes(id)) {
+        entries.push(u16(id), u16(spec.constructionMethod?.[id] ?? 0), u16(0), u16(1), u32(at), u32(data.length))
+        listed++
+      }
       at += data.length
     }
-    const iloc = box('iloc', full(1), new Uint8Array([0x44, 0x00]), u16(payloads.length), ...entries)
+    const iloc = box('iloc', full(1), new Uint8Array([0x44, 0x00]), u16(listed), ...entries)
     const items = [infe(1, brand === 'avif' ? 'av01' : 'hvc1', 'image')]
     if (exifPayload) items.push(infe(2, 'Exif', 'Exif'))
     if (xmpPayload) items.push(infe(3, 'mime', 'XMP', 'application/rdf+xml'))
