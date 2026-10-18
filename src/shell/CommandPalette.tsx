@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { tools } from './registry'
+import { useModalFocus } from './focus'
 import { navigate } from './router'
 import { paletteKeyLabel, rank, toCommands, type Command } from './palette'
 import { taglines } from './tool-copy'
@@ -16,6 +17,7 @@ export default function CommandPalette({ path, onClose }: PaletteProps) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   const results = useMemo(() => rank(ALL, query), [query])
   const index = Math.min(active, Math.max(results.length - 1, 0))
@@ -29,13 +31,11 @@ export default function CommandPalette({ path, onClose }: PaletteProps) {
     listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
   }, [index, results])
 
-  // Closing on Escape belongs on the window: a click on a row or the padding
-  // takes focus off the input, and Escape has to keep working after that.
-  useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Focus moves to the search box, Tab stays inside, and closing hands focus
+  // back to whatever opened the palette. Escape is caught on the window: a
+  // click on a row or the padding takes focus off the input, and Escape has
+  // to keep working after that.
+  useModalFocus(dialogRef, true, { onEscape: onClose })
 
   const run = (command: Command) => {
     onClose()
@@ -56,11 +56,10 @@ export default function CommandPalette({ path, onClose }: PaletteProps) {
   return (
     <>
       <div className="palette-backdrop" onClick={onClose} />
-      <div className="palette" role="dialog" aria-modal="true" aria-label="Command palette" data-shell-palette>
+      <div ref={dialogRef} className="palette" role="dialog" aria-modal="true" aria-label="Command palette" data-shell-palette>
         <div className="palette-search">
           <span className="material-symbols-outlined" aria-hidden>search</span>
           <input
-            autoFocus
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
