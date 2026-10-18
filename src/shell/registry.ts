@@ -175,4 +175,11 @@ export const tools: ToolMeta[] = [
     category: 'security',
     load: () => import('../tools/otp'),
   },
+  {
+    slug: 'curl',
+    name: 'cURL converter',
+    mark: 'cURL',
+    category: 'data',
+    load: () => import('../tools/curl'),
+  },
 ]

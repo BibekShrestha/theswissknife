@@ -360,3 +360,14 @@ the precache list built by `scripts/sw-manifest.ts`.
   not imported) under a deadline; re-import QR codes are drawn from `uqr`'s
   matrix as one SVG path. Secrets are hidden until revealed and nothing is
   persisted — no storage, no URL fragment.
+- `tools/curl/` — cURL converter. `tokenize.ts` is a hand-written, linear
+  word splitter for bash (quotes, `$'…'` with UTF-8 byte escapes read as
+  Latin-1 when invalid, backslash-newline) and Windows cmd (caret layer, then
+  argv; backslash pairs read the way Chrome/Firefox's escapeStringWin wrote
+  them). Shell constructs are notes, never run. `parse.ts` applies curl's
+  rules (method inference, -d joining, -H precedence over -A/-e/-b/-u) and
+  records each value's token + offset, which `secrets.ts` uses to rewrite
+  only the words holding a secret, re-quoted for the same shell. Generators
+  (`generate.ts`) keep bodies byte-exact (`exactJsonValue` gates JSON
+  literals). Nothing executes the request (and connect-src would block any
+  other origin).
