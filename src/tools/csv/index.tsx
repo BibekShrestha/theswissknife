@@ -128,7 +128,7 @@ export default function CsvTool() {
     const count = editsRef.current
     if (count === 0) return true
     const ok = window.confirm(
-      `${what} re-reads the text and discards your ${count} cell edit${count === 1 ? '' : 's'} — the text does not contain them. Copy or download the table first to keep them.`,
+      `${what} re-reads the text and discards your ${count} cell edit${count === 1 ? '' : 's'} — the text does not contain ${count === 1 ? 'it' : 'them'}. Copy or download the table first to keep ${count === 1 ? 'it' : 'them'}.`,
     )
     if (ok) {
       editsRef.current = 0
