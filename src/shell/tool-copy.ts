@@ -27,4 +27,5 @@ export const taglines: Record<string, string> = {
   uuid: 'Generate v4, v7 and ULID batches, or inspect any UUID or ULID — version, variant, embedded time, and conversions to ULID, hex and base64url',
   convert: 'Convert between YAML, JSON and TOML with exact big integers, line-and-column errors and a warning for anything lost',
   sqlite: 'Open a SQLite file in your browser — browse tables, run SQL, export CSV, JSON or the edited database',
+  otp: 'Generate and check TOTP and HOTP codes from a Base32 secret, an otpauth URI, a Google Authenticator export or its QR images — nothing is stored',
 }

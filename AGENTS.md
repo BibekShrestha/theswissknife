@@ -309,3 +309,13 @@ the precache list built by `scripts/sw-manifest.ts`.
   dropping it would shift indices), anchors/merge keys are expanded,
   comments and tags are not kept, TOML dates become strings, YAML 1.1
   readings (`no`, `0755`, `1:20`) are hinted and quoted on output.
+- `tools/otp/` — TOTP & HOTP. HMAC is WebCrypto only (`otp.ts`; tests hold
+  RFC 4226 Appendix D and RFC 6238 Appendix B). `base32.ts` forgives case,
+  spaces and padding; `uri.ts` parses and builds otpauth:// URIs;
+  `migration.ts` is a hand-written protobuf reader for Google
+  Authenticator's `otpauth-migration://` payload (schema in its header;
+  no period field, so exports are 30 s). QR images go through ZXing-C++ in
+  `scan/scan.worker.ts` (same `locateFile` override as the QR tool, copied —
+  not imported) under a deadline; re-import QR codes are drawn from `uqr`'s
+  matrix as one SVG path. Secrets are hidden until revealed and nothing is
+  persisted — no storage, no URL fragment.

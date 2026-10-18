@@ -161,4 +161,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/sqlite'),
   },
+  {
+    slug: 'otp',
+    name: 'TOTP & HOTP',
+    mark: 'OTP',
+    category: 'security',
+    load: () => import('../tools/otp'),
+  },
 ]

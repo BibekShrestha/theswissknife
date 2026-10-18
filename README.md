@@ -31,6 +31,7 @@ Buddy's pdf.js engine included.
 | UUID & ULID | [/uuid](https://theswissknife.com/uuid) | Generate UUID v4, v7 and ULID batches; inspect version, variant, embedded timestamp, clock sequence and node, and convert between UUID, ULID, hex, base64url and bytes |
 | YAML / JSON / TOML converter | [/convert](https://theswissknife.com/convert) | Convert between YAML 1.2, JSON and TOML 1.0 with auto-detect, 2/4 indent and key sorting; integers past 2^53 stay exact; errors give line and column, and dropped nulls, expanded anchors, lost comments and tags, TOML dates turned into strings and big integers in JSON output are listed as warnings |
 | SQLite viewer | [/sqlite](https://theswissknife.com/sqlite) | Open a .db/.sqlite file or start empty: schema with row counts, paged sortable tables, multi-statement SQL in a worker that stops runaway queries; export results as CSV/JSON and the edited database as .sqlite — the original file is never changed |
+| TOTP & HOTP | [/otp](https://theswissknife.com/otp) | HOTP (RFC 4226) and TOTP (RFC 6238) codes with SHA-1/256/512 and 6–8 digits via WebCrypto, from a Base32 secret, an otpauth:// URI, a Google Authenticator `otpauth-migration://` export (every account, multi-QR batches) or dropped QR images (ZXing-C++); countdown, neighbouring windows for clock-skew debugging, check a code against ±N windows, editable HOTP counter, and an otpauth:// URI and QR code per account to re-import elsewhere. Secrets are hidden until revealed and never stored |
 
 ## Develop
 
