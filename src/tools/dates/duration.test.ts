@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDuration, breakdownToDuration, businessDays, calendarDifference, exactDuration, explainDuration,
-  formatDuration, parseDuration, type Duration,
+  exactHoursDuration, formatDuration, parseDuration, type Duration,
 } from './duration'
 import { resolveWall, parseLocalDateTime } from './zone'
 
@@ -178,5 +178,26 @@ describe('businessDays', () => {
     expect(businessDays(d('2026-10-17'), d('2026-10-18'))).toBe(0) // Sat → Sun
     expect(businessDays(d('2026-01-01'), d('2026-12-31'))).toBe(260)
     expect(businessDays(d('2026-10-19'), d('2026-10-16'))).toBe(-1)
+  })
+})
+
+describe('exact-hours hint and plain decimals (DATES-1, DATES-3)', () => {
+  it.each([
+    ['P1DT2H', 'PT26H'],
+    ['P1W', 'PT168H'],
+    ['P1000D', 'PT24000H'],
+    ['-P1DT30M', '-PT24H30M'],
+    ['P2DT1H15M30S', 'PT49H15M30S'],
+    ['P0.5D', 'PT12H'],
+  ])('%s in exact hours is %s, in digits the parser reads back', (text, expected) => {
+    const hint = exactHoursDuration(dur(text))
+    expect(hint).toBe(expected)
+    expect(parseDuration(hint).ok).toBe(true)
+  })
+
+  it('writes decimals without an exponent', () => {
+    expect(formatDuration(dur('P0.000000001D'))).toBe('P0.000000001D')
+    expect(formatDuration(dur('PT0.0000005S'))).toBe('PT0.0000005S')
+    expect(explainDuration(dur('P0.000000001D'))).toBe('0.000000001 days.')
   })
 })

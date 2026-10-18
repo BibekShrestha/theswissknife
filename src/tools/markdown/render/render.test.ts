@@ -36,8 +36,8 @@ describe('GFM', () => {
 describe('footnotes', () => {
   it('numbers by first reference and lists them at the end', () => {
     const out = html('B[^b] then A[^a] then B again[^b].\n\n[^a]: Alpha *note*.\n[^b]: Beta\n  continued.\n')
-    expect(out).toContain('<a href="#fn-b" id="fnref-b">1</a>')
-    expect(out).toContain('<a href="#fn-a" id="fnref-a">2</a>')
+    expect(out).toContain('<a href="#user-content-fn-b" id="user-content-fnref-b">1</a>')
+    expect(out).toContain('<a href="#user-content-fn-a" id="user-content-fnref-a">2</a>')
     const section = out.slice(out.indexOf('<section class="md-footnotes">'))
     expect(section.indexOf('fn-b')).toBeLessThan(section.indexOf('fn-a'))
     expect(section).toContain('Alpha <em>note</em>.')
@@ -48,6 +48,14 @@ describe('footnotes', () => {
     const r = renderMarkdown('x[^nope]\n\n[^unused]: never cited\n')
     expect(r.missingFootnotes).toEqual(['nope'])
     expect(r.html).not.toContain('never cited')
+  })
+
+  it('never gives a heading the id of a footnote (MD-4)', () => {
+    const out = html('# fn 1\n\n## fnref 1\n\n## user content fn 1\n\nText[^1].\n\n[^1]: The note.\n')
+    const ids = [...out.matchAll(/ id="([^"]+)"/g)].map((m) => m[1])
+    expect(ids).toContain('fn-1')
+    expect(ids).toContain('user-content-fn-1')
+    expect(new Set(ids).size).toBe(ids.length)
   })
 
   it('keeps state per render', () => {
@@ -142,6 +150,12 @@ describe('toc', () => {
 describe('helpers', () => {
   it('strips markup to text', () => {
     expect(plainText('<code>a &amp; b</code>')).toBe('a & b')
+  })
+
+  it('counts in linear time on hostile input (MD-3)', () => {
+    const start = performance.now()
+    stats('<'.repeat(40000))
+    expect(performance.now() - start).toBeLessThan(150)
   })
 
   it('counts words outside code fences', () => {

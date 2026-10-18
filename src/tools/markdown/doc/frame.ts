@@ -1,3 +1,5 @@
+import { disarmedFragment } from './links'
+
 /**
  * The preview frame. It is what you see, what prints, and — through
  * buildHtml — what exports, because all three use the same stylesheet.
@@ -6,7 +8,8 @@
  * pasted into the Markdown renders as inert markup and never runs, so the tool
  * needs no sanitizer. `allow-same-origin` lets this page write into the frame
  * and call its print(); `allow-modals` is what permits the print dialog;
- * popups let `target=_blank` links open outside the sandbox.
+ * popups let `target=_blank` links open outside the sandbox — and every
+ * external link gets that target (links.ts), so none navigates the frame.
  *
  * `<base href="about:srcdoc">`: a srcdoc frame otherwise inherits this page's
  * URL as its base, so `#anchor` would resolve to `/markdown#anchor`, navigate
@@ -23,6 +26,22 @@ export function frameSkeleton(): string {
     + '<body><main id="doc"></main></body></html>'
 }
 
+/**
+ * Whether the frame still holds the document frameSkeleton() made. A click
+ * that navigates it (a link the disarming missed, a browser quirk) replaces it
+ * with another page — usually the CSP's cross-origin error page, whose
+ * contentDocument is null — and nothing can be written into it any more; the
+ * caller then rebuilds the frame.
+ */
+export function frameIsLive(frame: HTMLIFrameElement): boolean {
+  try {
+    const doc = frame.contentDocument
+    return Boolean(doc?.getElementById('doc') && doc.querySelector('head > base[href="about:srcdoc"]'))
+  } catch {
+    return false
+  }
+}
+
 export interface FrameContent {
   title: string
   body: string
@@ -30,16 +49,26 @@ export interface FrameContent {
   extraCss: string
 }
 
-/** Updates in place — scroll position and loaded fonts survive each keystroke. */
+const written = new WeakMap<Document, string>()
+
+/**
+ * Updates in place — scroll position and loaded fonts survive each keystroke.
+ * The body is disarmed (links.ts) before it is inserted, so a pasted
+ * <meta http-equiv="refresh"> never even reaches the live document. Returns
+ * false when the frame is no longer ours (see frameIsLive).
+ */
 export function writeFrame(frame: HTMLIFrameElement, content: FrameContent): boolean {
-  const doc = frame.contentDocument
-  const main = doc?.getElementById('doc')
-  if (!doc || !main) return false
-  const css = doc.getElementById('doc-css')!
-  const extra = doc.getElementById('extra-css')!
-  if (css.textContent !== content.css) css.textContent = content.css
-  if (extra.textContent !== content.extraCss) extra.textContent = content.extraCss
-  if (main.innerHTML !== content.body) main.innerHTML = content.body
+  if (!frameIsLive(frame)) return false
+  const doc = frame.contentDocument!
+  const main = doc.getElementById('doc')!
+  const css = doc.getElementById('doc-css')
+  const extra = doc.getElementById('extra-css')
+  if (css && css.textContent !== content.css) css.textContent = content.css
+  if (extra && extra.textContent !== content.extraCss) extra.textContent = content.extraCss
+  if (written.get(doc) !== content.body) {
+    main.replaceChildren(disarmedFragment(content.body, doc))
+    written.set(doc, content.body)
+  }
   // The print dialog proposes this as the PDF file name.
   doc.title = content.title || 'Document'
   return true

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { instantsFor, nextRuns } from './next'
+import { emptyReason, instantsFor, nextRuns } from './next'
 import { parseCron, type CronExpression } from './parse'
 
 function cron(expr: string): CronExpression {
@@ -140,5 +140,22 @@ describe('DST in Europe/London', () => {
   it('keeps a job outside the transition at its wall time', () => {
     const result = runs('0 9 * * *', 'Europe/London', '2026-03-28T12:00:00Z', 2)
     expect(result.runs.map((r) => iso(r.at))).toEqual(['2026-03-29T08:00:00.000Z', '2026-03-30T08:00:00.000Z'])
+  })
+})
+
+describe('why nothing runs (CRON-2)', () => {
+  it('tells a date that never exists from times that only fall in DST gaps', () => {
+    const noDate = runs('0 0 30 2 *', 'America/New_York', '2026-01-01T00:00:00Z')
+    expect(emptyReason(noDate)).toBe('no-date')
+    expect(noDate.skipped).toHaveLength(0)
+
+    // 02:30 on the second Sunday of March: the New York spring-forward gap every year.
+    const gapsOnly = runs('30 2 8-14 3 */7', 'America/New_York', '2026-01-01T00:00:00Z')
+    expect(gapsOnly.runs).toHaveLength(0)
+    expect(gapsOnly.skipped.length).toBeGreaterThan(100)
+    expect(new Set(gapsOnly.skipped.map((s) => s.wall.year)).size).toBe(gapsOnly.skipped.length)
+    expect(emptyReason(gapsOnly)).toBe('dst-gaps')
+
+    expect(emptyReason(runs('0 9 * * *', 'UTC', '2026-01-01T00:00:00Z'))).toBeNull()
   })
 })

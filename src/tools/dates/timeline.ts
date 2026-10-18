@@ -6,10 +6,18 @@ import {
 /**
  * The meeting planner's timeline: the chosen calendar date in the reference
  * (first) zone, from its first instant to the first instant of the next day,
- * cut into 15-minute slots. Every UTC offset in use is a multiple of 15
- * minutes, so every zone's hour boundaries fall on slot boundaries and rows
- * line up on the same instants. A 23- or 25-hour reference day has 92 or 100
- * slots.
+ * cut into 15-minute slots counted from that first instant. Every UTC offset
+ * in use since the mid-20th century is a multiple of 15 minutes, so every
+ * zone's hour boundaries fall on slot boundaries and rows line up on the same
+ * instants. A 23- or 25-hour reference day has 92 or 100 slots.
+ *
+ * Two historical cases break that, and are flagged rather than hidden:
+ * - a date the reference zone skipped entirely (Pacific/Apia jumped from
+ *   29 to 31 December 2011) has no slots at all — `missing`;
+ * - local mean time (most zones before about 1900; Africa/Monrovia kept
+ *   −00:44:30 until 1972) puts a row's hours between slot boundaries — its
+ *   `offGrid`. Its cells show the clock reading at each slot's start, and
+ *   meeting times are computed from exact instants, so nothing is rounded.
  */
 export const SLOT_MINUTES = 15
 export const SLOT_MS = SLOT_MINUTES * MINUTE
@@ -20,13 +28,24 @@ export interface Timeline {
   start: number
   end: number
   slots: number
+  /** The date does not exist in the reference zone (the calendar skipped it). */
+  missing: boolean
 }
 
 export function buildTimeline(date: PlainDate, zone: string): Timeline {
   const midnight = (d: PlainDate): Wall => ({ ...d, hour: 0, minute: 0, second: 0, ms: 0 })
   const start = resolveWall(midnight(date), zone).ms
   const end = resolveWall(midnight(addDays(date, 1)), zone).ms
-  return { date, zone, start, end, slots: Math.round((end - start) / SLOT_MS) }
+  const slots = Math.max(0, Math.round((end - start) / SLOT_MS))
+  return { date, zone, start, end, slots, missing: slots === 0 }
+}
+
+/** A selection [from, to) kept on the timeline; null when the timeline is empty. */
+export function clampSel(sel: [number, number], slots: number): [number, number] | null {
+  if (slots <= 0) return null
+  const from = Math.max(0, Math.min(sel[0], slots - 1))
+  const to = Math.max(from + 1, Math.min(sel[1], slots))
+  return [from, to]
 }
 
 export interface WorkHours {
@@ -66,6 +85,8 @@ export interface ZoneRow {
   transitions: Transition[]
   /** Offset at the start of the timeline, in minutes. */
   offsetMinutes: number
+  /** Some hour of this zone starts between slot boundaries (local mean time). */
+  offGrid: boolean
 }
 
 function inWork(minuteOfDay: number, hours: WorkHours): boolean {
@@ -81,10 +102,12 @@ export function buildRow(timeline: Timeline, zone: string, hours: WorkHours): Zo
   const transitions: Transition[] = []
   let previousOffset = offsetMs(timeline.start, zone)
   const firstOffset = previousOffset
+  let offGrid = false
   for (let i = 0; i < timeline.slots; i++) {
     const t = timeline.start + i * SLOT_MS
     const wall = wallAt(t, zone)
     const offset = offsetMs(t, zone)
+    if (wall.minute % SLOT_MINUTES !== 0 || wall.second !== 0 || wall.ms !== 0) offGrid = true
     if (offset !== previousOffset) {
       transitions.push({
         slot: i,
@@ -105,7 +128,7 @@ export function buildRow(timeline: Timeline, zone: string, hours: WorkHours): Zo
       cells.push({ from: i, to: i + 1, hour: wall.hour, minute: wall.minute, date: { year: wall.year, month: wall.month, day: wall.day }, dayShift, work: isWork })
     }
   }
-  return { zone, cells, work, transitions, offsetMinutes: firstOffset / MINUTE }
+  return { zone, cells, work, transitions, offsetMinutes: firstOffset / MINUTE, offGrid }
 }
 
 /** The wall clock an instant would show under a given offset. */

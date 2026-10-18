@@ -27,7 +27,9 @@ function load(): Promise<Mermaid> {
   return mermaidPromise
 }
 
-const PLACEHOLDER = /<figure class="md-mermaid" data-src="([^"]*)">[\s\S]*?<\/figure>/g
+// Exactly what render.ts writes (escaped source, so no "<" inside): an
+// unclosed lookalike in raw HTML cannot make this rescan the document.
+const PLACEHOLDER = /<figure class="md-mermaid" data-src="([^"]*)"><pre><code>[^<]*<\/code><\/pre><\/figure>/g
 
 /** Diagram sources in `html` that have no cached render yet. */
 export function pendingDiagrams(html: string): string[] {

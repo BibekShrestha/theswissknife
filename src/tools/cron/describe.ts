@@ -25,10 +25,26 @@ function singles(field: ParsedField): number[] | null {
   return field.parts.every((p) => p.start !== null && p.start === p.end && !p.openEnded) ? field.values : null
 }
 
-/** A field that is exactly `*\/n` (the only part). */
-function everyStep(field: ParsedField): number | null {
+/**
+ * A field that is exactly `*\/n` (the only part) where n divides the range,
+ * so the gap is n all the way round. `*\/7` in minutes hits :56 and then :00,
+ * four minutes later — that is not "every 7 minutes"; see unevenStep.
+ */
+function everyStep(field: ParsedField, mustDivide = true): number | null {
   const [p] = field.parts
-  return field.parts.length === 1 && p.start === null && p.step > 1 ? p.step : null
+  const span = field.spec.max - field.spec.min + 1
+  return field.parts.length === 1 && p.start === null && p.step > 1 && (!mustDivide || span % p.step === 0) ? p.step : null
+}
+
+/** `*\/n` where n does not divide the range: the values it hits. */
+function unevenStep(field: ParsedField): number[] | null {
+  const [p] = field.parts
+  return field.parts.length === 1 && p.start === null && p.step > 1 && !everyStep(field) ? field.values : null
+}
+
+/** Up to six values in full, otherwise the first three and the last. */
+function valueList(values: string[]): string {
+  return values.length <= 6 ? joinList(values) : `${values.slice(0, 3).join(', ')}, …, ${values[values.length - 1]}`
 }
 
 /** A field that is exactly one plain range a-b. */
@@ -41,6 +57,8 @@ function minutePhrase(field: ParsedField): string {
   if (field.all) return 'Every minute'
   const step = everyStep(field)
   if (step) return `Every ${step} minutes`
+  const uneven = unevenStep(field)
+  if (uneven) return `At minutes ${valueList(uneven.map(String))} past the hour`
   const one = singles(field)
   if (one) return `At minute${one.length > 1 ? 's' : ''} ${joinList(one.map(String))} past the hour`
   return `At ${joinList(field.parts.map((p) => partText(p, field, 'minute')))} past the hour`
@@ -50,6 +68,8 @@ function hourPhrase(field: ParsedField): string {
   if (field.all) return ''
   const step = everyStep(field)
   if (step) return `every ${step} hours`
+  const uneven = unevenStep(field)
+  if (uneven) return `during the ${valueList(uneven.map((h) => clock(h, 0)))} hours`
   const range = plainRange(field)
   if (range) return `between ${clock(range[0], 0)} and ${clock(range[1], 59)}`
   const one = singles(field)
@@ -82,7 +102,8 @@ function nameList(values: number[], names: string[], offset: number): string {
 }
 
 function domPhrase(field: ParsedField): string {
-  const step = everyStep(field)
+  // Months differ in length anyway; the wording says the count restarts on the 1st.
+  const step = everyStep(field, false)
   if (step) return `every ${ordinal(step)} day of the month (from the 1st)`
   const range = plainRange(field)
   if (range) return `on days ${range[0]} through ${range[1]} of the month`

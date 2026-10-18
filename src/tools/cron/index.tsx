@@ -4,13 +4,14 @@ import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { DAY_NAMES, describeCron, describeField } from './describe'
-import { nextRuns, type NextRunsResult, type WallTime } from './next'
+import { emptyReason, nextRuns, type NextRunsResult, type WallTime } from './next'
 import { FIELDS, MACROS, parseCron } from './parse'
+import { zoneOptions } from './zones'
 import './cron.css'
 
 type SupportedValues = typeof Intl & { supportedValuesOf?: (key: 'timeZone') => string[] }
 const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-const zones = (Intl as SupportedValues).supportedValuesOf?.('timeZone') ?? ['UTC', localZone]
+const zones = zoneOptions((Intl as SupportedValues).supportedValuesOf?.('timeZone'), localZone)
 const COUNTS = [5, 10, 25, 50]
 
 const EXAMPLES: [string, string][] = [
@@ -174,7 +175,6 @@ export default function CronTool() {
             <label className="cron-control cron-zone">
               <span>Time zone</span>
               <select value={zone} onChange={(event) => setZone(event.target.value)} aria-label="Time zone">
-                {!zones.includes(localZone) && <option>{localZone}</option>}
                 {zones.map((item) => <option key={item}>{item}</option>)}
               </select>
             </label>
@@ -184,10 +184,16 @@ export default function CronTool() {
           </header>
 
           {schedule.error && <div className="cron-error" role="alert">{schedule.error}</div>}
-          {schedule.result?.never && (
+          {schedule.result && emptyReason(schedule.result) === 'no-date' && (
             <div className="cron-never" role="status">
               <strong>Never runs.</strong> No date in the next 400 years — a full Gregorian calendar cycle — matches this
               expression, so none ever will (for example, 30 February or 31 April).
+            </div>
+          )}
+          {schedule.result && emptyReason(schedule.result) === 'dst-gaps' && (
+            <div className="cron-never" role="status">
+              <strong>Never runs in {zone}.</strong> Dates do match, but every matching time in the next 400 years falls in a
+              daylight-saving gap — a wall time the clock skips — so it never runs there. The skipped times are listed below.
             </div>
           )}
           {schedule.result && schedule.result.runs.length > 0 && (
@@ -213,7 +219,7 @@ export default function CronTool() {
                   <li key={wallText(s.wall, s.weekday)} className="mono">{wallText(s.wall, s.weekday)} — this wall time does not exist in {zone}</li>
                 ))}
               </ul>
-              {schedule.result.skipped.length > 5 && <small>and {schedule.result.skipped.length - 5} more in the same gap</small>}
+              {schedule.result.skipped.length > 5 && <small>and {schedule.result.skipped.length - 5} more skipped</small>}
             </div>
           )}
         </section>

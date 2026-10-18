@@ -4,7 +4,7 @@ import { inlineKatexFonts } from '../render/math'
 import { normalizeSettings, loadState, saveState, STORAGE_KEY } from '../state/persist'
 import { buildHtml, EXPORT_CSP, fileBase } from './buildHtml'
 import { buildCss, DEFAULT_SETTINGS, pageBox, THEMES, THEME_SELECTORS } from './docTheme'
-import { absolutizeUrls, frameSkeleton, scrollFraction } from './frame'
+import { absolutizeUrls, frameIsLive, frameSkeleton, scrollFraction, writeFrame } from './frame'
 
 describe('docTheme', () => {
   it('puts the chosen paper, orientation and margin into @page', () => {
@@ -43,6 +43,16 @@ describe('buildHtml', () => {
     expect(out).not.toMatch(/<script\b/i)
     expect(out).toContain('<style>\np{color:red}\n</style>')
     expect(out.startsWith('<!doctype html>')).toBe(true)
+  })
+
+  it('cannot navigate itself once opened (MD-5)', () => {
+    const file = buildHtml({ title: 't', body: '<meta http-equiv="refresh" content="0;url=https://ex.com"><form action="https://ex.com/x"><button>go</button></form><a href="javascript:alert(1)">j</a>', css: '' })
+    const doc = new DOMParser().parseFromString(file, 'text/html')
+    expect(doc.querySelectorAll('meta[http-equiv="refresh"]')).toHaveLength(0)
+    expect(doc.querySelector('form')!.hasAttribute('action')).toBe(false)
+    expect(file).not.toContain('javascript:')
+    expect(EXPORT_CSP).toContain("form-action 'none'")
+    expect(EXPORT_CSP).toContain("base-uri 'none'")
   })
 
   it('escapes the title and forbids script with its own CSP', () => {
@@ -112,6 +122,33 @@ describe('scroll sync', () => {
 describe('frame', () => {
   it('pins the base so #anchors stay inside the document', () => {
     expect(frameSkeleton()).toContain('<base href="about:srcdoc">')
+  })
+
+  const fakeFrame = (doc: Document | null) => ({ contentDocument: doc }) as unknown as HTMLIFrameElement
+  const content = { title: 'T', body: '<p>x</p><a href="https://ex.com">raw</a><meta http-equiv="refresh" content="0">', css: 'p{}', extraCss: '' }
+
+  it('writes into its own document, disarmed (MD-1)', () => {
+    const doc = new DOMParser().parseFromString(frameSkeleton(), 'text/html')
+    expect(frameIsLive(fakeFrame(doc))).toBe(true)
+    expect(writeFrame(fakeFrame(doc), content)).toBe(true)
+    const main = doc.getElementById('doc')!
+    expect(main.querySelector('a')!.getAttribute('target')).toBe('_blank')
+    expect(main.querySelector('meta')).toBeNull()
+    expect(doc.title).toBe('T')
+    // An unchanged body is not rewritten (scroll and loaded fonts survive).
+    const p = main.querySelector('p')
+    writeFrame(fakeFrame(doc), content)
+    expect(main.querySelector('p')).toBe(p)
+  })
+
+  it('notices a frame that navigated away so it can be rebuilt (MD-1)', () => {
+    // Cross-origin (the CSP error page): no document at all.
+    expect(frameIsLive(fakeFrame(null))).toBe(false)
+    expect(writeFrame(fakeFrame(null), content)).toBe(false)
+    // Same-origin but someone else's page.
+    const other = new DOMParser().parseFromString('<main id="doc"></main>', 'text/html')
+    expect(frameIsLive(fakeFrame(other))).toBe(false)
+    expect(writeFrame(fakeFrame(other), content)).toBe(false)
   })
 
   it('makes root-relative font URLs absolute and leaves the rest', () => {

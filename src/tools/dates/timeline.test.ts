@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRow, buildTimeline, meetingText, meetingTimes, overlap, ranges, SLOT_MS } from './timeline'
+import { buildRow, buildTimeline, clampSel, meetingText, meetingTimes, overlap, ranges, SLOT_MS } from './timeline'
 
 const WORK = { start: 9 * 60, end: 17 * 60 }
 const iso = (ms: number) => new Date(ms).toISOString()
@@ -75,5 +75,25 @@ describe('timeline', () => {
       'America/New_York  Sun 29 Mar 2026 18:00-19:00  UTC-04:00',
       'Asia/Kathmandu    Mon 30 Mar 2026 03:45-04:45  UTC+05:45 (+1 day)',
     ].join('\n'))
+  })
+})
+
+describe('days and offsets the slot grid cannot show (DATES-2, DATES-4)', () => {
+  it('a skipped calendar day has no slots and no selection', () => {
+    const apia = buildTimeline({ year: 2011, month: 12, day: 30 }, 'Pacific/Apia')
+    expect(apia.slots).toBe(0)
+    expect(apia.missing).toBe(true)
+    expect(clampSel([36, 40], apia.slots)).toBeNull()
+    expect(buildTimeline({ year: 2011, month: 12, day: 31 }, 'Pacific/Apia').missing).toBe(false)
+    expect(clampSel([36, 40], 96)).toEqual([36, 40])
+    expect(clampSel([95, 120], 92)).toEqual([91, 92])
+  })
+
+  it('flags rows whose hours do not start on slot boundaries (local mean time)', () => {
+    const tl = buildTimeline({ year: 1890, month: 6, day: 1 }, 'Europe/Amsterdam')
+    expect(buildRow(tl, 'Europe/Amsterdam', WORK).offGrid).toBe(false)
+    expect(buildRow(tl, 'UTC', WORK).offGrid).toBe(true)
+    const today = buildTimeline({ year: 2026, month: 3, day: 29 }, 'Europe/London')
+    expect(['Europe/London', 'Asia/Kathmandu', 'Asia/Kolkata', 'America/New_York'].map((z) => buildRow(today, z, WORK).offGrid)).toEqual([false, false, false, false])
   })
 })

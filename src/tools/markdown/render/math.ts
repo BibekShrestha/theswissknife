@@ -23,7 +23,9 @@ export function loadKatexCss(): Promise<string> {
   return cssPromise
 }
 
-const PLACEHOLDER = /<(span|div) class="md-math(-block)?" data-tex="([^"]*)">[\s\S]*?<\/\1>/g
+// The placeholder's content is escaped TeX, which has no "<": [^<]* keeps an
+// unclosed lookalike in raw HTML from rescanning the rest of the document.
+const PLACEHOLDER = /<(span|div) class="md-math(-block)?" data-tex="([^"]*)">[^<]*<\/\1>/g
 const cache = new Map<string, string>()
 
 export function renderMath(html: string, katex: Katex): string {

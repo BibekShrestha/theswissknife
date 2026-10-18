@@ -24,7 +24,12 @@ interface RefToken extends Tokens.Generic {
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-/** Ids go into `id` and `href`, so keep them to a safe alphabet. */
+/**
+ * Ids go into `id` and `href`, so keep them to a safe alphabet. The prefix is
+ * GitHub's, and the heading slugger never hands it out (slugger.ts), so a
+ * heading "fn 1" cannot collide with footnote 1.
+ */
+export const FOOTNOTE_PREFIX = 'user-content-'
 const anchor = (id: string) => id.toLowerCase().replace(/[^\p{L}\p{N}_-]+/gu, '-')
 
 export function footnotes() {
@@ -62,7 +67,7 @@ export function footnotes() {
           let n = order.indexOf(id) + 1
           if (!n) n = order.push(id)
           const a = anchor(id)
-          return `<sup class="md-fnref"><a href="#fn-${a}" id="fnref-${a}">${n}</a></sup>`
+          return `<sup class="md-fnref"><a href="#${FOOTNOTE_PREFIX}fn-${a}" id="${FOOTNOTE_PREFIX}fnref-${a}">${n}</a></sup>`
         },
       },
     ],
@@ -74,7 +79,7 @@ export function footnotes() {
       .filter((id) => defs.has(id))
       .map((id) => {
         const a = anchor(id)
-        return `<li id="fn-${a}">${defs.get(id)}<a href="#fnref-${a}" class="md-fnback" aria-label="Back to reference">↩</a></li>`
+        return `<li id="${FOOTNOTE_PREFIX}fn-${a}">${defs.get(id)}<a href="#${FOOTNOTE_PREFIX}fnref-${a}" class="md-fnback" aria-label="Back to reference">↩</a></li>`
       })
     return items.length ? `<section class="md-footnotes"><ol>${items.join('')}</ol></section>` : ''
   }

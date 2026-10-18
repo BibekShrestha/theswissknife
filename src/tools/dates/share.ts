@@ -1,4 +1,5 @@
-import { isValidZone, parseIsoDate, parseLocalDateTime } from './zone'
+import { canonicalZone, zoneList } from './catalog'
+import { parseIsoDate, parseLocalDateTime } from './zone'
 
 /**
  * Fragment state. The planner uses `#zones=…&date=…&work=…&sel=…`, the
@@ -68,17 +69,18 @@ export function readHash(hash: string): HashState {
   } catch {
     return { tab: null }
   }
-  const zone = (key: string) => {
-    const z = params.get(key)
-    return z && isValidZone(z) ? z : undefined
-  }
+  // Links may carry any case or an alias; one spelling per zone, or the same
+  // zone shows up as two rows.
+  const all = zoneList()
+  const canonical = (z: string | null) => (z ? canonicalZone(z, all) ?? undefined : undefined)
+  const zone = (key: string) => canonical(params.get(key))
   const dt = (key: string) => {
     const v = params.get(key)
     return v && parseLocalDateTime(v) ? v : undefined
   }
   if (params.has('zones')) {
     const planner: Partial<PlannerState> = {}
-    const zones = (params.get('zones') ?? '').split(',').filter((z) => isValidZone(z))
+    const zones = (params.get('zones') ?? '').split(',').map(canonical).filter((z): z is string => z !== undefined)
     if (zones.length) planner.zones = [...new Set(zones)].slice(0, MAX_ZONES)
     const date = params.get('date')
     if (date && parseIsoDate(date)) planner.date = date
