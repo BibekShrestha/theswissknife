@@ -25,7 +25,6 @@
     "src/tools/pdf/tools/SplitPdf.tsx": 3,
     "src/tools/pdf/tools/UnlockPdf.tsx": 2,
     "src/tools/pdf/tools/Watermark.tsx": 4,
-    "src/tools/qr/Generator.tsx": 1,
     "src/tools/qr/scan/Scanner.tsx": 1,
     "src/tools/redact/components/ShareDialog.tsx": 2,
     "src/tools/redact/index.tsx": 9,

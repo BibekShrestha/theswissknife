@@ -38,8 +38,36 @@ export function escapeWifi(value: string): string {
 
 /** vCard 3.0 text values escape backslash, comma, semicolon and newlines. */
 export function escapeVcard(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\r?\n/g, '\\n')
+  return value.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\r\n|\r|\n/g, '\\n')
 }
+
+/** vCard URI values (URL) are not text: no backslash escaping, but no control characters either — a newline would start a new property. */
+function vcardUri(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/[\u0000-\u001f\u007f]/g, '')
+}
+
+/**
+ * A mailto recipient list (RFC 6068): each address keeps the characters an
+ * addr-spec may use unencoded and percent-encodes the rest — `?`, `&`, `#`,
+ * `%`, `=` and spaces above all, which would otherwise start or split the
+ * header part (`a@b.co?cc=…`). Addresses are separated by commas.
+ */
+function mailtoRecipients(value: string): string {
+  return value
+    .split(',')
+    .map((address) => address.trim())
+    .filter(Boolean)
+    .map((address) => address.replace(/[^A-Za-z0-9\-._~!$'*+;:@]/gu, (c) => encodeURIComponent(c)))
+    .join(',')
+}
+
+/** encodeURIComponent leaves ( and ) alone; the geo label sits inside parentheses, so they must be encoded too. */
+const geoLabel = (value: string) => encodeURIComponent(value).replace(/\(/g, '%28').replace(/\)/g, '%29')
+
+/** Half of a surrogate pair on its own: no UTF-8 for it, so no QR code can hold it. */
+export const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/
+export const LONE_SURROGATE_ERROR = 'The text contains an unpaired surrogate (half of an emoji or other character, often from a bad copy-paste) — remove it to encode'
 
 /** iCalendar text values use the same escaping as vCard. */
 const escapeIcal = escapeVcard
@@ -59,6 +87,7 @@ export function icalDate(value: string): string {
 const has = (v: string | undefined): v is string => Boolean(v && v.trim())
 
 export function buildPayload(preset: PresetId, f: Fields): PayloadResult {
+  if (Object.values(f).some((v) => typeof v === 'string' && LONE_SURROGATE.test(v))) return { payload: '', error: LONE_SURROGATE_ERROR }
   switch (preset) {
     case 'text':
       return f.text ? { payload: f.text } : { payload: '', error: 'Type some text or paste a URL' }
@@ -79,7 +108,7 @@ export function buildPayload(preset: PresetId, f: Fields): PayloadResult {
         has(f.subject) && `subject=${encodeURIComponent(f.subject)}`,
         has(f.body) && `body=${encodeURIComponent(f.body)}`,
       ].filter(Boolean).join('&')
-      return { payload: `mailto:${(f.to ?? '').trim()}${query ? `?${query}` : ''}` }
+      return { payload: `mailto:${mailtoRecipients(f.to ?? '')}${query ? `?${query}` : ''}` }
     }
 
     case 'phone': {
@@ -107,7 +136,7 @@ export function buildPayload(preset: PresetId, f: Fields): PayloadResult {
         has(f.title) && `TITLE:${escapeVcard(f.title.trim())}`,
         has(f.phone) && `TEL;TYPE=CELL:${cleanPhone(f.phone)}`,
         has(f.email) && `EMAIL:${escapeVcard(f.email.trim())}`,
-        has(f.url) && `URL:${escapeVcard(f.url.trim())}`,
+        has(f.url) && `URL:${vcardUri(f.url.trim())}`,
         // ADR is structured; a single free-form line goes in the street slot.
         has(f.address) && `ADR:;;${escapeVcard(f.address.trim())};;;;`,
         has(f.note) && `NOTE:${escapeVcard(f.note)}`,
@@ -123,7 +152,7 @@ export function buildPayload(preset: PresetId, f: Fields): PayloadResult {
       if (Math.abs(lat) > 90) return { payload: '', error: 'Latitude must be between −90 and 90' }
       if (Math.abs(lng) > 180) return { payload: '', error: 'Longitude must be between −180 and 180' }
       const point = `${lat},${lng}`
-      return { payload: has(f.label) ? `geo:${point}?q=${point}(${encodeURIComponent(f.label.trim())})` : `geo:${point}` }
+      return { payload: has(f.label) ? `geo:${point}?q=${point}(${geoLabel(f.label.trim())})` : `geo:${point}` }
     }
 
     case 'event': {
@@ -144,4 +173,38 @@ export function buildPayload(preset: PresetId, f: Fields): PayloadResult {
       return { payload: lines.join('\r\n') }
     }
   }
+}
+
+const clip = (s: string, n = 80) => (s.length > n ? `${s.slice(0, n)}…` : s)
+
+/**
+ * The preview's accessible name. It says what the code is for without
+ * reading the payload out — a Wi-Fi code's payload carries its password.
+ */
+export function accessibleLabel(preset: PresetId, f: Fields): string {
+  const v = (key: string) => (f[key] ?? '').trim()
+  switch (preset) {
+    case 'text':
+      return `QR code for ${clip(f.text ?? '')}`
+    case 'wifi':
+      return `QR code for Wi-Fi network ${clip(v('ssid'))}`
+    case 'email':
+      return v('to') ? `QR code for an email to ${clip(v('to'))}` : 'QR code for an email'
+    case 'phone':
+      return `QR code to call ${cleanPhone(v('number'))}`
+    case 'sms':
+      return `QR code for a text message to ${cleanPhone(v('number'))}`
+    case 'contact':
+      return `QR code for the contact ${clip([v('first'), v('last')].filter(Boolean).join(' ') || v('org'))}`
+    case 'geo':
+      return v('label') ? `QR code for the location ${clip(v('label'))}` : `QR code for the location ${v('lat')}, ${v('lng')}`
+    case 'event':
+      return `QR code for the event ${clip(v('title'))}`
+  }
+}
+
+/** A payload as it may be shown on screen or in a tooltip: a Wi-Fi password (escapes included) becomes dots. */
+export function redactPayload(payload: string): string {
+  if (!/^WIFI:/i.test(payload)) return payload
+  return payload.replace(/([:;])P:(?:\\.|[^;\\])*/i, '$1P:••••••••')
 }

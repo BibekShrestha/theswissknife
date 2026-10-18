@@ -122,7 +122,8 @@ function vcard(text: string): Described {
     field('Job title', one('TITLE') && unescapeText(one('TITLE')!)),
     field('Phone', all('TEL')),
     field('Email', all('EMAIL')),
-    field('Website', all('URL')),
+    // URL is a URI value, not text: its backslashes and commas are literal.
+    field('Website', (get.get('URL') ?? []).join('\n')),
     field('Address', adr),
     field('Note', one('NOTE') && unescapeText(one('NOTE')!)),
   ])
@@ -207,7 +208,8 @@ export function describe(raw: string): Described {
   if (/^geo:/i.test(text)) {
     const m = /^geo:(-?[\d.]+),(-?[\d.]+)[^?]*(?:\?(.*))?$/i.exec(text)
     if (m) {
-      const label = m[3] && /(?:^|&)q=[^&(]*\(([^)]*)\)/.exec(m[3])?.[1]
+      // Up to the last ")" of the q parameter: other generators leave parentheses in the label unencoded.
+      const label = m[3] && /(?:^|&)q=[^&(]*\(([^&]*)\)/.exec(m[3])?.[1]
       return make('geo', [field('Latitude', m[1]), field('Longitude', m[2]), field('Label', label && safeDecode(label))])
     }
   }
@@ -276,7 +278,7 @@ function fieldsOf(raw: string): [PresetId, Fields] {
       title: one('TITLE'),
       phone: one('TEL'),
       email: one('EMAIL'),
-      url: one('URL'),
+      url: get.get('URL') ?? '',
       address: parts('ADR'),
       note: one('NOTE'),
     }]
