@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString, StandardFonts } from 'pdf-lib'
 import { makeRichPdf, nodePdfJs, pageObjectCount, rawObjects } from '../test/helpers'
+import { inflate, latin1 } from '../test/node'
 import { mergePdfs, removePages, reorderPages, splitPdf } from './organize'
 
 const SECRET = 'TOPSECRETPAGE'
@@ -157,7 +158,33 @@ async function inspect(bytes: Uint8Array) {
 }
 
 /** Fails if anything of the left-out page survives: its content, its page object, its tagged text. */
+/**
+ * Every place the marker could hide in the file's bytes, found without any
+ * PDF parser: the raw file, and every stream in it inflated (content streams
+ * and object streams are Flate-compressed), each searched for the marker as
+ * text and in the hex form pdf-lib writes strings in.
+ */
+function bytesMention(bytes: Uint8Array, marker: string): string[] {
+  const hexMarker = [...marker].map((c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+  const has = (text: string) => text.includes(marker) || text.toLowerCase().replace(/[\s<>]/g, '').includes(hexMarker)
+  const raw = latin1(bytes)
+  const found: string[] = []
+  if (has(raw)) found.push('raw file')
+  for (const m of raw.matchAll(/stream\r?\n/g)) {
+    const start = m.index! + m[0].length
+    const end = raw.indexOf('endstream', start)
+    if (end < 0) continue
+    try {
+      if (has(latin1(inflate(bytes.subarray(start, end))))) found.push(`stream at ${start}`)
+    } catch {
+      // not Flate: the raw-file search above covers uncompressed streams
+    }
+  }
+  return found
+}
+
 async function expectNoLeftovers(bytes: Uint8Array, pageCount: number) {
+  expect(bytesMention(bytes, SECRET), 'bytes of the output that still carry the left-out page').toEqual([])
   const objects = await rawObjects(bytes)
   expect(objects.filter((o) => o.text.includes(SECRET)).map((o) => o.ref.toString()), 'objects mentioning the secret page').toEqual([])
   expect(await pageObjectCount(bytes)).toBe(pageCount)
@@ -165,6 +192,11 @@ async function expectNoLeftovers(bytes: Uint8Array, pageCount: number) {
 
 describe('pages left out are not copied into the output (PDF-1)', () => {
   const secretDoc = () => makeLinkedPdf({ pages: 3, secret: 2, links: { 0: [2, 1] }, namedLinks: { 0: [2] }, fieldOn: [0, 2], outline: { One: 0, Secret: 2 }, tagged: true })
+
+  it('finds the secret in the input (the check below can see it)', async () => {
+    const found = bytesMention(await secretDoc(), SECRET)
+    expect(found.length).toBeGreaterThan(1) // the page's content stream and its tagged ActualText
+  })
 
   it('Remove Pages', async () => {
     const out = await removePages(await secretDoc(), '3')
