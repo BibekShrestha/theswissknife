@@ -90,7 +90,7 @@ missing from any of them, including the README table.
   registry line; taglines load lazily); a jump of kilobytes means the tool
   leaked into the eager graph.
 - **Sub-tools within a tool must also be lazy** when there are many (PDF
-  Buddy's 14 sub-tools are each a `lazy()` chunk), and so must heavy optional
+  Buddy's 15 sub-tools are each a `lazy()` chunk), and so must heavy optional
   paths (image's GIF encoder, pdf.js).
 - **Untrusted work goes in a worker with a deadline** when it can hang: jq runs
   in workers that are reloaded after a crash; regex runs in a worker that is
@@ -345,7 +345,7 @@ the precache list built by `scripts/sw-manifest.ts`.
   event title is never put in it.
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
   (`lib/pdfjs.ts` loads it lazily and points it at its runtime-cached worker).
-  14 sub-tools under `tools/`, each a lazy chunk; their pipelines are plain
+  15 sub-tools under `tools/`, each a lazy chunk; their pipelines are plain
   functions in `ops/` (no DOM), tested in Node against pdf.js and against
   fixtures written by macOS PDFKit/CoreGraphics (`test/fixtures/`). Every
   pdf-lib pipeline runs in `pdf.worker.ts` (`jobs.ts` maps job names to
@@ -383,6 +383,41 @@ the precache list built by `scripts/sw-manifest.ts`.
   security handler (reads R2–R6: RC4, AES-128, AES-256; Protect writes R6
   AES-256), and every other tool refuses encrypted input rather than writing
   a half-decrypted file.
+  Fill & Sign (`tools/FillSign.tsx`, screen parts in `fillsign/`, pipeline
+  `ops/form.ts` as the `read-form` and `fill-sign` jobs) fills AcroForms and
+  stamps pages. Fields (text with multiline/maxLength/comb, checkbox, radio,
+  dropdown incl. editable, list box incl. multi-select; read-only and
+  required flags, /TU as the label) are listed as ordinary labelled controls
+  and drawn as markers over a pdf.js render (`ENABLE_FORMS` plus a throwaway
+  `annotationCanvasMap`, so no widget is painted twice); markers are
+  `aria-hidden` pointer shortcuts to the list. Only changed values are sent.
+  Appearances are drawn with pdf-lib's providers in Helvetica for changed
+  fields and fields without one (all text/choice fields when the file had
+  NeedAppearances); NeedAppearances is then removed, or set — with a note
+  naming the fields — only when an existing value could not be drawn.
+  Auto-sized multi-line text is drawn at ≤ 12 pt (pdf-lib would fill the
+  box), and every /DA is restored after drawing, because pdf-lib writes the
+  size it used into it. [export, label] options write the export value.
+  Text outside WinAnsi (`lib/winansi.ts`, held equal to pdf-lib's table) is
+  refused by name — the site ships no font to embed for other scripts.
+  Flatten is our own (`flattenForm`): each visible widget's current
+  appearance is mapped BBox×Matrix→Rect per §12.5.5 (pdf-lib's flatten
+  ignores both and throws on a checkbox with no Off state), hidden widgets
+  are dropped, then widgets, the field tree and the AcroForm are deleted.
+  XFA: hybrid forms fill the AcroForm side and drop the XFA with a note;
+  XFA-only (no fields, or NeedsRendering) is refused before anything is
+  drawn. Encrypted files are refused like every other tool — owner-password
+  (restrictions-only) files included; Unlock PDF removes the protection.
+  Stamps (signature PNG/JPEG, text, date, a vector checkmark — `lib/stamp.ts`
+  shares the geometry with the overlay) are drawn into page content through
+  `viewFrame` (crop box and /Rotate honoured), after any flatten, never as
+  annotations; the UI says it is a visual signature, not a digital one.
+  Signatures are drawn (pointer events, low-pass + midpoint quadratic
+  smoothing in `fillsign/pad.ts`), typed (system handwriting fonts on a
+  canvas, nothing fetched) or picked (canvas re-encode, optional white→alpha),
+  exported as trimmed transparent PNG, and kept in React state only — no
+  storage, no URL. Placed items move by drag or arrow keys (Shift = 10 pt),
+  resize by handle or +/−, and Delete removes them.
 - `tools/image/` — batch convert/resize/compress. One engine
   (`useImagePipeline`) behind four screens; canvas work runs in
   `image.worker.ts`. `gif/` is a hand-written GIF89a encoder (median cut,

@@ -536,6 +536,8 @@ fieldset.pdf-fs-fieldset {
   width: 12px;
   height: 12px;
   border-radius: 50%;
+  /* black ink on a dark chip still needs an edge */
+  box-shadow: 0 0 0 1px var(--control-border);
 }
 
 .pdf-fs-styles {
