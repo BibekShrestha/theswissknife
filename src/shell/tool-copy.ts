@@ -31,6 +31,7 @@ export const taglines: Record<string, string> = {
   otp: 'Generate and check TOTP and HOTP codes from a Base32 secret, an otpauth URI, a Google Authenticator export or its QR images — nothing is stored',
   sqlite: 'Open a SQLite file in your browser — browse tables, run SQL, export CSV, JSON or the edited database',
   cidr: 'IPv4 and IPv6 subnet calculator — network, hosts, masks, reverse DNS and IANA special-purpose blocks, plus split, summarise, overlap and range to CIDR',
+  binary: 'Decode Protobuf, CBOR and MessagePack from hex, Base64 or a file without a schema — a tree with byte offsets and a linked hex view',
   curl: 'Turn a browser’s Copy as cURL into fetch, Python, Go or raw HTTP — secrets flagged and swapped for placeholders, nothing sent',
   'json-types': 'Paste JSON samples or JSON Lines and get TypeScript, Zod, JSON Schema, Go or Python types — optional keys, nullables and unions merged from every sample',
 }
