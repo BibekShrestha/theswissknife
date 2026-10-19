@@ -6,6 +6,7 @@ import type { PageNumberOptions, WatermarkOptions } from './ops/edit'
 import type { MergeResult, NamedBytes, Rotation, SplitMode } from './ops/organize'
 import type { UnlockResult } from './ops/security'
 import type { MetadataReport, StripMetadataOptions } from './ops/metadata'
+import type { FillSignOptions, FillSignResult, FormReport } from './ops/form'
 
 /** Every pdf-lib pipeline, by name: what it takes and what it gives back. */
 export interface PdfJobs {
@@ -21,6 +22,8 @@ export interface PdfJobs {
   unlock: { args: { bytes: Uint8Array; password: string }; result: UnlockResult }
   'image-to-pdf': { args: { inputs: NamedBytes[] }; result: Uint8Array }
   'remove-metadata': { args: { bytes: Uint8Array; options: StripMetadataOptions }; result: MetadataReport }
+  'read-form': { args: { bytes: Uint8Array }; result: FormReport }
+  'fill-sign': { args: { bytes: Uint8Array; options: FillSignOptions }; result: FillSignResult }
 }
 
 export type PdfJob = keyof PdfJobs
@@ -39,6 +42,8 @@ export const jobLabels: Record<PdfJob, string> = {
   unlock: 'Unlock PDF',
   'image-to-pdf': 'Image to PDF',
   'remove-metadata': 'Remove Metadata',
+  'read-form': 'Fill & Sign',
+  'fill-sign': 'Fill & Sign',
 }
 
 export type PdfRequest = { [K in PdfJob]: { id: number; job: K; args: PdfJobs[K]['args'] } }[PdfJob]

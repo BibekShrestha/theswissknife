@@ -4,6 +4,7 @@
  * drive the runner with an in-process stand-in for the worker.
  */
 import { addPageNumbers, addWatermark, compressPdf } from './ops/edit'
+import { fillAndSign, readForm } from './ops/form'
 import { imagesToPdf } from './ops/images'
 import { removeMetadata } from './ops/metadata'
 import { mergePdfs, removePages, reorderPages, rotatePdf, splitPdf } from './ops/organize'
@@ -34,6 +35,8 @@ const handlers: Handlers = {
   // the screen has already turned anything but PNG and JPEG into PNG (it needs a canvas)
   'image-to-pdf': ({ inputs }) => imagesToPdf(inputs),
   'remove-metadata': ({ bytes, options }) => removeMetadata(bytes, options),
+  'read-form': ({ bytes }) => readForm(bytes),
+  'fill-sign': ({ bytes, options }) => fillAndSign(bytes, options),
 }
 
 export function runJob<K extends PdfJob>(job: K, args: PdfJobs[K]['args'], ctx: JobContext = {}): Promise<PdfJobs[K]['result']> {
