@@ -12,7 +12,7 @@ const staticImport = (spec: string) => new RegExp(`^import (?!type )[^\\n]*from 
 describe('PDF Buddy stays lazy', () => {
   it('loads every sub-tool through lazy(import())', () => {
     const index = sources['./index.tsx']
-    expect(pdfTools).toHaveLength(14)
+    expect(pdfTools).toHaveLength(15)
     for (const file of Object.keys(sources).filter((f) => f.startsWith('./tools/'))) {
       const name = file.replace(/^\.\/tools\/|\.tsx$/g, '')
       expect(index).toContain(`lazy(() => import('./tools/${name}')`)
@@ -27,7 +27,7 @@ describe('PDF Buddy stays lazy', () => {
 
   it('runs every pdf-lib pipeline in the worker, never on the main thread', () => {
     // the screens, the runner and the protocol may name ops/ only for types (erased) or the pdf-lib-free helpers
-    const pdfLibFree = /^(lib\/(errors|files|utils|pages|pdfjs)|ops\/(read|imagekind)|runner|protocol|components\/[A-Za-z]+)$/
+    const pdfLibFree = /^(lib\/(errors|files|utils|pages|pdfjs|winansi|stamp)|ops\/(read|imagekind)|runner|protocol|components\/[A-Za-z]+|fillsign\/[A-Za-z]+)$/
     const resolve = (from: string, spec: string) => {
       const parts = from.replace(/^\.\//, '').split('/').slice(0, -1)
       for (const p of spec.split('/')) {
@@ -36,7 +36,9 @@ describe('PDF Buddy stays lazy', () => {
       }
       return parts.join('/')
     }
-    const mainThread = Object.keys(sources).filter((f) => /^\.\/(tools|components)\//.test(f) || ['./index.tsx', './runner.ts', './protocol.ts'].includes(f))
+    // fillsign/ holds Fill & Sign's screen parts, so it is checked like the screens; so are the pdf-lib-free lib helpers
+    const helpers = ['./lib/winansi.ts', './lib/stamp.ts', './ops/imagekind.ts']
+    const mainThread = Object.keys(sources).filter((f) => /^\.\/(tools|components|fillsign)\//.test(f) || ['./index.tsx', './runner.ts', './protocol.ts', ...helpers].includes(f))
     for (const file of mainThread) {
       const text = sources[file]
       expect(text, file).not.toMatch(staticImport('pdf-lib'))

@@ -25,6 +25,7 @@ import {
   PDFRef,
   PDFSignature,
   PDFStream,
+  PDFString,
   PDFTextField,
   StandardFonts,
   concatTransformationMatrix,
@@ -40,8 +41,10 @@ import {
   type PDFPage,
   type PDFWidgetAnnotation,
 } from 'pdf-lib'
+import { XFA_ONLY_MESSAGE } from '../lib/errors'
 import { loadPdf, PdfInputError } from '../lib/load'
 import { viewFrame } from '../lib/place'
+import { CHECK_BOX, CHECK_PATH, TEXT_ASCENT, TEXT_LINE_HEIGHT } from '../lib/stamp'
 import { encodingProblem } from '../lib/winansi'
 import { step } from '../lib/work'
 import { imageKind } from './imagekind'
@@ -61,6 +64,8 @@ export interface WidgetInfo {
 
 export interface FieldInfo {
   name: string
+  /** The field's /TU — the description its author wrote for people, often clearer than the name. */
+  label?: string
   kind: FieldKind
   readOnly: boolean
   required: boolean
@@ -128,14 +133,6 @@ export interface FillSignResult {
   notes: string[]
 }
 
-/** A checkmark in a 24×24 box, y down (SVG): drawn the same in the page overlay and in the PDF. */
-export const CHECK_PATH = 'M3.5 12.5 L9 18 L20.5 5.5 L18.3 3.6 L8.9 13.8 L5.6 10.4 Z'
-export const CHECK_BOX = 24
-
-/** Where the first baseline of a text stamp sits below its box's top, as a share of the font size. */
-export const TEXT_ASCENT = 0.9
-export const TEXT_LINE_HEIGHT = 1.2
-
 const AcroForm = PDFName.of('AcroForm')
 const XFA = PDFName.of('XFA')
 const Fields = PDFName.of('Fields')
@@ -162,10 +159,6 @@ export function xfaState(doc: PDFDocument): XfaState {
   if (needsRendering || !(fields instanceof PDFArray) || fields.size() === 0) return 'only'
   return 'hybrid'
 }
-
-const XFA_ONLY_MESSAGE =
-  'This PDF is an XFA form (XML Forms Architecture): its fields live in XFA data that only Adobe Acrobat and Reader draw, and it has no standard form fields to fill. ' +
-  'Stamping its pages would not help either — XFA viewers draw the form from that data and ignore the page content. Fill it in Adobe Acrobat or Reader instead.'
 
 /** The form, without the XFA pdf-lib would otherwise drop with a console warning — or undefined when there is no form (getForm would create one). */
 function formOf(doc: PDFDocument): PDFForm | undefined {
@@ -225,6 +218,11 @@ function describeField(field: PDFField, pages: Map<PDFDict, number>): FieldInfo 
     readOnly: field.isReadOnly(),
     required: field.isRequired(),
     widgets: [],
+  }
+  const tu = field.acroField.dict.lookup(PDFName.of('TU'))
+  if (tu instanceof PDFString || tu instanceof PDFHexString) {
+    const label = tu.decodeText().trim()
+    if (label && label !== info.name) info.label = label
   }
   const widgets = field.acroField.getWidgets()
   let radioOptions: string[] = []

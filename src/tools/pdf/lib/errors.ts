@@ -7,6 +7,11 @@ export class PdfInputError extends Error {}
 
 export const ENCRYPTED_MESSAGE = 'This PDF is password-protected or encrypted. Remove the protection with Unlock PDF first, then try again.'
 
+/** Fill & Sign's refusal of an XFA-only form, shown by the screen and thrown by the worker. */
+export const XFA_ONLY_MESSAGE =
+  'This PDF is an XFA form (XML Forms Architecture): its fields live in XFA data that only Adobe Acrobat and Reader draw, and it has no standard form fields to fill. ' +
+  'Stamping its pages would not help either — XFA viewers draw the form from that data and ignore the page content. Fill it in Adobe Acrobat or Reader instead.'
+
 export function hasPdfHeader(bytes: Uint8Array): boolean {
   // the spec allows junk before %PDF-, and readers look in the first KB
   const head = new TextDecoder('latin1').decode(bytes.subarray(0, 1024))
