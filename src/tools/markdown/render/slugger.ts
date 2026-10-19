@@ -5,7 +5,11 @@
  * punctuation dropped, each space to a dash (`a & b` → `a--b`, as GitHub
  * does). Duplicates get a numeric suffix — two "## Usage" sections are
  * common, and two identical ids would send every TOC entry to the first one.
+ * Ids starting with `user-content-` belong to footnotes (footnotes.ts), so a
+ * heading that slugs to one gets a suffix instead.
  */
+const RESERVED = /^user-content-/
+
 export function createSlugger() {
   const seen = new Map<string, number>()
 
@@ -18,7 +22,7 @@ export function createSlugger() {
         .trim()
         .replace(/\s/g, '-') || 'section'
 
-    const n = (seen.get(base) ?? 0) + 1
+    const n = (seen.get(base) ?? (RESERVED.test(base) ? 1 : 0)) + 1
     seen.set(base, n)
     return n === 1 ? base : `${base}-${n}`
   }

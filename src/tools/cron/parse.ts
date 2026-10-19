@@ -100,16 +100,17 @@ function parseNumber(text: string, spec: FieldSpec): number {
     }
     return value
   }
+  const index = spec.names && /^[a-z]+$/i.test(text) ? spec.names.indexOf(text.toUpperCase()) : -1
+  if (spec.names && index >= 0) return index + (spec.name === 'month' ? 1 : 0)
+  // Quartz before the name check: "L" in day-of-week is Quartz, not a misspelt day.
+  if (/^[LW#?]|[LW#?]$/i.test(text) || text.includes('#')) {
+    throw new FieldError(`"${text}" uses Quartz syntax (L, W, #, ?), which standard cron does not support`)
+  }
   if (spec.names && /^[a-z]+$/i.test(text)) {
-    const index = spec.names.indexOf(text.toUpperCase())
-    if (index >= 0) return index + (spec.name === 'month' ? 1 : 0)
     throw new FieldError(`"${text}" is not a ${spec.name === 'month' ? 'month' : 'day'} name (use ${spec.names[0]}–${spec.names[spec.names.length - 1]})`)
   }
   if (text === '') throw new FieldError('a number is missing')
   if (/^-\d/.test(text)) throw new FieldError(`negative values like "${text}" are not allowed`)
-  if (/^[LW#?]|[LW#?]$/i.test(text) || text.includes('#')) {
-    throw new FieldError(`"${text}" uses Quartz syntax (L, W, #, ?), which standard cron does not support`)
-  }
   throw new FieldError(`"${text}" is not a number${spec.names ? ' or name' : ''}`)
 }
 

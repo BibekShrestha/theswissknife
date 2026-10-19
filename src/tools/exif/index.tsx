@@ -250,7 +250,7 @@ export default function ExifTool() {
         <label>
           <input type="checkbox" checked={options.keepIcc} onChange={(e) => changeOptions({ keepIcc: e.target.checked })} />
           Keep colour profile
-          <span className="exif-hint">ICC profiles describe colour, not you; dropping one can shift colours</span>
+          <span className="exif-hint">a profile describes colour, but its text can name the device, maker or software that made it — check it under All metadata; dropping one can shift colours</span>
         </label>
       </div>
 
@@ -264,7 +264,8 @@ export default function ExifTool() {
               thumbnail), XMP, IPTC, ICC, MPF and comments.
             </p>
             <p>
-              Stripping rewrites the file’s container and copies the image data byte for byte — nothing is re-encoded. Each output is parsed again to prove
+              Stripping rewrites the file’s container keeping only what is needed to display the image — so C2PA credentials, unknown chunks and segments
+              and stray bytes go too — and copies the image data byte for byte; nothing is re-encoded. Each output is parsed again to prove
               what is left. Files are read in this tab and never uploaded.
             </p>
             <button type="button" className="exif-primary" onClick={() => fileInput.current?.click()}>
@@ -395,7 +396,7 @@ function Card({ item, primary, options, onRemove, onDownload, onNoPreview, copy 
           </p>
           {r.remaining.length > 0 && (
             <p className="exif-error" role="alert">
-              Still in the output: {r.remaining.map((b) => `${b.label} (${b.where})`).join('; ')}
+              Still in the output: {r.remaining.map((b) => `${b.label} (${b.where})${b.unremovable ? ` — could not be removed: ${b.unremovable}` : ''}`).join('; ')}
             </p>
           )}
           {r.removed.length > 0 && (
@@ -418,7 +419,7 @@ function Card({ item, primary, options, onRemove, onDownload, onNoPreview, copy 
           {before?.format === 'heif' && (
             <p className="exif-list">
               <span className="exif-label">HEIF/AVIF</span>
-              Exif and XMP items are overwritten with zeros in place, so the file keeps its size and every offset stays valid. The emptied item entries remain.
+              Exif and XMP items are overwritten with zeros in place, so the file keeps its size and every offset stays valid. The emptied item entries remain. An item whose data cannot be located is reported as still there, and the copy is not offered.
             </p>
           )}
         </section>

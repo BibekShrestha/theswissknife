@@ -206,6 +206,16 @@
   font-size: 12.5px;
 }
 
+.jwt-warn {
+  margin: 10px 12px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
 .jwt-empty {
   padding: 14px 12px;
   color: var(--muted);

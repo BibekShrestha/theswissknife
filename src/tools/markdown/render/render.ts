@@ -10,8 +10,14 @@ import { createSlugger } from './slugger'
  * load lazily. They leave placeholders that carry their source (so the
  * preview shows something sane meanwhile) and that math.ts / mermaid.ts later
  * swap for markup. Nothing here produces script — the preview frame cannot run
- * it anyway, and the exported file forbids it by CSP — but links are still
- * scrubbed so a `javascript:` URL never even reaches the markup.
+ * it anyway, and the exported file forbids it by CSP. Markdown links and
+ * images are scrubbed here so a `javascript:` URL never reaches the markup;
+ * raw HTML passes through as written, and doc/links.ts disarms every anchor,
+ * form and <meta>/<base> in it before it reaches the frame or an export.
+ *
+ * marked recurses per nesting level and is quadratic on some inputs, so the
+ * tool calls this from a worker with a deadline (job.ts, runner.ts), never on
+ * the main thread.
  */
 
 export interface Heading {
@@ -157,7 +163,8 @@ export function renderMarkdown(source: string, options: RenderOptions = { highli
 export function stats(source: string): { words: number; chars: number; minutes: number } {
   const prose = source
     .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/<[^>]+>/g, ' ')
+    // [^<>] rather than [^>]: an unclosed "<" must not rescan the rest of the text.
+    .replace(/<[^<>]+>/g, ' ')
     .replace(/[#>*_`~[\]()|-]/g, ' ')
   const words = prose.match(/[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu)?.length ?? 0
   return { words, chars: source.length, minutes: Math.max(1, Math.round(words / 230)) }

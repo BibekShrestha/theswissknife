@@ -114,8 +114,9 @@ function Landing({ onPick }: { onPick: (id: ScreenId) => void }) {
           <div>
             <dt>Metadata is dropped</dt>
             <dd>
-              Re-encoding through a canvas leaves EXIF, GPS and colour profiles behind. Orientation
-              is applied first, so photos stay upright.
+              Re-encoding through a canvas does not carry over the source file’s EXIF, GPS or
+              colour profile (the browser’s encoder may embed a standard sRGB profile of its own).
+              Orientation is applied first, so photos stay upright.
             </dd>
           </div>
         </dl>

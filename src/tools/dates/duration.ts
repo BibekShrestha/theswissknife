@@ -116,7 +116,8 @@ export function parseDuration(input: string): ParseResult {
   return { ok: true, duration, fraction }
 }
 
-const num = (n: number) => String(Math.round(n * 1e9) / 1e9)
+/** Up to nine decimals, never in exponent form (String(1e-9) is "1e-9", which no ISO parser reads). */
+const num = (n: number) => (Math.round(n * 1e9) / 1e9).toFixed(9).replace(/\.?0+$/, '')
 
 export function isZero(d: Duration): boolean {
   return UNITS.every((u) => d[u] === 0)
@@ -136,6 +137,15 @@ export function formatDuration(d: Duration): string {
     if (d.seconds) out += `${num(d.seconds)}S`
   }
   return out
+}
+
+/**
+ * The same span with weeks and days written as exact 24-hour days, for the
+ * "if you mean exact hours" hint: P1DT2H is PT26H. Years and months have no
+ * fixed length, so they are not converted (the hint is not shown for them).
+ */
+export function exactHoursDuration(d: Duration): string {
+  return formatDuration({ ...ZERO, sign: d.sign, years: d.years, months: d.months, hours: (d.weeks * 7 + d.days) * 24 + d.hours, minutes: d.minutes, seconds: d.seconds })
 }
 
 const SINGULAR: Record<Unit, string> = {

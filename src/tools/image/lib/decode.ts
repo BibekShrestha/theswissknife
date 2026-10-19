@@ -8,17 +8,12 @@
  * is sharper than rasterising big and scaling down.
  */
 
-import { createCanvas } from './encode'
 import type { Size } from './dimensions'
+import { createCanvas } from './encode'
+import { svgSize, type SvgSize } from './svgSize'
 
-/** Used when an SVG declares no size at all, only a stretchy viewBox. */
-export const SVG_FALLBACK_LONG_EDGE = 1024
-
-export interface MeasuredSvg {
+export interface MeasuredSvg extends SvgSize {
   text: string
-  intrinsic: Size
-  /** True when the size came from the fallback rather than the file. */
-  assumed: boolean
 }
 
 export async function decodeRaster(file: Blob): Promise<ImageBitmap> {
@@ -26,33 +21,10 @@ export async function decodeRaster(file: Blob): Promise<ImageBitmap> {
   return createImageBitmap(file, { imageOrientation: 'from-image' })
 }
 
+/** Width and height from the root <svg> only; see svgSize for units and fallbacks. */
 export async function measureSvg(file: Blob): Promise<MeasuredSvg> {
   const text = await file.text()
-  const openTag = /<svg\b[^>]*>/i.exec(text)?.[0] ?? ''
-  const width = lengthAttribute(openTag, 'width')
-  const height = lengthAttribute(openTag, 'height')
-  if (width && height) return { text, intrinsic: { width, height }, assumed: false }
-
-  const viewBox = /viewBox\s*=\s*["']\s*([-\d.eE+]+)[,\s]+([-\d.eE+]+)[,\s]+([\d.eE+]+)[,\s]+([\d.eE+]+)/i
-    .exec(openTag)
-  if (viewBox) {
-    const boxWidth = Number(viewBox[3])
-    const boxHeight = Number(viewBox[4])
-    if (boxWidth > 0 && boxHeight > 0) {
-      if (width) return { text, intrinsic: { width, height: (width * boxHeight) / boxWidth }, assumed: false }
-      if (height) return { text, intrinsic: { width: (height * boxWidth) / boxHeight, height }, assumed: false }
-      const scale = SVG_FALLBACK_LONG_EDGE / Math.max(boxWidth, boxHeight)
-      return { text, intrinsic: { width: boxWidth * scale, height: boxHeight * scale }, assumed: true }
-    }
-  }
-
-  if (width) return { text, intrinsic: { width, height: width }, assumed: true }
-  if (height) return { text, intrinsic: { width: height, height }, assumed: true }
-  return {
-    text,
-    intrinsic: { width: SVG_FALLBACK_LONG_EDGE, height: SVG_FALLBACK_LONG_EDGE },
-    assumed: true,
-  }
+  return { text, ...svgSize(text) }
 }
 
 /** Rasterises SVG markup at exactly the requested size. Main thread only. */
@@ -76,12 +48,4 @@ export async function rasterizeSvg(text: string, target: Size): Promise<ImageBit
   } finally {
     URL.revokeObjectURL(url)
   }
-}
-
-/** Reads a CSS length that browsers treat as pixels; %, em and friends yield null. */
-function lengthAttribute(tag: string, name: string): number | null {
-  const match = new RegExp(`\\b${name}\\s*=\\s*["']?\\s*([\\d.]+)(px)?\\s*["']?`, 'i').exec(tag)
-  if (!match) return null
-  const value = Number(match[1])
-  return Number.isFinite(value) && value > 0 ? value : null
 }

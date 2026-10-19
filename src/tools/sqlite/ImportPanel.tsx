@@ -137,6 +137,17 @@ function ItemCard({ item, problem, disabled, onOptions, onRename, onRemove }: {
             </label>
           </>
         )}
+        {a?.format === 'json' && (a.jsonArrays.length > 0 || options.jsonRows !== '') && (
+          <label className="sqlite-import-field">
+            <span>Rows</span>
+            <select value={options.jsonRows} onChange={(event) => onOptions(key, { jsonRows: event.target.value })} disabled={disabled}>
+              <option value="">The object itself (one row)</option>
+              {a.jsonArrays.map((k) => (
+                <option key={k} value={k}>Items of “{k}”</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       {problem && <p id={`${id}-problem`} className="sqlite-import-problem">{problem}</p>}
 
@@ -248,7 +259,7 @@ export function ImportPanel(props: Props) {
           </button>
         </header>
         <p className="sqlite-import-lede">
-          CSV, TSV, JSON (an array of objects) and JSON Lines — one table per file, read in this tab. Nothing is uploaded.
+          CSV, TSV, JSON (an array of objects, or one object) and JSON Lines — one table per file, read in this tab. Nothing is uploaded.
         </p>
 
         <fieldset className="sqlite-import-target" disabled={busy}>

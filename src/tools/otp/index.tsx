@@ -4,7 +4,7 @@ import { Toast } from '../../shell/Toast'
 import { useCopy } from '../../shell/useCopy'
 import { useToast } from '../../shell/useToast'
 import { Detail } from './Detail'
-import { DEFAULT_SETTINGS, entryTitle, toEntries, type Entry, type ManualSettings } from './entries'
+import { DEFAULT_SETTINGS, entryTitle, pruneState, toEntries, type Entry, type ManualSettings } from './entries'
 import { groupCode, useCodes, useKey, useNow } from './hooks'
 import { ALGORITHMS, totpCounter } from './otp'
 import { createScanner } from './scan/scan'
@@ -53,10 +53,19 @@ export default function OtpTool() {
   useEffect(() => () => scanner.current?.dispose(), [])
 
   const sources = useMemo<Source[]>(() => [
-    ...parseField(field),
-    ...scans.flatMap((scan) => scan.texts.map((text, i) => parseScanned(text, scan.texts.length > 1 ? `${scan.name} · code ${i + 1}` : scan.name))),
+    ...parseField(field).map((source) => ({ ...source, group: 'field' })),
+    ...scans.flatMap((scan) => scan.texts.map((text, i) => ({
+      ...parseScanned(text, scan.texts.length > 1 ? `${scan.name} · code ${i + 1}` : scan.name),
+      group: `scan:${scan.id}:${i}`,
+    }))),
   ], [field, scans])
   const { entries, errors } = useMemo(() => toEntries(sources, settings), [sources, settings])
+
+  // Forget counter edits and the selection of entries that were removed.
+  useEffect(() => {
+    setCounters((map) => pruneState(map, entries))
+    setSelected((id) => (id === null || entries.some((e) => e.id === id) ? id : null))
+  }, [entries])
   const batches = useMemo(() => batchStatus(sources.flatMap((s) => (s.kind === 'migration' ? [s.payload] : []))), [sources])
   const hasMigration = sources.some((s) => s.kind === 'migration')
   const hasManual = entries.some((e) => e.manual)

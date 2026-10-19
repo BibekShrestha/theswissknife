@@ -62,7 +62,13 @@ interface Item {
   type: string
   contentType?: string
   name?: string
+  /** The extents' bytes that are in the file (clamped at its end). */
   extents: Range[]
+  /** Bytes iloc places past the end of the file. */
+  missing: number
+  /** Why some of the item's data cannot be located — set, the item cannot be overwritten in full. */
+  problems: string[]
+  listed: boolean
 }
 
 interface Meta {
@@ -108,7 +114,7 @@ function readMeta(b: Uint8Array, warnings: string[]): Meta {
       const name = cString(b, p, infe.end)
       p += name.length + 1
       const contentType = type === 'mime' ? cString(b, p, infe.end) : undefined
-      items.set(id, { id, type, name, contentType, extents: [] })
+      items.set(id, { id, type, name, contentType, extents: [], missing: 0, problems: [], listed: false })
     }
   }
 
@@ -142,26 +148,35 @@ function readMeta(b: Uint8Array, warnings: string[]): Meta {
         const base = read(baseSize)
         const extentCount = read(2)
         const extents: Range[] = []
+        const problems: string[] = []
+        let missing = 0
+        if (extentCount === 0) problems.push('its iloc entry lists no extents')
+        if (method === 2) problems.push('it uses iloc construction method 2 (data inside another item), which this tool cannot follow')
+        else if (method > 2) problems.push(`it uses an unknown iloc construction method (${method})`)
+        else if (method === 1 && idatData < 0) problems.push('its iloc entry points into an idat box the file does not have')
         for (let e = 0; e < extentCount; e++) {
           if (indexSize) read(indexSize)
           const off = read(offsetSize)
           const len = read(lengthSize)
-          const startAt = method === 1 ? idatData + base + off : method === 0 ? base + off : -1
-          if (method === 1 && idatData < 0) continue
-          if (startAt < 0) continue
+          if (problems.length) continue
+          const startAt = method === 1 ? idatData + base + off : base + off
           const endAt = len === 0 ? b.length : startAt + len
           if (endAt > b.length) {
             warnings.push(`HEIF: item ${id} extent runs past the end of the file`)
-            continue
+            missing += endAt - Math.max(startAt, b.length)
           }
-          extents.push([startAt, endAt])
+          if (startAt < b.length) extents.push([startAt, Math.min(endAt, b.length)])
         }
         const item = items.get(id)
-        if (item) item.extents = extents
+        if (item) Object.assign(item, { extents, missing, problems, listed: true })
       }
     } catch (error) {
       warnings.push(`HEIF: ${error instanceof Error ? error.message : error}`)
     }
+  }
+  for (const item of items.values()) {
+    if (!item.listed) item.problems.push('it has no iloc entry, so its data cannot be found')
+    else if (!item.problems.length && !item.extents.length && item.missing) item.problems.push('all of its data lies past the end of the file')
   }
 
   const iprp = children.find((x) => x.type === 'iprp')
@@ -201,20 +216,31 @@ export function heifBlocks(b: Uint8Array, ctx: Ctx) {
     const payload = concat(item.extents.map(([s, e]) => b.subarray(s, e)))
     const size = payload.length
     const where = `${item.type === 'Exif' ? 'Exif' : 'XMP (mime)'} item ${item.id}`
-    if (payload.every((x) => x === 0)) {
-      blocks.push({ kind: item.type === 'Exif' ? 'exif' : 'xmp', label: item.type === 'Exif' ? 'EXIF' : 'XMP', where, size, sections: [], empty: true, note: `Emptied — all ${formatBytes(size)} are zero. The item entry is still listed, but holds no data.` })
+    const kind = item.type === 'Exif' ? 'exif' : 'xmp'
+    const label = item.type === 'Exif' ? 'EXIF' : 'XMP'
+    const past = item.missing ? ` Its iloc entry places ${formatBytes(item.missing)} more past the end of the file, where there is nothing to overwrite.` : ''
+    if (item.problems.length) {
+      const reason = item.problems.join('; ')
+      blocks.push({ kind, label, where, size, sections: [], unremovable: reason, note: `Could not be removed — ${reason}.` })
       continue
     }
+    if (payload.every((x) => x === 0)) {
+      blocks.push({ kind, label, where, size, sections: [], empty: true, note: `Emptied — all ${formatBytes(size)} are zero. The item entry is still listed, but holds no data.${past}` })
+      continue
+    }
+    let block: Block
     if (item.type === 'Exif') {
       // A 4-byte offset to the TIFF header, usually skipping "Exif\0\0".
       const skip = payload.length >= 4 ? u32be(payload, 0) : 0
       const at = 4 + skip
-      blocks.push(exifBlock(payload, at <= payload.length ? at : 4, payload.length, where, ctx, size))
+      block = exifBlock(payload, at <= payload.length ? at : 4, payload.length, where, ctx, size)
     } else {
       const rows = parseXmp(text(payload))
       xmpFacts(rows, ctx.facts)
-      blocks.push({ kind: 'xmp', label: 'XMP', where, size, sections: [{ title: 'XMP properties', rows }] })
+      block = { kind: 'xmp', label: 'XMP', where, size, sections: [{ title: 'XMP properties', rows }] }
     }
+    if (past) block.note = `${block.note ? `${block.note} ` : ''}${past.trim()}`
+    blocks.push(block)
   }
   for (const p of meta.icc) {
     const parsed = parseIcc(b, p.start, p.end)
@@ -243,7 +269,9 @@ export function stripHeif(b: Uint8Array, options: StripOptions): Stripped {
       out.fill(0, s, e)
       n += e - s
     }
-    removed.push(`${item.type === 'Exif' ? 'Exif' : 'XMP'} item ${item.id} — ${formatBytes(n)} overwritten with zeros in place`)
+    // An item whose data cannot be located is not claimed as removed; the re-parse reports it as still there.
+    if (!n || item.problems.length) continue
+    removed.push(`${item.type === 'Exif' ? 'Exif' : 'XMP'} item ${item.id} — ${formatBytes(n)} overwritten with zeros in place${item.missing ? ` (its entry claims ${formatBytes(item.missing)} more past the end of the file)` : ''}`)
   }
   if (meta.icc.length) kept.push(options.keepIcc ? 'ICC colour profile (colr box)' : 'ICC colour profile (colr box) — kept anyway: removing it would mean rebuilding the box structure')
   if (meta.rotation) kept.push('Rotation and mirroring (irot/imir boxes, which HEIF uses instead of EXIF Orientation)')

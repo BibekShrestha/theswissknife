@@ -124,3 +124,62 @@ describe('replace with placeholders', () => {
     expect(parseCurl(redacted).dialect).toBe('cmd')
   })
 })
+
+describe('credential flags curl does not convert', () => {
+  const notes = (input: string) => parseCurl(input).notes.map((note) => note.text).join('\n')
+  it.each([
+    ["curl -U alice:Sup3rS3cret! https://x", [['--proxy-user user', 'alice', '<PROXY_USER>'], ['--proxy-user password', 'Sup3rS3cret!', '<PROXY_PASSWORD>']]],
+    ["curl --proxy-user alice:Sup3rS3cret! https://x", [['--proxy-user user', 'alice', '<PROXY_USER>'], ['--proxy-user password', 'Sup3rS3cret!', '<PROXY_PASSWORD>']]],
+    ["curl -E client.pem:certpassw0rd https://x", [['--cert password', 'certpassw0rd', '<CERT_PASSWORD>']]],
+    ["curl --cert 'C:\\certs\\client.pem:certpassw0rd' https://x", [['--cert password', 'certpassw0rd', '<CERT_PASSWORD>']]],
+    ["curl --cert client.pem https://x", []],
+    ["curl --proxy-cert p.pem:pr0xycertpw https://x", [['--proxy-cert password', 'pr0xycertpw', '<PROXY_CERT_PASSWORD>']]],
+    ["curl --key k.pem --pass keyPassw0rd https://x", [['--pass', 'keyPassw0rd', '<KEY_PASSWORD>']]],
+    ["curl --proxy-pass pr0xyKeyPw https://x", [['--proxy-pass', 'pr0xyKeyPw', '<PROXY_KEY_PASSWORD>']]],
+    ["curl -x http://bob:pr0xyPassw0rd@proxy:8080 https://x", [['--proxy user', 'bob', '<PROXY_USER>'], ['--proxy password', 'pr0xyPassw0rd', '<PROXY_PASSWORD>']]],
+    ["curl --proxy-header 'Proxy-Authorization: Basic Ym9iOnB3MTIzNDU2' https://x", [['Header Proxy-Authorization (Basic)', 'Ym9iOnB3MTIzNDU2', '<PROXY_BASIC_CREDENTIALS>']]],
+  ])('%s', (input, expected) => {
+    expect(scan(input)).toEqual(expected)
+    const parsed = parseCurl(input)
+    const secrets = findSecrets(parsed)
+    for (const secret of secrets) expect(notes(input)).not.toContain(secret.value)
+    const again = parseCurl(redactInput(parsed, secrets))
+    expect(findSecrets(again)).toEqual([])
+    for (const secret of secrets) {
+      expect(again.input).not.toContain(secret.value)
+      expect(again.input).toContain(secret.placeholder)
+    }
+  })
+
+  it('still names the flag in the warning, without its value', () => {
+    expect(notes('curl -U alice:Sup3rS3cret! https://x')).toContain('-U changes the request but is not converted')
+    expect(notes('curl --pass hunter22 https://x')).toContain('--pass changes the request but is not converted')
+    expect(notes('curl -x http://bob:pw@proxy:8080 https://x')).not.toContain('bob:pw')
+    expect(notes('curl -x http://proxy:8080 https://x')).toContain('-x http://proxy:8080')
+  })
+})
+
+describe('more secret shapes', () => {
+  it('scans form bodies whose values contain spaces', () => {
+    expect(scan("curl https://x --data-raw 'username=bob&password=hunter2 now'")).toEqual([['Body password', 'hunter2 now', '<PASSWORD>']])
+    expect(scan("curl https://x -d 'just some text with password = x'")).toEqual([])
+  })
+
+  it('finds numeric JSON secrets and keeps the redacted body JSON', () => {
+    const input = `curl https://x --json '{"user":"a","password":12345678,"pin":0,"count":3}'`
+    expect(scan(input)).toEqual([['JSON password', '12345678', '<PASSWORD>']])
+    const parsed = parseCurl(input)
+    const again = parseCurl(redactInput(parsed, findSecrets(parsed)))
+    if (!again.ok || again.request.body?.kind !== 'text') throw new Error('expected a text body')
+    expect(JSON.parse(again.request.body.text)).toEqual({ user: 'a', password: '<PASSWORD>', pin: 0, count: 3 })
+    expect(findSecrets(again)).toEqual([])
+  })
+
+  it('matches hyphen, underscore and case variants of secret-ish header names', () => {
+    for (const name of ['X-Session-Id', 'x-session-id', 'X_SESSION_ID', 'XSessionId', 'Session-Token', 'X-Auth-Token', 'X-Api-Key']) {
+      expect(isSecretName(name), name).toBe(true)
+    }
+    expect(scan("curl https://x -H 'X-Session-Id: 9f8e7d6c5b4a'")).toEqual([['Header X-Session-Id', '9f8e7d6c5b4a', '<X_SESSION_ID>']])
+    for (const name of ['X-Request-Id', 'Content-Id', 'sessions']) expect(isSecretName(name), name).toBe(false)
+  })
+})

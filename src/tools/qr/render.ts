@@ -1,4 +1,5 @@
 import { encode } from 'uqr'
+import { LONE_SURROGATE, LONE_SURROGATE_ERROR } from './payload'
 
 /**
  * QR encoding (via uqr) plus our own drawing. The matrix is turned into SVG
@@ -17,8 +18,24 @@ export const ECC_LEVELS: { id: Ecc; label: string; recovery: number }[] = [
   { id: 'H', label: 'H 30%', recovery: 0.30 },
 ]
 
-/** Byte-mode capacity of a version-40 symbol — the absolute ceiling per level. */
-export const MAX_BYTES: Record<Ecc, number> = { L: 2953, M: 2331, Q: 1663, H: 1273 }
+export type DataMode = 'Numeric' | 'Alphanumeric' | 'Byte'
+
+/** What a version-40 symbol holds per mode and level — the absolute ceiling (ISO/IEC 18004 table 7). */
+const CAPACITY: Record<DataMode, Record<Ecc, number>> = {
+  Numeric: { L: 7089, M: 5596, Q: 3993, H: 3057 },
+  Alphanumeric: { L: 4296, M: 3391, Q: 2420, H: 1852 },
+  Byte: { L: 2953, M: 2331, Q: 1663, H: 1273 },
+}
+
+export const capacity = (mode: DataMode, ecc: Ecc) => CAPACITY[mode][ecc]
+
+/** The data's size in the unit its mode counts: digits, characters or UTF-8 bytes. */
+export function dataSize(text: string): { mode: DataMode; count: number; unit: string } {
+  const mode = dataMode(text)
+  if (mode === 'Numeric') return { mode, count: text.length, unit: 'digit' }
+  if (mode === 'Alphanumeric') return { mode, count: text.length, unit: 'character' }
+  return { mode, count: utf8Length(text), unit: 'byte' }
+}
 
 export interface EncodeOptions {
   ecc: Ecc
@@ -48,15 +65,19 @@ const ORDER: Ecc[] = ['L', 'M', 'Q', 'H']
 
 export function encodeQr(payload: string, opts: EncodeOptions): EncodeResult {
   if (!payload) return { error: 'Nothing to encode' }
+  // uqr would throw a URIError from encodeURI; that is bad text, not too much of it.
+  if (LONE_SURROGATE.test(payload)) return { error: LONE_SURROGATE_ERROR }
   const run = (ecc: Ecc, min: number, max = 40) => encode(payload, {
     ecc, minVersion: min, maxVersion: max, maskPattern: opts.maskPattern, border: 0,
   })
   let result
   try {
     result = run(opts.ecc, clamp(Math.round(opts.minVersion), 1, 40))
-  } catch {
-    const bytes = utf8Length(payload)
-    return { error: `Too much data: ${bytes.toLocaleString()} bytes is over the ${MAX_BYTES[opts.ecc].toLocaleString()}-byte limit at ECC ${opts.ecc}${opts.ecc !== 'L' ? ' — try a lower level' : ''}` }
+  } catch (error) {
+    const { mode, count, unit } = dataSize(payload)
+    const limit = capacity(mode, opts.ecc)
+    if (count <= limit) return { error: `Could not encode this content (${error instanceof Error ? error.message : String(error)})` }
+    return { error: `Too much data: ${count.toLocaleString()} ${unit}s is over the ${limit.toLocaleString()}-${unit} limit at ECC ${opts.ecc}${opts.ecc !== 'L' ? ' — try a lower level' : ''}` }
   }
   let ecc = opts.ecc
   if (opts.boostEcc) {
@@ -77,7 +98,7 @@ export function utf8Length(text: string): number {
 }
 
 /** Mirrors uqr's single-segment mode choice so the stats tell the truth. */
-export function dataMode(text: string): 'Numeric' | 'Alphanumeric' | 'Byte' {
+export function dataMode(text: string): DataMode {
   if (/^\d*$/.test(text)) return 'Numeric'
   if (/^[A-Z0-9 $%*+./:-]*$/.test(text)) return 'Alphanumeric'
   return 'Byte'

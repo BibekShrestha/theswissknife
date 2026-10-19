@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   addDuration, breakdownToDuration, businessDays, calendarDifference, exactDuration, explainDuration,
-  formatDuration, joinEnglish, parseDuration, type AddOutcome,
+  exactHoursDuration, formatDuration, joinEnglish, parseDuration, type AddOutcome,
 } from './duration'
 import { durationsHash, type DurationsState } from './share'
 import { localZone, ZonePicker } from './ZonePicker'
@@ -306,7 +306,7 @@ function AddResultView({ base, zone, iso, op, copy }: AddViewProps) {
             <p className="dates-note">
               These differ because the UTC offset in {zone} changes in between. <strong>Calendar</strong> keeps the wall-clock time
               ({fmtNumber(Math.abs(result.calendar.ms - start.ms) / HOUR)} real hours); <strong>exact</strong> treats each day as 24 hours
-              ({fmtNumber(Math.abs(result.exact.ms - start.ms) / HOUR)} hours). Write <code>PT{fmtNumber((d.weeks * 7 + d.days) * 24)}H</code> if
+              ({fmtNumber(Math.abs(result.exact.ms - start.ms) / HOUR)} hours). Write <code>{exactHoursDuration(d)}</code> if
               you mean exact hours.
             </p>
           )}

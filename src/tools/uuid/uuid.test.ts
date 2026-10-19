@@ -101,6 +101,19 @@ describe('input forms', () => {
     expect(parseUuid(raw).error).toMatch(message)
   })
 
+  it.each([
+    '-aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee-',
+    'aaaaaaaa-bbbb-cccc-dddd--eeeeeeeeeee',
+    '{-aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee}',
+    'urn:uuid:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee-',
+    'aaaaaaaabbbbccccdddd-eeeeeeeeeeee',
+    'aaaaaaaabbbbccccddddeeeeeeeeeee-',
+  ])('rejects stray hyphens in %s instead of decoding shifted bytes', (raw) => {
+    expect(parseUuid(raw).bytes).toBeNull()
+    expect('error' in inspectId(raw)).toBe(true)
+  })
+
   it('reports errors per line and skips blank lines', () => {
     const results = inspectLines(`${canonical}\n\nnope\n01ARZ3NDEKTSV4RRFFQ69G5FAV`)
     expect(results.map((result) => result.line)).toEqual([1, 3, 4])
@@ -193,6 +206,18 @@ describe('generation', () => {
     const maxed = createV7Generator((bytes) => bytes.fill(0xff), () => 5)
     maxed()
     expect(v7Timestamp(maxed())).toBe(6)
+  })
+
+  it('v7 throws rather than wrapping the timestamp to 0 at the end of the 48-bit range', () => {
+    const maxed = createV7Generator((bytes) => bytes.fill(0xff), () => 2 ** 48 - 1)
+    expect(v7Timestamp(maxed())).toBe(2 ** 48 - 1)
+    expect(() => maxed()).toThrow(/48-bit/)
+  })
+
+  it('ULID throws rather than wrapping the timestamp to 0 at the end of the 48-bit range', () => {
+    const maxed = createUlidGenerator((bytes) => bytes.fill(0xff), () => 2 ** 48 - 1)
+    expect(encodeUlid(maxed())).toBe('7ZZZZZZZZZZZZZZZZZZZZZZZZZ')
+    expect(() => maxed()).toThrow(/48-bit/)
   })
 
   it('ULID batches in one millisecond sort in generation order', () => {

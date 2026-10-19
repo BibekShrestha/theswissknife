@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sniff } from './detect'
+import { sniff, unsupported } from './detect'
 
 const text = (s: string): number[] => [...s].map((c) => c.charCodeAt(0))
 const bytes = (...parts: (number | number[])[]): Uint8Array =>
@@ -84,5 +84,28 @@ describe('sniff', () => {
     })
     expect(sniff(bytes(text('hello')))).toEqual({ format: 'unknown', frames: 'unknown' })
     expect(sniff(new Uint8Array(0))).toEqual({ format: 'unknown', frames: 'unknown' })
+  })
+})
+
+describe('sniff past a long prolog (IMG-2)', () => {
+  it('finds the svg root after an XML declaration, a long comment and a doctype', () => {
+    const prolog = `<?xml version="1.0" encoding="UTF-8"?>\n<!-- ${'Exported by a design tool. '.repeat(200)} -->\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n`
+    expect(prolog.length).toBeGreaterThan(4096)
+    expect(sniff(bytes(text(`${prolog}<svg viewBox="0 0 8 8"/>`)))).toEqual({ format: 'svg', frames: 'single' })
+  })
+
+  it('wants the root element to be svg, not an svg somewhere inside', () => {
+    expect(sniff(bytes(text('<?xml version="1.0"?><html><body><svg/></body></html>')))).toEqual({ format: 'unknown', frames: 'unknown' })
+  })
+})
+
+describe('unsupported (IMG-2)', () => {
+  it('names formats it recognises but cannot read, and says when a file is not an image', () => {
+    expect(unsupported(bytes([0, 0, 0, 0x18], text('ftypheic'), [0, 0, 0, 0], text('mif1heic')))).toMatch(/HEIC/)
+    expect(unsupported(bytes(text('II*'), 0))).toMatch(/TIFF/)
+    expect(unsupported(bytes(text('MM'), 0, 42))).toMatch(/TIFF/)
+    expect(unsupported(bytes(text('%PDF-1.7')))).toMatch(/PDF/)
+    expect(unsupported(bytes(text('hello')))).toMatch(/not an image/i)
+    expect(unsupported(new Uint8Array(0))).toMatch(/empty/i)
   })
 })

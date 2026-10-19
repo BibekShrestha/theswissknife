@@ -138,6 +138,7 @@ export function strip(b: Uint8Array, format: Format, options: StripOptions): Str
 
 /** Blocks the options asked to keep — or that HEIF cannot drop in place (its colour profile). */
 export function keptOnPurpose(block: Block, format: Format, options: StripOptions): boolean {
+  if (block.unremovable) return false
   if (block.empty) return true
   if (block.kind === 'icc') return options.keepIcc || format === 'heif'
   if (block.kind === 'exif' && block.orientationOnly && !block.nested) return options.keepOrientation

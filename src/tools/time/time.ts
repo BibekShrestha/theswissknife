@@ -77,26 +77,105 @@ export function parseTimestamp(raw: string, requestedUnit: TimeUnit): ParseResul
   }
 }
 
-const EXPLICIT_ZONE = /(?:z|[+-]\d{2}:?\d{2})$/i
+// Extended-format ISO 8601 only: a date (YYYY, YYYY-MM, YYYY-MM-DD, or a
+// six-digit signed year), optionally a time (HH:MM, HH:MM:SS, with a
+// fraction of up to nine digits after "." or ","), and after a time an
+// optional offset (Z, ±HH, ±HHMM, ±HH:MM). "T" may also be "t" or a space
+// (RFC 3339). Anything else is an error rather than whatever Date.parse
+// happens to guess.
+const ISO_8601 = /^([+-]\d{6}|\d{4})(?:-(\d{2})(?:-(\d{2})(?:[Tt ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d+))?)?([Zz]|[+-]\d{2}(?::?\d{2})?)?)?)?)?$/
+const ISO_HELP = 'Not ISO 8601 — use e.g. 2024-06-01T12:00:00Z (date, optional time with fraction, then Z, ±HH or ±HH:MM).'
+
+function daysInMonth(year: number, month: number): number {
+  const date = new Date(0)
+  date.setUTCFullYear(year, month, 0)
+  return date.getUTCDate()
+}
+
+function fieldsToMs(local: boolean, year: number, month: number, day: number, hour: number, minute: number, second: number): number {
+  const date = new Date(0)
+  if (local) {
+    date.setFullYear(year, month - 1, day)
+    date.setHours(hour, minute, second, 0)
+  } else {
+    date.setUTCFullYear(year, month - 1, day)
+    date.setUTCHours(hour, minute, second, 0)
+  }
+  return date.getTime()
+}
 
 export function parseIsoInput(raw: string): ParseResult {
   const input = raw.trim()
-  if (!input) return { value: null, error: 'Enter an ISO-8601 date and time.' }
-  const localAssumed = !EXPLICIT_ZONE.test(input)
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(input) ? `${input}T00:00:00` : input
-  const milliseconds = Date.parse(normalized)
-  if (!Number.isFinite(milliseconds)) return { value: null, error: 'Date is not valid ISO-8601 input.' }
-  return {
-    value: { milliseconds, nanoseconds: BigInt(milliseconds) * NS_PER_MILLISECOND, inferredUnit: 'ms', localAssumed },
-    error: null,
+  if (!input) return { value: null, error: 'Enter an ISO 8601 date and time.' }
+  const match = ISO_8601.exec(input)
+  if (!match) return { value: null, error: ISO_HELP }
+  const [, yearText, monthText = '01', dayText = '01', hourText = '00', minuteText = '00', secondText = '00', fraction = '', zone] = match
+  if (yearText === '-000000') return { value: null, error: 'ISO 8601 has no year -000000; write 0000.' }
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+  const hour = Number(hourText)
+  const minute = Number(minuteText)
+  const second = Number(secondText)
+  if (month < 1 || month > 12) return { value: null, error: `Not ISO 8601 — month ${monthText} does not exist.` }
+  if (day < 1 || day > daysInMonth(year, month)) return { value: null, error: `Not ISO 8601 — ${yearText}-${monthText} has no day ${dayText}.` }
+  if (hour > 23 || minute > 59) return { value: null, error: `Not ISO 8601 — ${hourText}:${minuteText} is not a time of day.` }
+  if (second > 59) return { value: null, error: second === 60 ? 'Leap seconds (:60) cannot be represented in Unix time.' : `Not ISO 8601 — second ${secondText} does not exist.` }
+  if (fraction.length > 9) return { value: null, error: 'Fractions hold at most 9 fractional digits (nanoseconds).' }
+
+  let offsetMinutes = 0
+  if (zone && zone.toUpperCase() !== 'Z') {
+    const digits = zone.slice(1).replace(':', '')
+    const offsetHours = Number(digits.slice(0, 2))
+    const offsetMins = Number(digits.slice(2) || '0')
+    if (offsetHours > 23 || offsetMins > 59) return { value: null, error: `Not ISO 8601 — ${zone} is not a UTC offset.` }
+    offsetMinutes = (zone.startsWith('-') ? -1 : 1) * (offsetHours * 60 + offsetMins)
   }
+
+  const localAssumed = !zone
+  const baseMs = fieldsToMs(localAssumed, year, month, day, hour, minute, second)
+  if (!Number.isFinite(baseMs)) return { value: null, error: 'Date is outside the JavaScript Date range.' }
+  const fractionNs = BigInt((fraction + '000000000').slice(0, 9))
+  const nanoseconds = BigInt(baseMs) * NS_PER_MILLISECOND + fractionNs - BigInt(offsetMinutes) * 60n * NS_PER_SECOND
+  const milliseconds = Number(floorDiv(nanoseconds, NS_PER_MILLISECOND)[0])
+  if (Math.abs(milliseconds) > DATE_LIMIT_MS) return { value: null, error: 'Date is outside the JavaScript Date range.' }
+  return { value: { milliseconds, nanoseconds, inferredUnit: 's', localAssumed }, error: null }
 }
 
 export function parseLocalDateTime(raw: string): ParseResult {
   if (!raw) return { value: null, error: 'Choose a local date and time.' }
   const milliseconds = new Date(raw).getTime()
   if (!Number.isFinite(milliseconds)) return { value: null, error: 'Local date and time are invalid.' }
-  return { value: { milliseconds, nanoseconds: BigInt(milliseconds) * NS_PER_MILLISECOND, inferredUnit: 'ms', localAssumed: true }, error: null }
+  return { value: { milliseconds, nanoseconds: BigInt(milliseconds) * NS_PER_MILLISECOND, inferredUnit: 's', localAssumed: true }, error: null }
+}
+
+/**
+ * The text and unit to write into the timestamp field for an instant that
+ * came from a date field. The two must agree, or retyping the value reads it
+ * in the wrong unit: an explicit unit is kept when it can hold the instant
+ * exactly (microseconds cannot hold a nanosecond fraction — that falls back
+ * to nanoseconds); Auto stays Auto only when auto-detection would read the
+ * seconds back as seconds.
+ */
+export function timestampField(nanoseconds: bigint, unit: TimeUnit): { text: string; unit: TimeUnit } {
+  const values = timestampValues(nanoseconds)
+  const textFor: Record<Exclude<TimeUnit, 'auto'>, string> = {
+    s: values.seconds, ms: values.milliseconds, us: values.microseconds, ns: values.nanoseconds,
+  }
+  const candidates: TimeUnit[] = unit === 'auto' ? ['auto', 's', 'ns'] : [unit, 'ns']
+  for (const candidate of candidates) {
+    const text = textFor[candidate === 'auto' ? 's' : candidate]
+    const back = parseTimestamp(text, candidate)
+    if (back.value?.nanoseconds === nanoseconds) return { text, unit: candidate }
+  }
+  return { text: values.nanoseconds, unit: 'ns' }
+}
+
+/** Every zone the selects offer. Intl.supportedValuesOf omits UTC, so it is added first. */
+export function zoneOptions(supported: readonly string[] | undefined, localZone: string): string[] {
+  const list = (supported ?? []).filter((zone) => zone !== 'UTC')
+  const local = localZone === 'UTC' || list.includes(localZone) ? [] : [localZone]
+  return ['UTC', ...local, ...list]
 }
 
 function decimalFromNanoseconds(value: bigint, scale: bigint): string {

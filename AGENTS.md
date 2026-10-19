@@ -175,9 +175,15 @@ the precache list built by `scripts/sw-manifest.ts`.
   URL fragment. Engine quirks are in README.md's "jq engine notes" (argv ~1 MB
   crash guard, `$ARGS` emulation, `--args` unusable in-wasm).
 - `tools/jwt/` — JWT decode/verify/sign via WebCrypto (HS/RS/PS/ES/EdDSA).
-- `tools/ssl/` — `x509.ts` is a hand-written DER/X.509 parser; chain signatures
-  (RSA, ECDSA, Ed25519) are verified with WebCrypto against certificates the
-  user supplies — nothing is fetched.
+- `tools/ssl/` — `x509.ts` is a hand-written DER/X.509 parser (strict DER
+  lengths, duplicate extensions and impossible dates rejected); chain
+  signatures (RSA PKCS#1, RSA-PSS, ECDSA, Ed25519) are verified with WebCrypto
+  against certificates the user supplies — nothing is fetched. `checkChain`
+  also requires every issuer to be a CA (basicConstraints, keyCertSign,
+  pathLen), valid today, and named as the child's issuer; any failure turns
+  the verdict red. Hostnames match DNS SANs and IP SANs as bytes — the Common
+  Name is never used (browsers ignore it). No trust store, revocation or
+  Public Suffix List, and the limits copy says so.
 - `tools/regex/` — JavaScript regex match/replace. Every evaluation — matches
   and the Tests tab's cases, each with its own runner and worker — runs in
   `regex.worker.ts` via `runner.ts`, which terminates the worker after
@@ -225,8 +231,10 @@ the precache list built by `scripts/sw-manifest.ts`.
   (`resolveWall`: Temporal-style 'compatible' — gap times move forward,
   repeated times take the earlier occurrence). `timeline.ts`: the planner
   covers the reference (first) zone's calendar day in 15-minute slots
-  (every offset in use is a multiple of 15 min), so a 23/25-hour DST day
-  has 92/100 slots and other zones' rows line up on the same instants. `catalog.ts` adds city aliases,
+  (every modern offset is a multiple of 15 min), so a 23/25-hour DST day
+  has 92/100 slots and other zones' rows line up on the same instants; a
+  day the zone skipped (Apia 2011-12-30) is `missing`, and local-mean-time
+  rows are flagged `offGrid`. `catalog.ts` adds city aliases,
   current names for renamed ids (engines may list `Asia/Calcutta`) and
   abbreviations, each with all its meanings (IST, CST, BST… are flagged
   ambiguous). `duration.ts`: ISO 8601 parse/format, add (years/months with
@@ -291,9 +299,17 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/exif/` — photo metadata viewer/stripper, hand-written (no exifr):
   `lib/exif.ts` is a bounds-checked TIFF reader (visited-offset set against
   IFD loops, capped chains and entry counts); one module per container
-  (`jpeg`, `png`, `webp`, `gif`, `heif`) parses blocks and strips by copying
-  every non-metadata byte range — nothing is re-encoded. HEIF/AVIF Exif/XMP
-  items are zero-filled in place so `iloc` offsets stay valid. Each format
+  (`jpeg`, `png`, `webp`, `gif`, `heif`) parses blocks and strips by
+  **allow-list**: only what decoding needs is kept (JPEG SOF/DHT/DQT/DRI/SOS…,
+  a 16-byte JFIF and 12-byte Adobe APP0/APP14; PNG critical chunks plus
+  rendering ones like tRNS/gAMA/sRGB/pHYs and APNG; WebP VP8/VP8L/VP8X/ALPH/
+  ANIM/ANMF; GIF image blocks, 4-byte graphic control, loop count), plus ICC
+  or a minimal orientation EXIF when the user keeps them. Everything else —
+  unknown chunks, C2PA, stray bytes, thumbnails — is dropped *and listed*, so
+  analysis and stripper share one classification and nothing is re-encoded.
+  HEIF/AVIF Exif/XMP items are zero-filled in place so `iloc` offsets stay
+  valid; an item that can't be located or overwritten is `unremovable` and
+  the verdict stays red. Each format
   also names its image-data ranges; `processImage` SHA-256s them before and
   after and re-parses the output, and the UI's "N found → M remain" comes from
   that re-parse, never the stripper's own list. Work runs in `exif.worker.ts`
@@ -303,8 +319,16 @@ the precache list built by `scripts/sw-manifest.ts`.
   with **no `allow-scripts`** (pasted `<script>`/`onerror` stay inert, so no
   sanitizer). The frame is the preview, the print source (PDF = the browser's
   print dialog) and, via `buildHtml`, the export — one stylesheet from
-  `doc/docTheme.ts` for all three. KaTeX and mermaid are `import()`-only
-  (guarded by `lazy.test.ts`) and run in the parent, injecting markup. The
+  `doc/docTheme.ts` for all three. marked runs in `render/render.worker.ts`
+  behind `render/runner.ts` (regex-style deadline, `RENDER_TIMEOUT_MS`; a busy
+  render finishes, only the latest waiting one runs next) — it is quadratic
+  on some inputs and overflows its stack on deep nesting, and the saved
+  document must never brick the tool. KaTeX and mermaid are `import()`-only
+  (guarded by `lazy.test.ts`) and run in the parent, injecting markup; their
+  placeholder regexes must stay linear. `doc/links.ts` disarms everything
+  entering the frame or leaving the tool (external links → new tab,
+  script/data URLs dropped, meta/base/form actions removed); `frame.ts`
+  rebuilds the frame if it is ever navigated anyway. The
   frame pins `<base href="about:srcdoc">` or `#anchors` navigate it away.
   Remote images are blocked in preview/PDF by the site CSP; the exported file
   carries its own script-free CSP that allows them.
@@ -345,8 +369,10 @@ the precache list built by `scripts/sw-manifest.ts`.
 - `tools/hash/` — SHA-1/256/384/512 digests and HMACs via WebCrypto only
   (no MD5: `crypto.subtle` lacks it, so don't advertise it). Files are read
   whole with `File.arrayBuffer` — no streaming. Compare (`compareDigest`)
-  ignores whitespace, matches hex case-insensitively and accepts Base64 or
-  Base64URL, padded or not.
+  ignores whitespace, matches hex case-insensitively (also `AB:CD:…`
+  fingerprints and a `0x` prefix) and accepts Base64 or Base64URL, padded or
+  not. Results are tied to the input they came from, so a stale digest or
+  match is never shown while new input hashes.
 - `tools/uuid/` — UUID/ULID generator and inspector, hand-written (no
   libraries). `uuid.ts` parses every common UUID spelling, reads RFC 9562
   version/variant, v1/v6 timestamps (bigint 100-ns ticks, 7 fractional

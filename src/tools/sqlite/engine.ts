@@ -31,13 +31,12 @@ export interface ScriptResult {
 
 const now = () => performance.now()
 
-/** Integers that fit a double become numbers again; only the big ones stay bigint. */
-function normalise(value: SqlValue): Cell {
-  if (typeof value === 'bigint' && value >= BigInt(Number.MIN_SAFE_INTEGER) && value <= BigInt(Number.MAX_SAFE_INTEGER)) {
-    return Number(value)
-  }
-  return value
-}
+/**
+ * Read with useBigInt, an INTEGER arrives as bigint and a REAL as number, and
+ * they stay that way: turning small integers into numbers would make the
+ * REAL 1.0 indistinguishable from the INTEGER 1 (and -0.0 from 0).
+ */
+const normalise = (value: SqlValue): Cell => value
 
 function scalar(db: Database, sql: string): SqlValue {
   return db.exec(sql)[0]?.values[0]?.[0] ?? null

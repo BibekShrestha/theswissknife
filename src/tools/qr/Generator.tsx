@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Panel } from './panel'
 import { useCopy } from '../../shell/useCopy'
 import { BATCH_LIMIT, parseBatch } from './batch'
-import { buildPayload, presets, type Fields, type PresetId } from './payload'
+import { accessibleLabel, buildPayload, presets, redactPayload, type Fields, type PresetId } from './payload'
 import type { Form } from './scan/parse'
 import {
-  canvasBlob, colorWarnings, dataMode, drawCanvas, drawQr, ECC_LEVELS, encodeQr, logoRisk, MAX_BYTES, toSvg, utf8Length,
+  canvasBlob, capacity, colorWarnings, dataSize, drawCanvas, drawQr, ECC_LEVELS, encodeQr, logoRisk, toSvg, utf8Length,
   type Ecc, type EncodeOptions, type EyeStyle, type Logo, type ModuleStyle, type Style,
 } from './render'
 
@@ -187,6 +187,7 @@ export default function Generator({ showToast, load }: { showToast: (message: st
   }, [settings])
 
   const built = useMemo(() => buildPayload(preset, fields[preset]), [preset, fields])
+  const size = dataSize(built.payload)
   const encoded = useMemo(() => built.error ? { error: built.error } : encodeQr(built.payload, enc), [built, enc])
   const code = encoded.code
   const drawing = useMemo(
@@ -339,7 +340,8 @@ export default function Generator({ showToast, load }: { showToast: (message: st
             {preset !== 'text' && !built.error && (
               <details className="qr-raw">
                 <summary>Encoded content · {utf8Length(built.payload).toLocaleString()} B</summary>
-                <pre>{built.payload}</pre>
+                {/* The password stays dotted here unless the field's own eye shows it; Copy copies the real content. */}
+                <pre>{showSecret ? built.payload : redactPayload(built.payload)}</pre>
                 <button onClick={() => void copy(built.payload, 'Content')}><span className="material-symbols-outlined" aria-hidden>content_copy</span> Copy</button>
               </details>
             )}
@@ -432,7 +434,7 @@ export default function Generator({ showToast, load }: { showToast: (message: st
         {mode === 'single' ? (
           <div className="qr-preview">
             <div className={`qr-stage${style.transparent ? ' is-transparent' : ''}`}>
-              {code ? <canvas ref={canvasRef} aria-label={`QR code for ${built.payload.slice(0, 80)}`} role="img" /> : (
+              {code ? <canvas ref={canvasRef} aria-label={accessibleLabel(preset, fields[preset])} role="img" /> : (
                 <div className="qr-empty" role="alert">
                   <span className="material-symbols-outlined" aria-hidden>{built.error ? 'edit_note' : 'error'}</span>
                   {encoded.error}
@@ -445,8 +447,8 @@ export default function Generator({ showToast, load }: { showToast: (message: st
                 <span>{code.size}×{code.size}</span>
                 <span title={code.ecc !== enc.ecc ? `Boosted from ${enc.ecc}` : undefined}>ECC {code.ecc}{code.ecc !== enc.ecc && '↑'}</span>
                 <span>mask {code.mask}</span>
-                <span>{dataMode(built.payload)}</span>
-                <span title={`Version 40 holds up to ${MAX_BYTES[code.ecc].toLocaleString()} bytes at ECC ${code.ecc}`}>{utf8Length(built.payload).toLocaleString()} B</span>
+                <span>{size.mode}</span>
+                <span title={`Version 40 holds up to ${capacity(size.mode, code.ecc).toLocaleString()} ${size.unit}s in ${size.mode} mode at ECC ${code.ecc}`}>{size.count.toLocaleString()} {size.mode === 'Byte' ? 'B' : `${size.unit}s`}</span>
               </p>
             )}
             {code && <ScanBadge scan={scan} caveat={warnings.length > 0} />}
@@ -454,8 +456,8 @@ export default function Generator({ showToast, load }: { showToast: (message: st
         ) : (
           <div className="qr-batch-grid">
             {batchRows.slice(0, 60).map((row) => (
-              <figure key={row.name} className={row.error ? 'has-error' : ''} title={row.error ?? row.content}>
-                {row.code ? <BatchThumb row={row} style={style} logo={logo} scale={settings.logoScale} plate={settings.logoPlate} /> : <span className="material-symbols-outlined">error</span>}
+              <figure key={row.name} className={row.error ? 'has-error' : ''} title={row.error ?? redactPayload(row.content)}>
+                {row.code ? <BatchThumb row={row} style={style} logo={logo} scale={settings.logoScale} plate={settings.logoPlate} /> : <span className="material-symbols-outlined" aria-hidden>error</span>}
                 <figcaption>{row.name}</figcaption>
               </figure>
             ))}
@@ -625,7 +627,7 @@ function ScanBadge({ scan, caveat }: { scan: Scan; caveat: boolean }) {
   return (
     <p className={`qr-scan is-${tone}`} role="status">
       <span className="material-symbols-outlined" aria-hidden>{icon}</span>
-      <span>{text}{scan.state === 'mismatch' && <code>{scan.got.slice(0, 120)}</code>}</span>
+      <span>{text}{scan.state === 'mismatch' && <code>{redactPayload(scan.got).slice(0, 120)}</code>}</span>
     </p>
   )
 }

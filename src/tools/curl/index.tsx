@@ -139,8 +139,9 @@ export default function CurlTool() {
                 </p>
               )}
               <p className="curl-fine">
-                Looks at Authorization headers, every cookie (-b or Cookie), -u, --oauth2-bearer, URL user:password, headers named like
-                x-api-key or *-token, token / key / sig / password-style fields in the query, form and JSON body, and JWT-shaped values —
+                Looks at Authorization headers, every cookie (-b or Cookie), -u, --oauth2-bearer, URL user:password, the proxy, client
+                certificate and key passwords (-U, -x, -E, --pass, --proxy-pass), headers named like x-api-key or *-token, token / key /
+                sig / password-style fields in the query, form and JSON body, and JWT-shaped values —
                 then at any other place the same value appears. Replacing rewrites the command above, so every output follows it.
               </p>
             </section>

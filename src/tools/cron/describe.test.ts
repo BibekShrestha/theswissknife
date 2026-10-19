@@ -35,6 +35,15 @@ describe('describeCron', () => {
     expect(text(expr)).toBe(expected)
   })
 
+  it.each([
+    ['*/7 * * * *', 'At minutes 0, 7, 14, …, 56 past the hour'],
+    ['*/25 * * * *', 'At minutes 0, 25 and 50 past the hour'],
+    ['*/15 */5 * * *', 'Every 15 minutes, during the 00:00, 05:00, 10:00, 15:00 and 20:00 hours'],
+    ['*/20 */6 * * *', 'Every 20 minutes, every 6 hours'],
+  ])('describes uneven steps by the values they hit (CRON-3): %s', (expr, expected) => {
+    expect(text(expr)).toBe(expected)
+  })
+
   it('describes macros by their expansion', () => {
     expect(text('@hourly')).toBe('Every hour, on the hour')
     expect(text('@weekly')).toBe('At 00:00, on Sunday')

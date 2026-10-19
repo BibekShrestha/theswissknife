@@ -29,6 +29,12 @@ export interface DataSource {
   bytes: Uint8Array
   /** MIME type when known, e.g. "text/csv; header=present" from the CSV viewer. */
   type?: string
+  /**
+   * Handed over by another tool ("Query with SQL" in the CSV viewer), which
+   * writes RFC 4180 comma CSV: the delimiter is known, so it is not sniffed —
+   * a column of "a;b" values must not turn into two columns.
+   */
+  handoff?: boolean
 }
 
 export interface ReadOptions {
@@ -39,9 +45,11 @@ export interface ReadOptions {
   header: 'auto' | 'yes' | 'no'
   /** CSV only: an empty field becomes NULL rather than ''. JSON says null itself. */
   emptyAsNull: boolean
+  /** JSON only, for a top-level object: '' imports the object as one row; a key imports the items of that array. */
+  jsonRows: string
 }
 
-export const DEFAULT_READ: ReadOptions = { format: 'auto', delimiter: 'auto', header: 'auto', emptyAsNull: true }
+export const DEFAULT_READ: ReadOptions = { format: 'auto', delimiter: 'auto', header: 'auto', emptyAsNull: true, jsonRows: '' }
 
 export type ColumnType = 'INTEGER' | 'REAL' | 'TEXT'
 
@@ -78,11 +86,13 @@ export interface Analysis {
   headerGuess: boolean | null
   columns: ColumnPlan[]
   rows: number
-  /** The first rows exactly as they would be stored. */
-  sample: (number | string | null)[][]
+  /** The first rows exactly as they would be stored: INTEGER as bigint, REAL as number. */
+  sample: (number | bigint | string | null)[][]
   ragged: RaggedReport | null
   /** Things the reader should know before importing: unterminated quotes, skipped JSON lines. */
   issues: string[]
+  /** JSON whose top level is an object: the keys holding arrays, any of which can supply the rows instead. */
+  jsonArrays: string[]
 }
 
 export interface ImportJob {
@@ -168,13 +178,21 @@ export function suggestTableName(fileName: string, taken: Iterable<string>): str
   return name
 }
 
-/** Why `name` cannot be a new table, or null when it can. */
-export function tableNameProblem(name: string, taken: Iterable<string>): string | null {
+/** A name already in the schema. Tables, views, indexes and triggers share one namespace in SQLite. */
+export type TakenName = string | { name: string; type: string }
+
+/** Why `name` cannot be a new table, or null when it can. Bare strings are the other tables of the same import. */
+export function tableNameProblem(name: string, taken: Iterable<TakenName>): string | null {
   const trimmed = name.trim()
   if (!trimmed) return 'Give the table a name.'
   if (trimmed !== name) return 'The name starts or ends with a space.'
   if (/^sqlite_/i.test(name)) return 'Names starting with sqlite_ are reserved by SQLite.'
-  for (const other of taken) if (key(other) === key(name)) return `A table or view called ${other} already exists.`
+  for (const other of taken) {
+    const { name: otherName, type } = typeof other === 'string' ? { name: other, type: 'table' } : other
+    if (key(otherName) !== key(name)) continue
+    if (type === 'table' || type === 'view') return `A ${type} called ${otherName} already exists.`
+    return `A${type === 'index' ? 'n' : ''} ${type} called ${otherName} already exists — tables, views, indexes and triggers share one set of names.`
+  }
   return null
 }
 
@@ -232,7 +250,24 @@ const DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/
 const LEADING_ZERO = /^[+-]?0\d/
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/
 
-type TextClass = 'int' | 'real' | 'big' | 'leading' | 'date' | 'text'
+/** 'lossy': a decimal with more significant digits than a double holds. */
+type TextClass = 'int' | 'real' | 'lossy' | 'big' | 'leading' | 'date' | 'text'
+
+/** A decimal's value as sign, significant digits and exponent, so 1.50, +1.5 and 15e-1 compare equal. */
+function significant(text: string): string {
+  const m = /^([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/.exec(text)
+  if (!m) return text
+  const whole = m[2] ?? ''
+  let digits = whole + (m[3] ?? '')
+  let exponent = Number(m[4] ?? 0) + whole.length
+  const lead = /^0*/.exec(digits)![0].length
+  digits = digits.slice(lead).replace(/0+$/, '')
+  exponent -= lead
+  return digits ? `${m[1] === '-' ? '-' : ''}0.${digits}e${exponent}` : '0'
+}
+
+/** Whether storing `value` as a REAL keeps its value — only its spelling may change. */
+const exactAsDouble = (value: string) => significant(value) === significant(String(Number(value)))
 
 function classifyText(value: string): TextClass {
   if (INT.test(value)) {
@@ -241,9 +276,17 @@ function classifyText(value: string): TextClass {
   }
   if (DECIMAL.test(value)) {
     if (LEADING_ZERO.test(value)) return 'leading'
-    return Number.isFinite(Number(value)) ? 'real' : 'text'
+    if (!Number.isFinite(Number(value))) return 'text'
+    return exactAsDouble(value) ? 'real' : 'lossy'
   }
   return ISO_DATE.test(value) ? 'date' : 'text'
+}
+
+/** How SQLite shows a REAL: whole numbers keep a ".0", as formatCell writes them. */
+const realText = (n: number) => {
+  if (Object.is(n, -0)) return '-0.0'
+  const text = String(n)
+  return Number.isInteger(n) && !/e/i.test(text) ? `${text}.0` : text
 }
 
 const quoteExample = (value: string) => {
@@ -254,34 +297,43 @@ const quoteExample = (value: string) => {
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`
 
 class TextTally {
-  counts: Record<TextClass, number> = { int: 0, real: 0, big: 0, leading: 0, date: 0, text: 0 }
+  counts: Record<TextClass, number> = { int: 0, real: 0, lossy: 0, big: 0, leading: 0, date: 0, text: 0 }
   examples: Partial<Record<TextClass, string>> = {}
-  /** A number whose text would come back different (1.50 → 1.5, +5 → 5). */
-  reshaped: string | null = null
+  /** A number whose text would come back different (+5 → 5) as an INTEGER, and as a REAL (1.50 → 1.5, 2 → 2.0). */
+  reshapedInt: string | null = null
+  reshapedReal: string | null = null
 
   add(value: string) {
     const kind = classifyText(value)
     this.counts[kind]++
     this.examples[kind] ??= value
-    if ((kind === 'int' || kind === 'real') && this.reshaped === null && String(Number(value)) !== value) this.reshaped = value
+    if (kind !== 'int' && kind !== 'real') return
+    if (this.reshapedInt === null && String(Number(value)) !== value) this.reshapedInt = value
+    if (this.reshapedReal === null && realText(Number(value)) !== value) this.reshapedReal = value
   }
 
   decide(): { type: ColumnType; note: string | null } {
     const c = this.counts
     const ex = this.examples
     const numeric = c.int + c.real
-    const total = numeric + c.big + c.leading + c.date + c.text
+    const total = numeric + c.lossy + c.big + c.leading + c.date + c.text
     if (total === 0) return { type: 'TEXT', note: 'no values' }
     if (numeric === total) {
       const type = c.real > 0 ? 'REAL' : 'INTEGER'
-      const note = this.reshaped !== null ? `stored as numbers: ${this.reshaped} reads back as ${String(Number(this.reshaped))}` : null
-      return { type, note }
+      const reshaped = type === 'REAL' ? this.reshapedReal : this.reshapedInt
+      const shown = reshaped === null ? '' : type === 'REAL' ? realText(Number(reshaped)) : String(Number(reshaped))
+      return { type, note: reshaped !== null ? `stored as numbers: ${reshaped} reads back as ${shown}` : null }
+    }
+    if (c.lossy > 0 && c.lossy + numeric === total) {
+      const lossy = ex.lossy!
+      return { type: 'TEXT', note: `kept as text: ${lossy} has more digits than a REAL holds (it would read back as ${realText(Number(lossy))})` }
     }
     const notes: string[] = []
+    if (c.lossy > 0) notes.push(`more digits than a REAL holds kept exact (${ex.lossy})`)
     if (c.leading > 0) notes.push(`leading zeros kept (${ex.leading})`)
     if (c.big > 0) notes.push(`integers beyond 2^53 kept exact (${ex.big})`)
     if (c.date > 0 && c.date + c.leading + c.big === total) notes.push('ISO dates kept as text — date() and strftime() read them')
-    else if (c.text + c.date > 0 && numeric + c.big + c.leading > 0) {
+    else if (c.text + c.date > 0 && numeric + c.lossy + c.big + c.leading > 0) {
       notes.push(`${plural(c.text + c.date, 'value')} of ${total.toLocaleString('en-US')} not numbers (${quoteExample(ex.text ?? ex.date ?? '')})`)
     }
     return { type: 'TEXT', note: notes.length ? notes.join('; ') : null }
@@ -395,8 +447,14 @@ function looksLikeHeader(rows: string[][]): boolean {
   return named > 0 && named >= head.length - 1
 }
 
-function prepareCsv(text: string, base: Omit<Analysis, 'delimiter' | 'header' | 'headerGuess' | 'columns' | 'rows' | 'sample' | 'ragged' | 'issues'>, options: ReadOptions, hints: Hints): Prepared {
-  const delimiter = options.delimiter !== 'auto' ? options.delimiter : hints.tab ? '\t' : detectDelimiter(text).delimiter
+type Base = Omit<Analysis, 'delimiter' | 'header' | 'headerGuess' | 'columns' | 'rows' | 'sample' | 'ragged' | 'issues' | 'jsonArrays'>
+
+/** Sample rows as stored: an INTEGER column's numbers as bigint, the way query results carry them. */
+const asStored = (values: SqlValue[], types: ColumnType[]) =>
+  values.map((value, c) => (types[c] === 'INTEGER' && typeof value === 'number' ? BigInt(value) : value)) as (number | bigint | string | null)[]
+
+function prepareCsv(text: string, base: Base, options: ReadOptions, hints: Hints, handoff: boolean): Prepared {
+  const delimiter = options.delimiter !== 'auto' ? options.delimiter : handoff ? ',' : hints.tab ? '\t' : detectDelimiter(text).delimiter
   const parsed = parseCsv(text, { ...DEFAULT_OPTIONS, delimiter })
   const { rows } = parsed
   const headerGuess = hints.header ?? looksLikeHeader(rows)
@@ -408,6 +466,7 @@ function prepareCsv(text: string, base: Omit<Analysis, 'delimiter' | 'header' | 
   const issues: string[] = []
   const unterminated = parsed.issues.find((issue) => issue.kind === 'unterminated-quote')
   if (unterminated) issues.push(`Record ${unterminated.row + 1}: a quote is never closed, so the rest of the file became one field.`)
+  if (parsed.skippedEmpty > 0) issues.push(`${plural(parsed.skippedEmpty, 'blank line')} skipped (a row holding one empty value is written "").`)
 
   let ragged: RaggedReport | null = null
   for (let r = 1; r < rows.length; r++) {
@@ -449,15 +508,16 @@ function prepareCsv(text: string, base: Omit<Analysis, 'delimiter' | 'header' | 
   }
 
   const count = Math.max(0, rows.length - start)
-  const sample = Array.from({ length: Math.min(SAMPLE_ROWS, count) }, (_, i) => row(i) as (number | string | null)[])
+  const sample = Array.from({ length: Math.min(SAMPLE_ROWS, count) }, (_, i) => asStored(row(i), types))
   return {
-    analysis: { ...base, delimiter, header, headerGuess, columns, rows: count, sample, ragged, issues },
+    analysis: { ...base, delimiter, header, headerGuess, columns, rows: count, sample, ragged, issues, jsonArrays: [] },
     row,
   }
 }
 
-function prepareJson(text: string, base: Omit<Analysis, 'delimiter' | 'header' | 'headerGuess' | 'columns' | 'rows' | 'sample' | 'ragged' | 'issues'>, format: 'json' | 'jsonl'): Prepared {
+function prepareJson(text: string, base: Base, format: 'json' | 'jsonl', jsonRows: string): Prepared {
   const issues: string[] = []
+  let jsonArrays: string[] = []
   let records: unknown[]
   let actual = format
 
@@ -496,12 +556,20 @@ function prepareJson(text: string, base: Omit<Analysis, 'delimiter' | 'header' |
     if (actual === 'json') {
       if (Array.isArray(value)) records = value
       else if (isPlainObject(value)) {
-        // {"data": [...]} — a wrapper around the one array that holds the rows.
-        const arrays = Object.entries(value).filter(([, v]) => Array.isArray(v))
-        if (arrays.length === 1 && Object.keys(value).length <= 3) {
-          records = arrays[0][1] as unknown[]
-          issues.push(`Rows taken from the "${arrays[0][0]}" array; the other keys were left out.`)
-        } else records = [value]
+        // One object is one record. Its arrays ({"data": [...]}) are offered
+        // as the rows instead, but only on request: guessing would turn a
+        // record with a "tags" list into rows of tags.
+        jsonArrays = Object.keys(value).filter((k) => Array.isArray(value[k]))
+        if (jsonRows && jsonArrays.includes(jsonRows)) {
+          records = value[jsonRows] as unknown[]
+          const others = Object.keys(value).length - 1
+          issues.push(`Rows taken from the "${jsonRows}" array${others > 0 ? `; the other ${plural(others, 'key')} were left out` : ''}.`)
+        } else {
+          records = [value]
+          if (jsonArrays.length > 0) {
+            issues.push(`One object, imported as one row. To import the items of ${jsonArrays.length === 1 ? `its "${jsonArrays[0]}" array` : 'one of its arrays'} as rows instead, pick it under Rows.`)
+          }
+        }
       } else records = [value]
     }
   } else {
@@ -550,9 +618,9 @@ function prepareJson(text: string, base: Omit<Analysis, 'delimiter' | 'header' |
     const record = records[index]
     return keys.map((k, c) => jsonValue(get(record, k), types[c]))
   }
-  const sample = Array.from({ length: Math.min(SAMPLE_ROWS, records.length) }, (_, i) => row(i) as (number | string | null)[])
+  const sample = Array.from({ length: Math.min(SAMPLE_ROWS, records.length) }, (_, i) => asStored(row(i), types))
   return {
-    analysis: { ...base, format: actual, delimiter: null, header: null, headerGuess: null, columns, rows: records.length, sample, ragged: null, issues },
+    analysis: { ...base, format: actual, delimiter: null, header: null, headerGuess: null, columns, rows: records.length, sample, ragged: null, issues, jsonArrays },
     row,
   }
 }
@@ -568,13 +636,13 @@ export function prepare(source: DataSource, options: ReadOptions): Prepared {
   else [format, formatFrom] = [sniffFormat(text), 'content']
 
   const base = { format, formatFrom, encoding, fromBom }
-  return format === 'csv' ? prepareCsv(text, base, options, hints) : prepareJson(text, base, format)
+  return format === 'csv' ? prepareCsv(text, base, options, hints, source.handoff === true) : prepareJson(text, base, format, options.jsonRows ?? '')
 }
 
 /** A payload from another tool ("Query with SQL" in the CSV viewer) as a file to import. */
 export function handoffSource(handoff: Handoff): DataSource {
   const bytes = handoff.bytes ?? new TextEncoder().encode(handoff.text ?? '')
-  return { name: handoff.name, bytes, type: handoff.type }
+  return { name: handoff.name, bytes, type: handoff.type, handoff: true }
 }
 
 export function analyze(source: DataSource, options: ReadOptions): Analysis {
@@ -595,8 +663,8 @@ export function insertSql(table: string, columns: Pick<ColumnPlan, 'name'>[]): s
   return `INSERT INTO ${quoteIdent(table)} (${columns.map((c) => quoteIdent(c.name)).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`
 }
 
-function existingNames(db: Database): string[] {
-  return (db.exec("SELECT name FROM sqlite_master WHERE type IN ('table','view')")[0]?.values ?? []).map(([name]) => String(name))
+function existingNames(db: Database): { name: string; type: string }[] {
+  return (db.exec('SELECT name, type FROM sqlite_master')[0]?.values ?? []).map(([name, type]) => ({ name: String(name), type: String(type) }))
 }
 
 const yieldTurn = () => new Promise<void>((resolve) => setTimeout(resolve, 0))

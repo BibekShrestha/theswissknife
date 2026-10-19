@@ -1,16 +1,20 @@
 /**
- * GIF: a block walk. Comment extensions and metadata application extensions
- * (XMP, ImageMagick's 8BIM/IPTC, unknown ones) are dropped whole; NETSCAPE
- * looping, graphic control, plain-text and image blocks are copied untouched.
+ * GIF: a block walk, and an allow-list stripper. It writes the header (with
+ * the screen descriptor and global colour table), every image block byte for
+ * byte, graphic control extensions cut to their four bytes, and NETSCAPE /
+ * ANIMEXTS looping cut to its loop count. Everything else — comments,
+ * plain-text extensions, XMP, ICC (unless kept), 8BIM/IPTC, any other or
+ * malformed application extension and unknown extension labels — is dropped
+ * and listed.
  */
-import { ascii, complement, concat, formatBytes, hex, indexOf, startsWith, text, u16le, type Range } from './bytes'
+import { ascii, concat, formatBytes, hex, indexOf, startsWith, text, u16le, type Range } from './bytes'
 import { parseIcc } from './icc'
 import { parseIim, parseIrb } from './iptc'
 import type { Ctx } from './jpeg'
 import type { Block, StripOptions, Stripped } from './types'
 import { parseXmp, xmpFacts } from './xmp'
 
-type Kind = 'comment' | 'xmp' | 'icc' | 'photoshop' | 'iptc' | 'app' | 'keep'
+type Kind = 'comment' | 'xmp' | 'icc' | 'photoshop' | 'iptc' | 'app' | 'badapp' | 'plaintext' | 'unknown' | 'gce' | 'loop' | 'image'
 
 interface GifBlock {
   kind: Kind
@@ -19,7 +23,15 @@ interface GifBlock {
   /** first data byte after the extension header (for app extensions, after the 11-byte identifier) */
   data: number
   ident?: string
+  label?: number
+  /** For 'loop': where the two loop-count bytes are. */
+  loopAt?: number
 }
+
+/** A graphic control extension: 21 F9 04, four bytes, terminator. */
+const GCE_SIZE = 8
+/** A looping extension: 21 FF 0B, the identifier, 03 01, the loop count, terminator. */
+const LOOP_SIZE = 19
 
 export const isGif = (b: Uint8Array) => startsWith(b, 0, 'GIF87a') || startsWith(b, 0, 'GIF89a')
 
@@ -33,11 +45,21 @@ function skipSubBlocks(b: Uint8Array, o: number): number {
   return -1
 }
 
+/** The loop-count sub-block (03 01 lo hi) of a looping extension, or -1. */
+function loopCount(b: Uint8Array, o: number, end: number): number {
+  while (o < end && b[o] !== 0) {
+    if (b[o] === 3 && b[o + 1] === 1) return o + 2
+    o += b[o] + 1
+  }
+  return -1
+}
+
 export function scanGif(b: Uint8Array, warnings: string[] = []) {
   if (!isGif(b)) throw new Error('Not a GIF (bad signature)')
   if (b.length < 13) throw new Error('GIF is too short for a screen descriptor')
   const packed = b[10]
-  let o = 13 + (packed & 0x80 ? 3 * (1 << ((packed & 7) + 1)) : 0)
+  const headerEnd = Math.min(b.length, 13 + (packed & 0x80 ? 3 * (1 << ((packed & 7) + 1)) : 0))
+  let o = headerEnd
   const blocks: GifBlock[] = []
   let end = b.length
   let trailer = false
@@ -50,10 +72,12 @@ export function scanGif(b: Uint8Array, warnings: string[] = []) {
     }
     if (introducer === 0x21) {
       const label = b[o + 1]
-      let kind: Kind = 'keep'
+      let kind: Kind = 'unknown'
       let data = o + 2
       let ident: string | undefined
       if (label === 0xfe) kind = 'comment'
+      else if (label === 0xf9) kind = b[o + 2] >= 4 ? 'gce' : 'unknown'
+      else if (label === 0x01) kind = 'plaintext'
       else if (label === 0xff && b[o + 2] === 11) {
         ident = ascii(b, o + 3, o + 14)
         data = o + 14
@@ -61,23 +85,31 @@ export function scanGif(b: Uint8Array, warnings: string[] = []) {
         else if (ident === 'ICCRGBG1012') kind = 'icc'
         else if (ident === 'MGK8BIM0000') kind = 'photoshop'
         else if (ident === 'MGKIPTC0000') kind = 'iptc'
-        else if (ident === 'NETSCAPE2.0' || ident === 'ANIMEXTS1.0') kind = 'keep'
+        else if (ident === 'NETSCAPE2.0' || ident === 'ANIMEXTS1.0') kind = 'loop'
         else kind = 'app'
-      }
+      } else if (label === 0xff) kind = 'badapp'
       const next = skipSubBlocks(b, data)
       if (next < 0) {
         warnings.push(`GIF: extension at ${hex(o)} runs past the end of the file`)
-        blocks.push({ kind, start: o, end: b.length, data, ident })
+        // Cut short, it cannot be rewritten to its core: it is dropped like any other extension.
+        blocks.push({ kind: kind === 'gce' || kind === 'loop' ? 'unknown' : kind, start: o, end: b.length, data, ident, label })
         end = b.length
         break
       }
-      blocks.push({ kind, start: o, end: next, data, ident })
+      const block: GifBlock = { kind, start: o, end: next, data, ident, label }
+      if (kind === 'loop') {
+        block.loopAt = loopCount(b, data, next)
+        if (block.loopAt < 0) block.kind = 'app'
+      }
+      blocks.push(block)
       o = next
       continue
     }
     if (introducer === 0x2c) {
       if (o + 10 > b.length) {
         warnings.push('GIF: file ends inside an image descriptor')
+        blocks.push({ kind: 'image', start: o, end: b.length, data: o })
+        end = b.length
         break
       }
       const lp = b[o + 9]
@@ -85,9 +117,11 @@ export function scanGif(b: Uint8Array, warnings: string[] = []) {
       const next = skipSubBlocks(b, p)
       if (next < 0) {
         warnings.push(`GIF: image data at ${hex(o)} runs past the end of the file`)
+        blocks.push({ kind: 'image', start: o, end: b.length, data: o })
         end = b.length
         break
       }
+      blocks.push({ kind: 'image', start: o, end: next, data: o })
       o = next
       continue
     }
@@ -96,7 +130,7 @@ export function scanGif(b: Uint8Array, warnings: string[] = []) {
     break
   }
   if (!trailer) warnings.push('GIF: no trailer byte — the file may be truncated')
-  return { blocks, end, width: u16le(b, 6), height: u16le(b, 8) }
+  return { headerEnd, blocks, end, trailer, width: u16le(b, 6), height: u16le(b, 8) }
 }
 
 /** Concatenated sub-block payloads starting at `o`. */
@@ -117,6 +151,9 @@ function xmpText(b: Uint8Array, g: GifBlock): string {
   return text(raw.subarray(0, stop > 0 ? stop : Math.max(0, raw.length - 258)))
 }
 
+/** Bytes a kept extension carries beyond its rewritten core. */
+const extra = (g: GifBlock) => (g.kind === 'gce' ? g.end - g.start - GCE_SIZE : g.kind === 'loop' ? g.end - g.start - LOOP_SIZE : 0)
+
 const DROP_LABEL: Record<Kind, string> = {
   comment: 'comment extension',
   xmp: 'XMP application extension',
@@ -124,21 +161,43 @@ const DROP_LABEL: Record<Kind, string> = {
   photoshop: 'Photoshop (8BIM) application extension',
   iptc: 'IPTC application extension',
   app: 'application extension',
-  keep: '',
+  badapp: 'malformed application extension',
+  plaintext: 'plain text extension',
+  unknown: 'extension',
+  gce: '',
+  loop: '',
+  image: '',
 }
 
 export function gifBlocks(b: Uint8Array, ctx: Ctx): { blocks: Block[]; width?: number; height?: number; imageRanges: Range[] } {
   const scan = scanGif(b, ctx.warnings)
   const blocks: Block[] = []
+  const imageRanges: Range[] = [[0, scan.headerEnd]]
   for (const g of scan.blocks) {
-    if (g.kind === 'keep') continue
-    const where = `${g.kind === 'comment' ? 'Comment extension' : `Application extension “${g.ident}”`} at ${hex(g.start)}`
+    const where = `${g.kind === 'comment' ? 'Comment extension' : g.ident !== undefined ? `Application extension “${g.ident}”` : `Extension ${hex(g.label ?? 0, 2)}`} at ${hex(g.start)}`
     const size = g.end - g.start
     switch (g.kind) {
+      case 'image':
+        imageRanges.push([g.start, g.end])
+        break
+      case 'gce':
+        imageRanges.push([g.start + 3, g.start + 7])
+        if (extra(g) > 0) blocks.push({ kind: 'other', label: 'Extra data in a graphic control extension', where, size: extra(g), sections: [], note: 'Bytes past the four that set delay, disposal and transparency — removed.' })
+        break
+      case 'loop':
+        imageRanges.push([g.loopAt!, g.loopAt! + 2])
+        if (extra(g) > 0) blocks.push({ kind: 'other', label: 'Extra data in the looping extension', where, size: extra(g), sections: [], note: 'Bytes past the loop count — removed; the loop count stays.' })
+        break
       case 'comment': {
         const value = text(subBlocks(b, g.data, g.end))
         blocks.push({ kind: 'comment', label: 'GIF comment', where, size, sections: [{ title: 'Comment', rows: [{ key: 'Comment', value: value.length > 400 ? `${value.slice(0, 400)}…` : value }] }] })
         if (ctx.facts && !ctx.facts.rows.has('Description') && value.trim()) ctx.facts.rows.set('Description', { key: 'Description', value: value.slice(0, 200) })
+        break
+      }
+      case 'plaintext': {
+        // A 12-byte grid/colour header sub-block, then the text.
+        const value = text(subBlocks(b, g.data + 1 + (b[g.data] ?? 0), g.end))
+        blocks.push({ kind: 'text', label: 'GIF plain text', where, size, sections: [{ title: 'Plain text extension', rows: [{ key: 'Text', value: value.length > 400 ? `${value.slice(0, 400)}…` : value }] }] })
         break
       }
       case 'xmp': {
@@ -159,12 +218,26 @@ export function gifBlocks(b: Uint8Array, ctx: Ctx): { blocks: Block[]; width?: n
         blocks.push({ kind: g.kind, label: g.kind === 'iptc' ? 'IPTC' : 'Photoshop resources', where, size, sections })
         break
       }
+      case 'badapp':
+        blocks.push({ kind: 'other', label: 'Malformed application extension', where, size, sections: [], note: 'Its identifier block is not the 11 bytes the format requires — removed.' })
+        break
+      case 'unknown':
+        blocks.push({ kind: 'other', label: `Extension ${hex(g.label ?? 0, 2)}`, where, size, sections: [], note: 'An extension GIF decoders do not use (or one cut short) — removed.' })
+        break
       default:
         blocks.push({ kind: 'other', label: `Application data “${g.ident ?? '?'}”`, where, size, sections: [] })
     }
   }
-  if (scan.end < b.length) blocks.push({ kind: 'trailing', label: 'Data after GIF trailer', where: `${hex(scan.end)}–${hex(b.length)}`, size: b.length - scan.end, sections: [], note: 'Bytes no decoder reads — removed.' })
-  const imageRanges = complement(scan.end, scan.blocks.filter((g) => g.kind !== 'keep').map((g) => [g.start, g.end] as const))
+  if (scan.end < b.length) {
+    blocks.push({
+      kind: 'trailing',
+      label: scan.trailer ? 'Data after GIF trailer' : 'Unreadable data where a block should start',
+      where: `${hex(scan.end)}–${hex(b.length)}`,
+      size: b.length - scan.end,
+      sections: [],
+      note: scan.trailer ? 'Bytes no decoder reads — removed.' : 'The block structure breaks here, so these bytes cannot be told apart — they are removed, and the copy may not display.',
+    })
+  }
   return { blocks, width: scan.width, height: scan.height, imageRanges }
 }
 
@@ -172,19 +245,24 @@ export function stripGif(b: Uint8Array, options: StripOptions): Stripped {
   const scan = scanGif(b)
   const removed: string[] = []
   const kept: string[] = []
-  const drop: Range[] = []
   const counts = new Map<string, number>()
+  const count = (label: string) => counts.set(label, (counts.get(label) ?? 0) + 1)
+  const out: Uint8Array[] = [b.subarray(0, scan.headerEnd)]
   for (const g of scan.blocks) {
-    if (g.kind === 'keep') continue
-    if (g.kind === 'icc' && options.keepIcc) {
+    if (g.kind === 'image') out.push(b.subarray(g.start, g.end))
+    else if (g.kind === 'gce') {
+      out.push(concat([new Uint8Array([0x21, 0xf9, 4]), b.subarray(g.start + 3, g.start + 7), new Uint8Array([0])]))
+      if (extra(g) > 0) count('extra data in a graphic control extension')
+    } else if (g.kind === 'loop') {
+      out.push(concat([b.subarray(g.start, g.start + 14), new Uint8Array([3, 1]), b.subarray(g.loopAt!, g.loopAt! + 2), new Uint8Array([0])]))
+      if (extra(g) > 0) count('extra data in the looping extension')
+    } else if (g.kind === 'icc' && options.keepIcc) {
+      out.push(b.subarray(g.start, g.end))
       kept.push('ICC colour profile (application extension)')
-      continue
-    }
-    drop.push([g.start, g.end])
-    const label = g.kind === 'app' ? `${DROP_LABEL.app} “${g.ident}”` : DROP_LABEL[g.kind]
-    counts.set(label, (counts.get(label) ?? 0) + 1)
+    } else count(g.kind === 'app' ? `${DROP_LABEL.app} “${g.ident}”` : g.kind === 'unknown' ? `${DROP_LABEL.unknown} ${hex(g.label ?? 0, 2)}` : DROP_LABEL[g.kind])
   }
+  if (scan.trailer) out.push(new Uint8Array([0x3b]))
   for (const [label, n] of counts) removed.push(n > 1 ? `${label} ×${n}` : label)
-  if (scan.end < b.length) removed.push(`${formatBytes(b.length - scan.end)} after the trailer`)
-  return { bytes: concat(complement(scan.end, drop).map(([s, e]) => b.subarray(s, e))), removed, kept }
+  if (scan.end < b.length) removed.push(`${formatBytes(b.length - scan.end)} ${scan.trailer ? 'after the trailer' : 'of unreadable data'}`)
+  return { bytes: concat(out), removed, kept }
 }

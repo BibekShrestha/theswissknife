@@ -61,6 +61,8 @@ export interface Sources {
   forms: { arg: Arg; literal: boolean }[]
   user?: Arg
   bearer?: Arg
+  /** Credentials in flags that are not converted (proxy, client certificate, key passphrase), by long name. */
+  credentials: { arg: Arg; flag: CredentialFlag }[]
   /** -G moved the data into the query string. */
   get: boolean
 }
@@ -127,7 +129,29 @@ define('unsupported', true, `
   service-name socks5-gssapi-service krb ftp-method ftp-account ftp-alternative-to-user ech ip-tos vlan-priority
   alt-svc hsts json-file engine random-file egd-file`)
 
+/** fetch() normalises these to upper case; requests upper-cases every method. */
+const standardMethods = new Set(['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT'])
+
 const curlName = /^(?:.*[\\/])?curl(?:\.exe)?$/i
+
+/**
+ * Unconverted flags whose value can hold a credential. Their warnings name
+ * the flag only (proxies: with any user:password@ masked), and the secrets
+ * scan looks inside them.
+ */
+export type CredentialFlag = 'proxy-user' | 'cert' | 'proxy-cert' | 'pass' | 'proxy-pass' | 'proxy' | 'preproxy' | 'socks4' | 'socks4a' | 'socks5' | 'socks5-hostname' | 'proxy-header'
+const credentialFlags = new Set<string>(['proxy-user', 'cert', 'proxy-cert', 'pass', 'proxy-pass', 'proxy', 'preproxy', 'socks4', 'socks4a', 'socks5', 'socks5-hostname', 'proxy-header'] satisfies CredentialFlag[])
+const proxyFlags = new Set<string>(['proxy', 'preproxy', 'socks4', 'socks4a', 'socks5', 'socks5-hostname'])
+
+/** A proxy given as [scheme://][user[:password]@]host: the userinfo part, if any. */
+export function proxyUserinfo(value: string): { start: number; end: number } | undefined {
+  const scheme = /^[a-z][a-z0-9+.-]*:\/\//i.exec(value)
+  const start = scheme ? scheme[0].length : 0
+  const authEnd = value.slice(start).search(/[/?#]/)
+  const end = authEnd < 0 ? value.length : start + authEnd
+  const at = value.lastIndexOf('@', end - 1)
+  return at >= start ? { start, end: at } : undefined
+}
 
 /** curl_easy_escape: everything but A–Z a–z 0–9 - . _ ~ as %XX of the UTF-8 bytes. */
 export function urlEncode(text: string): string {
@@ -139,9 +163,18 @@ export function urlEncode(text: string): string {
   return out
 }
 
+/**
+ * Where --data-urlencode / --url-query split name from content: curl looks
+ * for '=' first and only then for '@', so `a@b=c` is the name `a@b`.
+ */
+export function urlencodeSplit(value: string): number {
+  const eq = value.indexOf('=')
+  return eq >= 0 ? eq : value.indexOf('@')
+}
+
 /** --data-urlencode's forms: content, =content, name=content, @file, name@file. */
 function encodeDataPiece(value: string): { text?: string; file?: string; name: string } {
-  const at = value.search(/[=@]/)
+  const at = urlencodeSplit(value)
   if (at < 0) return { text: urlEncode(value), name: '' }
   const name = value.slice(0, at)
   if (value[at] === '=') return { text: (name ? `${name}=` : '') + urlEncode(value.slice(at + 1)), name }
@@ -290,7 +323,7 @@ export function parseCurl(rawInput: string, dialectChoice: Dialect | 'auto' = 'a
   if (!tokens.length) return fail('Paste a curl command')
   if (!curlName.test(tokens[0].value)) return fail(`Expected the command to start with curl, not “${tokens[0].value.slice(0, 40)}”`)
 
-  const sources: Sources = { urls: [], headers: [], data: [], urlQuery: [], forms: [], get: false }
+  const sources: Sources = { urls: [], headers: [], data: [], urlQuery: [], forms: [], credentials: [], get: false }
   const flags = { get: false, head: false, location: false, insecure: false, compressed: false, globoff: false }
   let method: string | undefined
   const custom: { name: string; value: string; removal: boolean }[] = []
@@ -318,7 +351,19 @@ export function parseCurl(rawInput: string, dialectChoice: Dialect | 'auto' = 'a
       return
     }
     if (spec.kind === 'unsupported') {
-      add('warn', `${used}${arg ? ` ${arg.value.length > 40 ? `${arg.value.slice(0, 37)}…` : arg.value}` : ''} changes the request but is not converted`)
+      let shown = arg?.value
+      if (arg && credentialFlags.has(spec.long)) {
+        sources.credentials.push({ arg, flag: spec.long as CredentialFlag })
+        const colon = arg.value.indexOf(':')
+        if (spec.long === 'proxy-header' && colon > 0) {
+          let start = colon + 1
+          while (arg.value[start] === ' ' || arg.value[start] === '\t') start++
+          sources.headers.push({ arg, name: arg.value.slice(0, colon).trim(), valueOffset: start })
+        }
+        const userinfo = proxyFlags.has(spec.long) ? proxyUserinfo(arg.value) : undefined
+        shown = !proxyFlags.has(spec.long) ? undefined : userinfo ? `${arg.value.slice(0, userinfo.start)}…${arg.value.slice(userinfo.end)}` : arg.value
+      }
+      add('warn', `${used}${shown !== undefined ? ` ${shown.length > 40 ? `${shown.slice(0, 37)}…` : shown}` : ''} changes the request but is not converted`)
       return
     }
     const action = spec.long as Action
@@ -578,11 +623,16 @@ export function parseCurl(rawInput: string, dialectChoice: Dialect | 'auto' = 'a
   const finalMethod = method ?? inferred
   if (method && flags.head && method !== 'HEAD') add('warn', `-X ${method} with -I sends ${method} but curl still expects no response body`)
   if (method === 'HEAD' && !flags.head) add('warn', 'curl -X HEAD waits for a response body that never comes; -I is the way to send HEAD')
+  if (method && method !== method.toUpperCase()) {
+    const upper = method.toUpperCase()
+    add('warn', `-X ${method}: curl sends the method exactly as written, and servers may treat method names case-sensitively; ${standardMethods.has(upper) ? 'Python requests and fetch() send' : 'Python requests sends'} ${upper} instead`)
+  }
   if (flags.head && body) add('warn', 'curl refuses to combine -I with request data')
 
   // ---- headers: curl's own (-A -e -b --oauth2-bearer, then data defaults) give way to -H
   const customNames = new Set(custom.map((header) => header.name.toLowerCase()))
   const headers: Header[] = []
+  let agentRemoved = false
   const overridden = (name: string, flag: string) => {
     if (!customNames.has(name.toLowerCase())) return false
     add('info', `-H ${name} takes precedence over ${flag}`)
@@ -593,7 +643,11 @@ export function parseCurl(rawInput: string, dialectChoice: Dialect | 'auto' = 'a
     if (typeof item === 'number') {
       const header = custom[item]
       if (!header.removal) headers.push({ name: header.name, value: header.value })
-    } else if (item === 'User-Agent' && userAgent !== undefined && !overridden('User-Agent', '-A')) headers.push({ name: 'User-Agent', value: userAgent })
+    } else if (item === 'User-Agent' && userAgent !== undefined && !overridden('User-Agent', '-A')) {
+      // curl: an empty -A removes the header; a single space sends a blank one.
+      if (userAgent === '') agentRemoved = true
+      else headers.push({ name: 'User-Agent', value: userAgent })
+    }
     else if (item === 'Referer' && referer !== undefined && !overridden('Referer', '-e')) headers.push({ name: 'Referer', value: referer })
     else if (item === 'Cookie' && !overridden('Cookie', '-b')) headers.push({ name: 'Cookie', value: cookies.join('; ') })
   }
@@ -606,7 +660,7 @@ export function parseCurl(rawInput: string, dialectChoice: Dialect | 'auto' = 'a
     add('info', customNames.has('authorization') ? '-H Authorization takes precedence over -u' : '--oauth2-bearer takes precedence over -u')
     auth = undefined
   }
-  const removed = [...new Set(custom.filter((header) => header.removal).map((header) => header.name.toLowerCase()))]
+  const removed = [...new Set([...custom.filter((header) => header.removal).map((header) => header.name.toLowerCase()), ...(agentRemoved ? ['user-agent'] : [])])]
 
   if (body?.kind === 'text' && headerValue(headers, 'content-type') === 'application/x-www-form-urlencoded' && /^\s*[{[]/.test(body.text) && scanJson(body.text)) {
     add('info', 'The body is JSON but is sent as application/x-www-form-urlencoded (curl’s -d default); add -H \'Content-Type: application/json\' or use --json if the server expects JSON')
