@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { reorderPages } from '../ops/organize'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function ReorderPages() {
@@ -20,7 +21,7 @@ export function ReorderPages() {
     setError('')
 
     try {
-      setResult(await reorderPages(await readBytes(files[0]), order))
+      setResult(await runPdfJob('reorder', { bytes: await readBytes(files[0]), spec: order }))
     } catch (e) {
       setError(describeError(e))
     } finally {

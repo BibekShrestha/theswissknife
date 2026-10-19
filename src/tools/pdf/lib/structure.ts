@@ -208,7 +208,7 @@ function trailerRoots(context: PDFContext): PDFObject[] {
 }
 
 /** Drops every indirect object nothing reachable from the trailer refers to — pdf-lib writes them all otherwise. */
-function collectGarbage(context: PDFContext) {
+export function collectGarbage(context: PDFContext) {
   const live = new Set<PDFRef>()
   const seen = new Set<PDFObject>()
   const stack = trailerRoots(context)

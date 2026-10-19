@@ -8,6 +8,7 @@
 import { PDFDocument, degrees } from 'pdf-lib'
 import { loadPdf, PdfInputError } from '../lib/load'
 import { describePages, parsePageGroups, parsePageList } from '../lib/pages'
+import { step } from '../lib/work'
 import { finishMerge, forkDocument, keepPages, mergeInto, readPageLabels, type Label } from '../lib/structure'
 
 export interface NamedBytes {
@@ -71,6 +72,7 @@ export async function splitPdf(bytes: Uint8Array, mode: SplitMode): Promise<Name
   }
   const files: NamedBytes[] = []
   for (let i = 0; i < sets.length; i++) {
+    step()
     // each part is cut from its own copy of the parsed file; the last can use the original
     const part = i === sets.length - 1 ? doc : forkDocument(doc)
     keepPages(part, sets[i])

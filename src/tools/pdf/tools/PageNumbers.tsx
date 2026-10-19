@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { addPageNumbers, type Corner as Position, type NumberStyle } from '../ops/edit'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
+import type { Corner as Position, NumberStyle } from '../ops/edit'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 import { OptionGroup, type Option } from '../components/OptionGroup'
 import { NumberField, parseWhole } from '../components/NumberField'
@@ -45,7 +47,7 @@ export function PageNumbers() {
     setError('')
 
     try {
-      setResult(await addPageNumbers(await readBytes(files[0]), { position, style, prefix, startFrom: start }))
+      setResult(await runPdfJob('page-numbers', { bytes: await readBytes(files[0]), options: { position, style, prefix, startFrom: start } }))
     } catch (e) {
       setError(describeError(e))
     } finally {

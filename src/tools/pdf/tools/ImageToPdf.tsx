@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { imagesToPdf } from '../ops/images'
+import { describeError, PdfInputError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { imageKind } from '../ops/imagekind'
+import { runPdfJob } from '../runner'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 
 const IMAGE_ACCEPT = {
@@ -25,6 +27,17 @@ async function toPng(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await blob.arrayBuffer())
 }
 
+/** PNG and JPEG go to the worker as they are; anything else is decoded here first, where there is a canvas. */
+async function embeddable(file: File): Promise<Uint8Array> {
+  const bytes = await readBytes(file)
+  if (imageKind(bytes) !== 'other') return bytes
+  try {
+    return await toPng(bytes)
+  } catch {
+    throw new PdfInputError(`${file.name} could not be read as an image.`)
+  }
+}
+
 export function ImageToPdf() {
   const [files, setFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
@@ -38,8 +51,8 @@ export function ImageToPdf() {
     setError('')
 
     try {
-      const inputs = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: await readBytes(f) })))
-      setResult(await imagesToPdf(inputs, toPng))
+      const inputs = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: await embeddable(f) })))
+      setResult(await runPdfJob('image-to-pdf', { inputs }))
     } catch (e) {
       setError(describeError(e))
     } finally {

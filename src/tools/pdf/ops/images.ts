@@ -2,15 +2,13 @@
 import { PDFDocument, concatTransformationMatrix, drawObject, popGraphicsState, pushGraphicsState, type PDFImage } from 'pdf-lib'
 import { PdfInputError } from '../lib/load'
 import type { NamedBytes } from './organize'
+import { imageKind } from './imagekind'
+import { step } from '../lib/work'
 
 /** Re-encodes an image pdf-lib cannot embed (WebP, …) as PNG; the browser supplies one. */
 export type ToPng = (bytes: Uint8Array) => Promise<Uint8Array>
 
-export function imageKind(bytes: Uint8Array): 'png' | 'jpeg' | 'other' {
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'png'
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpeg'
-  return 'other'
-}
+export { imageKind }
 
 /**
  * The EXIF orientation (1–8) of a JPEG, 1 when absent. Cameras store the
@@ -73,6 +71,7 @@ export async function imagesToPdf(inputs: NamedBytes[], toPng?: ToPng): Promise<
   if (inputs.length === 0) throw new PdfInputError('Choose at least one image.')
   const pdf = await PDFDocument.create()
   for (const { name, bytes } of inputs) {
+    step()
     let kind = imageKind(bytes)
     let data = bytes
     if (kind === 'other') {

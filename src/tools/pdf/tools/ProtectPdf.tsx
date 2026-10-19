@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { protectPdf } from '../ops/security'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function ProtectPdf() {
@@ -28,7 +29,7 @@ export function ProtectPdf() {
     setResult(null)
 
     try {
-      setResult(await protectPdf(await readBytes(files[0]), password))
+      setResult(await runPdfJob('protect', { bytes: await readBytes(files[0]), password }))
     } catch (e) {
       setError(describeError(e))
     } finally {

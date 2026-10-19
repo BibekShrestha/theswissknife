@@ -14,6 +14,9 @@
  *    of an xref-stream base keeps the base's object streams that way.
  * 2. A per-object hook, which is where decryption happens (crypt/document.ts):
  *    an encrypted object stream must be decrypted before it is unpacked.
+ * 3. Object and xref streams are inflated by work.ts's inflateGuarded, which
+ *    charges every decoded byte to the job's budget — pdf-lib would decode
+ *    a decompression bomb whole, into one buffer.
  */
 import {
   PDFContext,
@@ -29,6 +32,7 @@ import {
   PDFRef,
   PDFXRefStreamParser,
 } from 'pdf-lib'
+import { currentWork, inflateGuarded, PdfBombError, type Work } from './work'
 
 interface ParserInternals {
   context: PDFContext
@@ -68,7 +72,7 @@ function indexOf(bytes: Uint8Array, word: string, from: number): number {
  * null when the chain cannot be followed — then every object stream counts,
  * as with pdf-lib's own parser.
  */
-export function liveObjectStreams(bytes: Uint8Array): Set<number> | null {
+export async function liveObjectStreams(bytes: Uint8Array, work: Work = currentWork()): Promise<Set<number> | null> {
   const tail = latin1(bytes, bytes.length - 2048, bytes.length)
   const m = /startxref\s+(\d+)\s*(?:%%EOF)?\s*$/.exec(tail) ?? [...tail.matchAll(/startxref\s+(\d+)/g)].pop()
   if (!m) return null
@@ -99,31 +103,42 @@ export function liveObjectStreams(bytes: Uint8Array): Set<number> | null {
         parser.bytes.moveTo(offset + header[0].length)
         const stream = parser.parseObject()
         if (!(stream instanceof PDFRawStream) || stream.dict.get(PDFName.of('Type')) !== PDFName.of('XRef')) return null
-        for (const entry of PDFXRefStreamParser.forStream(stream).parseIntoContext()) if (entry.inObjectStream) live.add(entry.offset)
+        const decoded = await inflateGuarded(stream, work)
+        for (const entry of PDFXRefStreamParser.forStream(decoded).parseIntoContext()) if (entry.inObjectStream) live.add(entry.offset)
         dict = stream.dict
       }
       const prev = dict.get(PDFName.of('Prev'))
       if (prev instanceof PDFNumber) queue.push(prev.asNumber())
     }
-  } catch {
+  } catch (e) {
+    if (e instanceof PdfBombError) throw e
     return null
   }
   return live
 }
 
 /** What parsePdf should unpack for these bytes: the live object streams, or all of them if that is unknowable. */
-export function objectStreamsToUnpack(bytes: Uint8Array): true | Set<number> {
-  return liveObjectStreams(bytes) ?? true
+export async function objectStreamsToUnpack(bytes: Uint8Array, work: Work = currentWork()): Promise<true | Set<number>> {
+  return (await liveObjectStreams(bytes, work)) ?? true
 }
 
+/** Objects parsed between two work steps (progress reports from the worker). */
+const OBJECTS_PER_STEP = 2000
+
 /** unpackObjectStreams: every object stream (true), none (false), or those numbered in the set. */
-export async function parsePdf(bytes: Uint8Array, options: { hook?: ObjectHook; unpackObjectStreams: boolean | ReadonlySet<number> }): Promise<PDFContext> {
+export async function parsePdf(
+  bytes: Uint8Array,
+  options: { hook?: ObjectHook; unpackObjectStreams: boolean | ReadonlySet<number>; work?: Work },
+): Promise<PDFContext> {
+  const work = options.work ?? currentWork()
   const parser = PDFParser.forBytesWithOptions(bytes, 100)
   const p = parser as unknown as ParserInternals
   const unpack = options.unpackObjectStreams
   const isLive = (ref: PDFRef) => (typeof unpack === 'boolean' ? unpack : unpack.has(ref.objectNumber))
   const dead: PDFRef[] = []
+  let parsed = 0
   p.parseIndirectObject = async () => {
+    if (++parsed % OBJECTS_PER_STEP === 0) work.step()
     const ref = p.parseIndirectObjectHeader()
     p.skipWhitespaceAndComments()
     let object = p.parseObject()
@@ -132,13 +147,13 @@ export async function parsePdf(bytes: Uint8Array, options: { hook?: ObjectHook; 
     const type = object instanceof PDFRawStream ? object.dict.lookup(PDFName.of('Type')) : undefined
     if (object instanceof PDFRawStream && type === PDFName.of('XRef')) {
       // cross-reference streams are never encrypted, and pdf-lib keeps them out of the document
-      PDFXRefStreamParser.forStream(object).parseIntoContext()
+      PDFXRefStreamParser.forStream(await inflateGuarded(object, work)).parseIntoContext()
       return ref
     }
     if (options.hook) object = await options.hook(ref, object)
     if (object instanceof PDFRawStream && type === PDFName.of('ObjStm')) {
       if (isLive(ref)) {
-        await PDFObjectStreamParser.forStream(object, p.shouldWaitForTick).parseIntoContext()
+        await PDFObjectStreamParser.forStream(await inflateGuarded(object, work), p.shouldWaitForTick).parseIntoContext()
         return ref
       }
       dead.push(ref)
@@ -147,13 +162,15 @@ export async function parsePdf(bytes: Uint8Array, options: { hook?: ObjectHook; 
     return ref
   }
   const context = await parser.parseDocument()
+  // pdf-lib recovers from an object that fails to parse by skipping it, so a spent budget is rethrown here
+  if (work.error) throw work.error
   // a dropped object stream is garbage; left in, a later writer could make it look live again
   for (const ref of dead) context.delete(ref)
   return context
 }
 
 /** The PDFDocument pdf-lib's own load() would build around a parsed context. */
-export function documentFromContext(context: PDFContext): PDFDocument {
+export function documentFromContext(context: PDFContext, updateMetadata = true): PDFDocument {
   const Doc = PDFDocument as unknown as new (context: PDFContext, ignoreEncryption: boolean, updateMetadata: boolean) => PDFDocument
-  return new Doc(context, true, true)
+  return new Doc(context, true, updateMetadata)
 }

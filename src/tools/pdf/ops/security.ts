@@ -30,6 +30,7 @@ export async function unlockPdf(bytes: Uint8Array, password: string): Promise<Un
     }
   } catch (e) {
     if (e instanceof PdfSecurityError) throw new PdfInputError(e.message)
+    if (e instanceof PdfInputError) throw e
     throw new PdfInputError('This PDF could not be read — it may be damaged or truncated.')
   }
 }

@@ -2,6 +2,7 @@
 import { StandardFonts, rgb } from 'pdf-lib'
 import { loadPdf, PdfInputError } from '../lib/load'
 import { viewFrame } from '../lib/place'
+import { step } from '../lib/work'
 
 /**
  * Re-saves the document with pdf-lib, packing objects into compressed object
@@ -49,6 +50,7 @@ export async function addPageNumbers(bytes: Uint8Array, options: PageNumberOptio
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const label = (n: number) => (options.style === 'roman' ? toRoman(n) : options.style === 'custom' ? `${options.prefix}${n}` : String(n))
   doc.getPages().forEach((page, i) => {
+    step()
     const frame = viewFrame(page)
     const text = label(i + options.startFrom)
     const width = font.widthOfTextAtSize(text, NUMBER_SIZE)
@@ -75,6 +77,7 @@ export async function addWatermark(bytes: Uint8Array, options: WatermarkOptions)
   const font = await doc.embedFont(StandardFonts.HelveticaBold)
   const style = { font, color: rgb(0, 0, 0), opacity: options.opacity }
   for (const page of doc.getPages()) {
+    step()
     const frame = viewFrame(page)
     const { text } = options
     if (options.position === 'tile') {

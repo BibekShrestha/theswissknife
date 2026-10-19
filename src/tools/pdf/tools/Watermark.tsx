@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { addWatermark, type WatermarkPosition } from '../ops/edit'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
+import type { WatermarkPosition } from '../ops/edit'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 import { OptionGroup, type Option } from '../components/OptionGroup'
 
@@ -32,7 +34,7 @@ export function Watermark() {
     setError('')
 
     try {
-      setResult(await addWatermark(await readBytes(files[0]), { text, opacity: opacity / 100, position }))
+      setResult(await runPdfJob('watermark', { bytes: await readBytes(files[0]), options: { text, opacity: opacity / 100, position } }))
     } catch (e) {
       setError(describeError(e))
     } finally {
