@@ -111,7 +111,7 @@ missing from any of them, including the README table.
   spacing/elevation from `--sp-*` / `--elev-*`. Text is the platform UI font;
   `--font-display` (self-hosted Inter Tight subset) is for the hero and brands.
   Prefix tool class names with the slug (`.jwt-…`) to avoid collisions —
-  tool CSS is global once loaded. `html-table` uses `htable-`. jq predates the
+  tool CSS is global once loaded. `html-table` uses `htable-`, `json-types` uses `jtypes-`. jq predates the
   rule and still has unprefixed classes; don't copy that, and don't add new
   bare class names that another tool might also define.
 
@@ -500,3 +500,43 @@ the precache list built by `scripts/sw-manifest.ts`.
   multicast / IPv6 address-space) registries — sources in its header; it
   also decodes 6to4, Teredo, NAT64 and mapped IPv4 and the multicast scope.
   Fragment: `#t=<tab>&…` with only the open tab's fields (`share.ts`).
+- `tools/json-types/` — JSON to types, hand-written (no quicktype).
+  `parse.ts` splits the input into top-level documents (one JSON value,
+  JSON Lines, or pretty-printed documents back to back) and reads each with
+  JSON.parse; where the engine passes `{ source }` to the reviver
+  (feature-detected; Node 22 has it) a float literal with an integer value
+  becomes `FLOAT_LITERAL` and an integer past 2^53 a `BigLiteral`. Without
+  it — or when the reviver's recursion runs out of stack — numbers are read
+  plain and the notes say the reading is approximate. A cheap regex skips the
+  reviver when no literal could need it. `infer.ts` folds every value at a
+  position into one `Shape` of counts (keys in first-seen order, string
+  values up to `ENUM_TRACK`, per-format match counts) and stops descending at
+  `MAX_DEPTH` (64), so deep input costs a note, not a stack overflow.
+  `model.ts` makes the decisions: key missing in some objects → optional,
+  null → nullable, several JSON types → union (int + float = number), all
+  objects at a position → one declaration named from its key (singular for
+  array items, `naming.ts`), de-duplicated (`Address`, `OfficeAddress`,
+  `Address2`) and shared when an identical shape asks for the same name;
+  names that would shadow a target's imports (`Date`, `List`, `Field`…) get
+  `Type`. Formats (RFC 3339 date-time, date, RFC 9562 UUID, dot-atom email,
+  http(s) URL — each a subset of what Zod 4 and JSON Schema accept) and
+  enums (≤ N distinct values, each seen twice on average) apply only when
+  switched on and are listed either way. Emitters in `emit/`: TypeScript
+  (interface/type, `?` / `?: T | undefined` / `: T | undefined`, readonly;
+  empty objects are `Record<string, never>`), Zod 4 (`__proto__` keys are
+  computed so they don't set the prototype), JSON Schema 2020-12 (`$defs`,
+  built with defineProperty for the same reason), Go (`json.Number` for big
+  integers, pointers for nullable/optional, keys a struct tag can't hold are
+  left out and reported), Python TypedDict (functional form when a key isn't
+  an identifier) and pydantic v2 (aliases for keywords, `_x`, BaseModel
+  attributes and names the annotations use — a defaulted `list` field would
+  rebind `list` for later annotations). Everything runs in
+  `json-types.worker.ts` behind `runner.ts` (the regex runner's
+  kill-on-deadline, `INFER_TIMEOUT_MS`); `engine.ts` caches the last input's
+  Shape so option changes don't re-parse. `compile.test.ts` compiles every
+  corpus case (`testkit.ts`) with the repo's tsc 7 under --strict
+  --exactOptionalPropertyTypes and assigns every sample to the root type,
+  runs the Zod output against `zodlite.ts` (a structural stand-in — zod is not
+  a dependency), and, when installed, builds the Go structs and decodes the
+  samples with unknown fields disallowed, and compiles the Python (executing
+  TypedDict on 3.11+, validating with pydantic when importable).

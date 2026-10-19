@@ -124,7 +124,8 @@ describe('suggestForPath', () => {
     // Stray words like "users" and "admin" used to match tool names letter by letter.
     expect(slugs('api/v1/users')).toEqual([])
     expect(slugs('wp-admin/login.php')).toEqual([])
-    expect(slugs('tools/json-format')).toEqual(['convert'])
+    // "json" is a whole word of both names.
+    expect(slugs('tools/json-format')).toEqual(['convert', 'json-types'])
   })
 
   it('knows a few everyday names for what a tool does', () => {
