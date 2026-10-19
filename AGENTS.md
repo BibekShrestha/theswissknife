@@ -446,3 +446,20 @@ the precache list built by `scripts/sw-manifest.ts`.
   (`generate.ts`) keep bodies byte-exact (`exactJsonValue` gates JSON
   literals). Nothing executes the request (and connect-src would block any
   other origin).
+- `tools/cidr/` — IPv4/IPv6 CIDR calculator, hand-written, every address a
+  `bigint` (`ip.ts`). Parsing is strict and says why: leading-zero octets
+  (inet_aton reads `010` as octal 8), shorthand (`10.1`), hex octets, bare
+  numbers, a second `::`, a dotted IPv4 anywhere but the last 32 bits; zone
+  ids are IPv6-only. `formatIPv6` is RFC 5952 (longest zero run, first on a
+  tie, never a lone zero group; mixed notation only for `::ffff:0:0/96`).
+  `cidr.ts`: masks are netmask or wildcard by contiguity (all-zeros/all-ones
+  read as netmasks, with a note); usable hosts follow RFC 3021 (/31), /32,
+  and IPv6's Subnet-Router anycast (skipped except /127 per RFC 6164 and
+  /128). Nothing is sized by an address count: Split computes each page by
+  index (`subnetAt`, `SPLIT_PAGE` rows), range → CIDR is at most 2·bits−2
+  blocks, and Summarise merges sorted ranges then runs range → CIDR (its
+  redundant-input sweep relies on CIDRs being nested or disjoint).
+  `special.ts` is a hand transcription of the IANA special-purpose (and
+  multicast / IPv6 address-space) registries — sources in its header; it
+  also decodes 6to4, Teredo, NAT64 and mapped IPv4 and the multicast scope.
+  Fragment: `#t=<tab>&…` with only the open tab's fields (`share.ts`).

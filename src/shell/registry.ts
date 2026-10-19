@@ -182,4 +182,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/curl'),
   },
+  {
+    slug: 'cidr',
+    name: 'CIDR & subnet calculator',
+    mark: '/24',
+    category: 'data',
+    load: () => import('../tools/cidr'),
+  },
 ]
