@@ -1,19 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { runInference, type InferOptions, type InferResult } from './engine'
+import { defaults } from './testkit'
 import { MAX_DEPTH } from './infer'
 import { singular, typeName } from './naming'
 import { setSourceTextSupport, splitDocuments } from './parse'
-
-export const defaults: InferOptions = {
-  rootName: 'Root',
-  formats: false,
-  enums: false,
-  enumMax: 8,
-  arrayAsSamples: false,
-  target: 'typescript',
-  ts: { declaration: 'interface', optional: 'question', readonly: false },
-  python: 'typeddict',
-}
 
 function run(text: string, options: Partial<InferOptions> = {}) {
   const result = runInference(text, { ...defaults, ...options, ts: { ...defaults.ts, ...options.ts } })

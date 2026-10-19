@@ -61,7 +61,7 @@ export function inferShape(text: string, arrayAsSamples: boolean): Inferred | Pa
 function read(text: string, arrayAsSamples: boolean): Inferred | ParseError {
   const docs = splitDocuments(text)
   const shape = newShape()
-  const state: InferState = { values: 0, approximateBig: false }
+  const state: InferState = { values: 0 }
   let approximate = false
   let samples = 0
   for (let index = 0; index < docs.length; index++) {

@@ -60,6 +60,8 @@ function goType(ty: Ty, formats: boolean, imports: Imports): GoType {
   return ty.nullable && !base.nilable ? { text: `*${base.text}`, nilable: true } : base
 }
 
+const goNotes = (ty: Ty) => annotations(ty).map((note) => (note.startsWith('integers past') ? 'integers past 2^53 seen — json.Number keeps every digit' : note))
+
 function struct(decl: Decl, formats: boolean, imports: Imports): string {
   if (!decl.fields.length) return `type ${decl.name} struct{}`
   const used = new Set<string>()
@@ -77,7 +79,7 @@ function struct(decl: Decl, formats: boolean, imports: Imports): string {
     used.add(unique)
     let type = goType(field.type, formats, imports)
     if (field.optional && !type.nilable) type = { text: `*${type.text}`, nilable: true }
-    const notes = annotations(field.type).filter((note) => formats || !note.startsWith('format'))
+    const notes = goNotes(field.type)
     if (field.type.members.length > 1) notes.unshift(describe(field.type))
     rows.push({ name: unique, type: type.text, tag: `\`json:"${field.key}${field.optional ? ',omitempty' : ''}"\``, comment: notes.length ? ` // ${notes.join('; ')}` : '' })
   })
@@ -99,7 +101,7 @@ export function emitGo(model: Model, formats: boolean): GoResult {
   const blocks: string[] = []
   if (!rootDecl(model)) {
     const root = goType(model.root, formats, imports)
-    const notes = annotations(model.root).filter((note) => formats || !note.startsWith('format'))
+    const notes = goNotes(model.root)
     if (model.root.members.length > 1) notes.unshift(describe(model.root))
     blocks.push(`${notes.length ? `// ${notes.join('; ')}\n` : ''}type ${model.rootName} ${root.text === 'any' ? '= any' : root.text}`)
   }

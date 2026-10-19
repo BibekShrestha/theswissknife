@@ -121,8 +121,6 @@ function addString(shape: Shape, value: string) {
 export interface InferState {
   /** Values folded in, for the stats line. */
   values: number
-  /** Unsafe integers were seen without their source text, so they may be rounded or written as floats. */
-  approximateBig: boolean
 }
 
 /** Folds one value into `shape`. Recursion is bounded by MAX_DEPTH. */
@@ -139,11 +137,9 @@ export function addValue(shape: Shape, value: unknown, depth: number, state: Inf
       return
     case 'number':
       if (!Number.isInteger(value)) shape.floats++
+      // An unsafe integer value only gets here when the source text was unavailable (parse.ts).
       else if (Number.isSafeInteger(value)) shape.ints++
-      else {
-        shape.bigs++
-        state.approximateBig = true
-      }
+      else shape.bigs++
       return
     case 'string':
       addString(shape, value)
