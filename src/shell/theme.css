@@ -241,7 +241,7 @@ input:where(:not([type='text'], [type='checkbox'], [type='radio'], [type='range'
 
 /* Programmatic focus targets (skip link, opened drawers): focus lands there so
    the next Tab starts inside; a ring around the whole region says nothing. */
-:where(.tool-sidebar, .landing-index, #main-content[tabindex="-1"]):focus-visible {
+:where(.tool-sidebar, #main-content[tabindex="-1"]):focus-visible {
   outline: none;
 }
 
@@ -702,128 +702,6 @@ code {
 .shell-notfound-actions button, .shell-reload-btn { align-items: center; display: inline-flex; gap: 6px; }
 .shell-reload-btn { margin: 0 16px 0 0; }
 
-/* ---- landing page ---- */
-
-.landing {
-  display: flex;
-  flex-direction: column;
-  margin: 0 auto;
-  max-width: 1280px;
-  min-height: 100%;
-  padding: 0 24px 24px;
-}
-
-.landing-header {
-  align-items: center;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  gap: 12px;
-  min-height: 56px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.landing-brand {
-  align-items: center;
-  color: var(--text);
-  font-family: var(--font-display);
-  display: inline-flex;
-  font-size: 16px;
-  font-weight: 720;
-  gap: 9px;
-  letter-spacing: -0.01em;
-  text-decoration: none;
-}
-
-.landing-gh-link {
-  align-items: center;
-  color: var(--muted);
-  display: inline-flex;
-  font-size: 12px;
-  gap: 5px;
-  text-decoration: none;
-}
-
-.landing-gh-link:hover {
-  color: var(--accent);
-}
-
-.landing-menu-btn {
-  display: none;
-}
-
-/* ---- hero ---- */
-
-.landing-hero h1 {
-  font-size: clamp(44px, 7vw, 80px);
-  font-weight: 780;
-  letter-spacing: -0.055em;
-  line-height: 0.94;
-  margin: 0 auto;
-  max-width: 700px;
-  position: relative;
-}
-
-/* ---- footer ---- */
-
-.landing-foot {
-  align-items: center;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  display: flex;
-  font-size: 12px;
-  justify-content: space-between;
-  padding: 18px 0 0;
-  margin-top: 24px;
-}
-
-.landing-foot code {
-  font-family: var(--font-mono);
-}
-
-/* ---- responsive ---- */
-
-@media (max-width: 860px) {
-  .landing-gh-link .gh-text {
-    display: none;
-  }
-
-  .landing-menu-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--muted);
-    width: 34px;
-    height: 34px;
-    padding: 0;
-  }
-
-  .landing-menu-btn:hover {
-    border-color: var(--border-strong);
-  }
-}
-
-@media (max-width: 560px) {
-  .landing {
-    padding: 0 14px 18px;
-  }
-
-  .landing-hero h1 {
-    font-size: clamp(36px, 13vw, 52px);
-  }
-
-  .landing-foot {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -832,6 +710,9 @@ code {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Durations alone leave staggered delays running (the landing blades). */
+    transition-delay: 0s !important;
+    animation-delay: 0s !important;
   }
 }
 
@@ -884,75 +765,149 @@ code {
   text-decoration: none;
 }
 .shell-gh-link:hover { border-color: var(--border-strong); }
-.shell-toolbar .theme-toggle, .landing-header .theme-toggle { min-width: 36px; padding: 4px 8px; }
+.shell-toolbar .theme-toggle { min-width: 36px; padding: 4px 8px; }
 
-.landing { height: 100svh; margin: 0 auto; max-width: 1600px; overflow: hidden; padding: 0; }
+/* ---- landing page ----
+   Wide: a fixed-height page, the tool index pinned left as a sidebar beside
+   the hero. ≤ 880px: one scrolling column, the index stacked under the hero
+   as a full list, the knife artwork dropped so it cannot crowd the list. */
+
+.landing { display: flex; flex-direction: column; height: 100svh; margin: 0 auto; max-width: 1600px; overflow: hidden; }
 .landing-header {
+  align-items: center;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   display: flex;
-  gap: 12px;
-  height: 52px;
-  min-height: 52px;
+  flex: 0 0 52px;
+  gap: var(--sp-2);
   padding: 0 clamp(12px, 2vw, 24px);
   position: relative;
+  top: 0;
   z-index: 80;
 }
-.landing-menu-btn { display: none; }
-.landing-brand { flex: 0 0 auto; gap: 10px; }
+.landing-brand {
+  align-items: center;
+  color: var(--text);
+  display: inline-flex;
+  flex: 0 1 auto;
+  font-family: var(--font-display);
+  font-weight: 720;
+  gap: 10px;
+  letter-spacing: -.01em;
+  margin-right: auto;
+  min-width: 0;
+  text-decoration: none;
+}
 .landing-brand-mark {
   align-items: center;
   background: var(--text);
   border-radius: var(--radius-sm);
   color: var(--bg);
   display: inline-flex;
+  flex: 0 0 34px;
   height: 34px;
   justify-content: center;
-  width: 34px;
 }
 .landing-brand-mark svg { height: 23px; width: 23px; }
 .landing-brand > span:last-child { display: flex; flex-direction: column; line-height: 1; }
-.landing-brand strong { font-size: 14px; }
+.landing-brand strong { font-size: var(--fs-base); }
 .landing-brand small { color: var(--muted); font: var(--fs-2xs) var(--font-mono); margin-top: 4px; }
-.landing-search {
+.landing-gh-link {
   align-items: center;
-  background: var(--panel);
-  border-color: var(--border);
-  display: flex;
-  gap: 8px;
-  margin: 0 clamp(8px, 3vw, 42px);
-  max-width: 540px;
-  min-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  display: inline-flex;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  gap: 5px;
+  height: var(--control-h);
+  justify-content: center;
   padding: 0 10px;
+  text-decoration: none;
+}
+.landing-gh-link:hover { border-color: var(--border-strong); }
+.landing-header .theme-toggle { min-width: 36px; padding: 4px 8px; }
+
+.landing-stage {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 264px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+.landing-grid-bg {
+  background-image: linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  grid-area: 1 / 2 / 3 / 3;
+  inset: 0;
+  mask-image: radial-gradient(ellipse 80% 65% at 50% 0%, #000 55%, transparent 100%);
+  opacity: .42;
+  pointer-events: none;
+  position: absolute;
+}
+.landing-hero {
+  align-items: center;
+  display: grid;
+  gap: 20px;
+  grid-area: 1 / 2;
+  /* The knife takes what its blades reach; the copy gets the rest. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin: 0 auto;
+  max-width: 1240px;
+  min-height: 0;
+  padding: 20px clamp(28px, 4vw, 64px);
+  position: relative;
   width: 100%;
 }
-.landing-search > span:nth-child(2) { color: var(--muted); flex: 1; font-size: 13px; text-align: left; }
-.landing-search kbd, .landing-command kbd {
+.landing-copy { container-type: inline-size; min-width: 0; }
+/* Sized to the copy column: "TOOLBOX." is ~4.7em wide, so 20cqi always fits. */
+.landing-copy h1 { font-family: var(--font-display); font-size: clamp(40px, 20cqi, 82px); font-weight: 850; letter-spacing: -.055em; line-height: .9; margin: 24px 0 0; text-transform: uppercase; }
+.landing-copy h1 span { color: var(--accent); }
+.landing-eyebrow { align-items: center; color: var(--muted); display: flex; font: var(--label); gap: 12px; letter-spacing: var(--label-track); text-transform: uppercase; }
+.landing-eyebrow i { background: var(--border-strong); height: 1px; max-width: 58px; width: 100%; }
+.landing-promise { font-size: clamp(var(--fs-lg), 1.5vw, var(--fs-xl)); line-height: 1.4; margin: var(--sp-4) 0 0; max-width: 30em; text-wrap: pretty; }
+
+/* The hero search filters the index in place; ⌘K beside it opens the palette. */
+.landing-find { align-items: center; display: flex; margin-top: var(--sp-5); max-width: 460px; position: relative; }
+.landing-find > .material-symbols-outlined { color: var(--muted); font-size: 20px; left: 12px; pointer-events: none; position: absolute; }
+.landing-find input {
+  appearance: none;
+  background: var(--panel);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--elev-1);
+  /* 16px: anything smaller makes iOS zoom the page on focus. */
+  font-size: var(--fs-lg);
+  min-height: 48px;
+  padding: 0 64px 0 42px;
+  width: 100%;
+}
+.landing-find input::placeholder { color: var(--muted); opacity: 1; }
+.landing-find button { background: transparent; border: 0; min-height: 0; padding: 4px; position: absolute; right: 8px; }
+.landing-find button:hover:not(:disabled) { background: transparent; }
+.landing-find kbd {
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--muted);
-  font: var(--fs-2xs) var(--font-mono);
-  padding: 2px 6px;
+  font-size: var(--fs-2xs);
+  padding: 3px 6px;
 }
-.landing-gh-link { border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-weight: 600; height: 34px; padding: 0 10px; }
-.landing-gh-link:hover { border-color: var(--border-strong); color: var(--text); }
-.landing-body { display: flex; height: calc(100svh - 52px); min-height: 0; }
+.landing-find button:hover kbd { border-color: var(--border-strong); color: var(--text); }
+
 .landing-index {
   background: var(--bg);
   border-right: 1px solid var(--border);
   display: flex;
-  flex: 0 0 264px;
   flex-direction: column;
+  grid-area: 1 / 1 / 3 / 2;
   min-height: 0;
-  width: 264px;
-  z-index: 30;
+  position: relative;
 }
-.landing-filter { display: block; margin: 12px 12px 6px; position: relative; }
-.landing-filter > .material-symbols-outlined { color: var(--muted); font-size: 16px; left: 9px; position: absolute; top: 9px; }
-.landing-filter input { font-size: 13px; min-height: 32px; padding: 5px 28px 5px 31px; width: 100%; }
-.landing-filter > button { background: none; border: 0; color: var(--muted); min-height: 24px; padding: 0; position: absolute; right: 5px; top: 4px; width: 24px; }
-.landing-index-list { flex: 1; overflow: auto; padding: 4px 12px 18px; }
+.landing-index-list { flex: 1; overflow: auto; padding: 12px 12px 18px; }
 .landing-index-group { margin: 0 0 12px; }
 .landing-index-heading { align-items: baseline; display: flex; gap: 8px; padding: 5px 8px; }
 .landing-index-heading span { color: var(--muted); font: var(--fs-2xs) var(--font-mono); }
@@ -969,53 +924,21 @@ code {
   text-decoration: none;
 }
 .landing-index-group > a:hover { background: var(--panel-2); color: var(--text); }
-.landing-index-group > a i { background: var(--border); border-radius: 50%; height: 4px; width: 4px; }
-.landing-index-group > a > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.landing-index-mark { color: var(--muted); font: var(--fs-2xs) var(--font-mono); opacity: .7; }
-.landing-index-empty { color: var(--muted); font-size: 12px; padding: 24px 8px; text-align: center; }
-.landing-index-foot { border-top: 1px solid var(--border); color: var(--muted); display: flex; font: var(--fs-2xs) var(--font-mono); justify-content: space-between; letter-spacing: .1em; padding: 11px 14px; }
-.landing-index-backdrop { display: none; }
+.landing-index-group > a::before { background: var(--border-strong); border-radius: 50%; content: ''; flex: 0 0 4px; height: 4px; }
+.landing-index-group > a > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.landing-index-mark { color: var(--muted); font: var(--fs-2xs) var(--font-mono); }
+.landing-index-empty { color: var(--muted); font-size: var(--fs-sm); padding: 24px 8px; text-align: center; }
+.landing-foot { align-items: center; border-top: 1px solid var(--border); color: var(--muted); display: flex; font: var(--fs-2xs) var(--font-mono); grid-area: 2 / 2; height: 43px; padding: 0 clamp(18px, 3vw, 36px); position: relative; }
 
-.landing-stage { flex: 1; min-width: 0; overflow: hidden; padding: 0; position: relative; }
-.landing-grid-bg {
-  background-image: linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px);
-  background-size: 40px 40px;
-  inset: 0;
-  mask-image: radial-gradient(ellipse 80% 65% at 50% 0%, #000 55%, transparent 100%);
-  opacity: .42;
-  pointer-events: none;
-  position: absolute;
-}
-.landing-hero {
-  display: grid;
-  flex-direction: column;
-  justify-content: center;
-  min-height: calc(100vh - 56px);
-  padding: 20px clamp(28px, 4vw, 64px);
-  position: relative;
-  text-align: left;
-  align-items: center;
-  gap: 20px;
-  grid-template-columns: minmax(300px, .85fr) minmax(480px, 1.15fr);
-  height: calc(100% - 43px);
-  margin: 0 auto;
-  max-width: 1240px;
-}
-.landing-copy { min-width: 0; }
-.landing-copy h1, .landing-copy h2 { font-family: var(--font-display); }
-.landing-eyebrow { align-items: center; color: var(--muted); display: flex; font: var(--label); gap: 12px; letter-spacing: var(--label-track); text-transform: uppercase; }
-.landing-eyebrow i { background: var(--border); height: 1px; max-width: 58px; width: 100%; }
-.landing-copy h1 { font-size: clamp(50px, 6.2vw, 82px); font-weight: 850; letter-spacing: -.055em; line-height: .9; margin: 24px 0 0; text-transform: uppercase; }
-.landing-copy h1 span { color: var(--accent); }
-.landing-copy h2 { color: var(--muted); font-size: clamp(20px, 2vw, 28px); font-weight: 800; letter-spacing: -.02em; line-height: 1.02; margin: 15px 0 0; text-transform: uppercase; }
-.landing-command { align-items: center; background: transparent; border: 0; color: var(--muted); display: flex; gap: 10px; margin-top: 27px; padding: 0; }
-.landing-command:hover:not(:disabled) { background: transparent; color: var(--text); }
-.landing-command span { font: 11px var(--font-mono); }
-.landing-knife-wrap { align-items: center; display: flex; flex-direction: column; min-width: 0; transform: scale(.9); }
-.landing-knife-wrap > p { color: var(--muted); font: var(--fs-2xs) var(--font-mono); margin: -3px 0 0; }
-.landing-knife { height: 500px; max-width: 560px; position: relative; width: 100%; }
+/* ---- the knife: one blade per category, fanned from a pivot ---- */
+/* The artwork is drawn at 560×500 and scaled by --k. Transforms don't take
+   up layout space, so the wrap reserves the scaled box itself: 640px wide,
+   because the outer blades reach ~315px either side of the pivot. */
+.landing-knife-wrap { --k: .9; height: calc(520px * var(--k)); position: relative; width: calc(640px * var(--k)); }
+.landing-knife-wrap > p { bottom: 0; color: var(--muted); font: var(--fs-2xs) var(--font-mono); margin: 0; position: absolute; text-align: center; width: 100%; }
+.landing-knife { height: 500px; left: 50%; position: absolute; top: 0; transform: translateX(-50%) scale(var(--k)); transform-origin: 50% 0; width: 560px; }
 .knife-guide { height: 100%; inset: 0; position: absolute; width: 100%; }
-.knife-guide path { stroke: var(--border); stroke-dasharray: 3 5; stroke-width: 1; }
+.knife-guide path { stroke: var(--border-strong); stroke-dasharray: 3 5; stroke-width: 1; }
 .knife-blade {
   bottom: 18px;
   height: 36px;
@@ -1023,14 +946,18 @@ code {
   opacity: 0;
   pointer-events: none;
   position: absolute;
+  text-decoration: none;
   transform: rotate(-90deg) translateX(-30px);
   transform-origin: 0 50%;
-  transition: transform 750ms cubic-bezier(.34,1.4,.64,1) var(--blade-delay), opacity 420ms ease var(--blade-delay), width 700ms ease var(--blade-delay);
+  /* visibility, not just opacity: a folded blade must leave the tab order and
+     the accessibility tree. It turns visible at once and hidden at the end. */
+  transition: transform 750ms cubic-bezier(.34,1.4,.64,1), opacity 420ms ease, width 700ms ease, visibility 750ms;
+  visibility: hidden;
   width: 300px;
   z-index: var(--blade-z);
-  text-decoration: none;
 }
-.knife-blade.open { opacity: 1; pointer-events: auto; transform: rotate(var(--blade-angle)); width: var(--blade-width); }
+/* Staggered on the way out of the handle only; folding is all at once. */
+.knife-blade.open { opacity: 1; pointer-events: auto; transform: rotate(var(--blade-angle)); transition-delay: var(--blade-delay); visibility: visible; width: var(--blade-width); }
 .knife-blade-face {
   align-items: center;
   background: var(--panel);
@@ -1047,53 +974,79 @@ code {
   transition: background 140ms, color 140ms, transform 140ms;
   width: 100%;
 }
+/* Blades left of upright: turn each label over so none reads upside down. */
+.knife-blade.flip .knife-blade-face { flex-direction: row-reverse; justify-content: flex-start; }
+.knife-blade.flip .knife-blade-face > * { transform: rotate(180deg); }
 .knife-blade:nth-of-type(even) .knife-blade-face { background: var(--panel-2); }
-.knife-blade-face > span { color: var(--accent); font: var(--fs-2xs) var(--font-mono); }
-.knife-blade-face strong { font: 600 11px var(--font-mono); letter-spacing: .13em; }
-.knife-blade:hover { z-index: 20; }
+/* Muted, not accent: the accent is under 4.5:1 on panel-2 in both themes. */
+.knife-blade-face > span { color: var(--muted); font: var(--fs-2xs) var(--font-mono); }
+.knife-blade-face strong { font: 600 var(--fs-xs) var(--font-mono); letter-spacing: .13em; }
+.knife-blade:hover, .knife-blade:focus-visible { z-index: 20; }
+.knife-blade:focus-visible { outline-offset: 3px; }
 .knife-blade:hover .knife-blade-face, .knife-blade:focus-visible .knife-blade-face { background: var(--accent); border-color: var(--accent); color: var(--on-accent); transform: scaleX(1.04); }
-.knife-blade:hover .knife-blade-face > span { color: var(--on-accent); }
+.knife-blade:hover .knife-blade-face > span, .knife-blade:focus-visible .knife-blade-face > span { color: var(--on-accent); }
 .knife-body { background: var(--text); border-radius: var(--radius-lg); bottom: 24px; box-shadow: 0 18px 35px rgba(0,0,0,.2); color: var(--bg); height: 110px; left: 50%; padding: 42px 13px 0; position: absolute; transform: translateX(-50%); width: 56px; z-index: 40; }
 .knife-body-mark { height: 22px; left: 17px; position: absolute; top: 11px; width: 22px; }
-.knife-body > span { background: color-mix(in srgb, var(--bg) 22%, transparent); display: block; height: 1px; margin-bottom: 10px; }
+.knife-body::after { background: repeating-linear-gradient(color-mix(in srgb, var(--bg) 22%, transparent) 0 1px, transparent 1px 11px); content: ''; height: 23px; left: 13px; position: absolute; right: 13px; top: 42px; }
 .knife-pivot { background: var(--accent); border: 4px solid var(--bg); border-radius: 50%; bottom: 29px; box-shadow: 0 1px 4px rgba(0,0,0,.25); height: 15px; left: 50%; min-height: 0; padding: 0; position: absolute; transform: translate(-50%, 50%); width: 15px; z-index: 50; }
+/* A 15px dot is too small to hit; the target is 35px. */
+.knife-pivot::before { border-radius: 50%; content: ''; inset: -14px; position: absolute; }
 .knife-pivot:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--bg); }
-.knife-ripple { animation: knife-ripple 650ms ease-out forwards; border: 2px solid var(--accent); border-radius: 50%; bottom: 29px; height: 15px; left: 50%; position: absolute; transform: translate(-50%, 50%); width: 15px; z-index: 45; }
-@keyframes knife-ripple { to { opacity: 0; transform: translate(-50%, 50%) scale(6); } }
-.landing-foot { border-top: 1px solid var(--border); bottom: 0; color: var(--muted); font: var(--fs-2xs) var(--font-mono); height: 43px; left: 0; margin: 0; padding: 0 clamp(18px, 3vw, 36px); position: absolute; right: 0; }
+/* A ring on every toggle: switching animation-name restarts the animation. */
+.knife-pivot::after { animation: knife-ripple-open 650ms ease-out; border: 2px solid var(--accent); border-radius: 50%; content: ''; inset: -6px; opacity: 0; pointer-events: none; position: absolute; }
+.knife-pivot[aria-expanded='false']::after { animation-name: knife-ripple-fold; }
+@keyframes knife-ripple-open { from { opacity: 1; } to { opacity: 0; transform: scale(5); } }
+@keyframes knife-ripple-fold { from { opacity: 1; } to { opacity: 0; transform: scale(5); } }
+@media (prefers-reduced-motion: reduce) {
+  .knife-blade, .knife-blade-face { transition: none; }
+  .knife-pivot::after { animation: none; }
+}
 
-@media (max-width: 1120px) {
-  .landing-hero { grid-template-columns: minmax(280px, .8fr) minmax(400px, 1.2fr); padding-inline: 30px; }
-  .landing-knife-wrap { transform: scale(.78); }
-  .shell-toolbar .palette-btn { min-width: 42px; }
-  .shell-toolbar .palette-btn-label { display: none; }
+@media (max-width: 1300px) {
+  .landing-hero { padding-inline: 30px; }
+  .landing-knife-wrap { --k: .78; }
+}
+/* Below this the sidebar, the copy and the fan no longer fit side by side. */
+@media (max-width: 1180px) {
+  .landing-hero { grid-template-columns: minmax(0, 560px); justify-content: center; }
+  .landing-knife-wrap { display: none; }
 }
 
 @media (max-width: 880px) {
-  .landing-menu-btn { align-items: center; display: inline-flex; height: 34px; justify-content: center; padding: 0; width: 34px; }
-  /* Closed drawers are hidden, not just moved: off-screen links would stay
-     in the tab order, and the shadow would bleed onto the page edge. */
-  .landing-index { bottom: 0; left: 0; position: fixed; top: 52px; transform: translateX(-102%); transition: transform 180ms ease, visibility 0s linear 180ms; visibility: hidden; }
-  .landing-index.open { box-shadow: 12px 0 40px rgba(0,0,0,.15); transform: translateX(0); transition: transform 180ms ease; visibility: visible; }
-  .landing-index-backdrop { background: rgba(0,0,0,.38); border: 0; border-radius: 0; bottom: 0; display: block; left: 0; min-height: 0; padding: 0; position: fixed; right: 0; top: 52px; z-index: 20; }
-  .landing-hero { display: flex; justify-content: center; padding-inline: clamp(28px, 8vw, 74px); }
-  .landing-copy { max-width: 620px; width: 100%; }
-  .landing-copy h1 { font-size: clamp(58px, 12vw, 94px); }
-  .landing-knife-wrap { display: none; }
-  .landing-search { margin-left: auto; }
+  .landing { height: auto; min-height: 100svh; overflow: visible; }
+  .landing-header { position: sticky; }
+  .landing-brand, .landing-gh-link, .landing-header .theme-toggle { min-height: 44px; min-width: 44px; }
+  .landing-stage { display: block; overflow: visible; }
+  .landing-hero { display: block; max-width: 680px; padding: var(--sp-6) var(--sp-4) var(--sp-5); }
+  /* One line here: "ONE TOOLBOX." is ~6.9em. */
+  .landing-copy h1 { font-size: clamp(36px, 13cqi, 72px); margin-top: var(--sp-4); }
+  .landing-copy h1 br { display: none; }
+  .landing-find { max-width: none; }
+  .landing-index { border: 0; border-top: 1px solid var(--border); }
+  /* Categories flow into as many ~300px columns as fit: one on a phone. */
+  .landing-index-list { column-gap: var(--sp-6); column-width: 300px; margin: 0 auto; max-width: 1000px; overflow: visible; padding: var(--sp-2) var(--sp-4) var(--sp-4); width: 100%; }
+  .landing-index-group { break-inside: avoid; margin: 0; padding-bottom: var(--sp-4); }
+  .landing-index-heading { padding: var(--sp-3) 0 var(--sp-2); }
+  .landing-index-group > a { border-top: 1px solid var(--border); color: var(--text); font-size: var(--fs-base); min-height: 44px; padding: 0 var(--sp-1); }
+  .landing-index-group > a::before { display: none; }
+  .landing-foot { height: auto; padding: var(--sp-4); }
+}
+
+@media (max-width: 620px) {
+  .landing-brand small, .landing-gh-link > span:last-child, .landing-find button { display: none; }
+  .landing-gh-link { padding: 0; }
+  .landing-find input { padding-right: 12px; }
+}
+
+@media (max-width: 1120px) {
+  .shell-toolbar .palette-btn { min-width: 42px; }
+  .shell-toolbar .palette-btn-label { display: none; }
 }
 
 @media (max-width: 620px) {
   .shell-toolbar { gap: 7px; }
   .shell-tool-identity > span, .shell-local-badge, .shell-gh-link, .shell-toolbar .palette-btn-label, .shell-toolbar .palette-btn kbd { display: none; }
   .shell-toolbar .palette-btn { min-width: 34px; width: 34px; }
-  .landing-brand small, .landing-gh-link { display: none; }
-  .landing-search { margin: 0 0 0 auto; min-width: 0; width: 42px; }
-  .landing-search > span:nth-child(2), .landing-header .landing-search kbd { display: none; }
-  .landing-copy h1 { font-size: clamp(49px, 17vw, 78px); }
-  .landing-copy h2 { font-size: clamp(20px, 7vw, 27px); }
-  .landing-foot { align-items: flex-start; flex-direction: column; gap: 2px; height: 52px; justify-content: center; }
-  .landing-hero { height: calc(100% - 52px); }
 }
 
 /* ---- persistent tool index ---- */
@@ -1231,8 +1184,7 @@ code {
    visual weight and baseline. */
 .palette-btn kbd,
 .palette-search kbd,
-.landing-search kbd,
-.landing-command kbd {
+.landing-find kbd {
   align-items: center;
   display: inline-flex;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

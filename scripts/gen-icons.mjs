@@ -198,16 +198,16 @@ function chunk(type, data) {
   return Buffer.concat([head, data, crc])
 }
 
-/** 8-bit RGBA, no interlacing, every scanline filtered as "none". */
-export function encodePng(size, rgba) {
+/** 8-bit RGBA, no interlacing, every scanline filtered as "none". Square unless `height` is given. */
+export function encodePng(size, rgba, height = size) {
   const ihdr = Buffer.alloc(13)
   ihdr.writeUInt32BE(size, 0)
-  ihdr.writeUInt32BE(size, 4)
+  ihdr.writeUInt32BE(height, 4)
   ihdr[8] = 8 // bit depth
   ihdr[9] = 6 // colour type: truecolour with alpha
   const stride = size * 4
-  const raw = Buffer.alloc((stride + 1) * size)
-  for (let y = 0; y < size; y++) {
+  const raw = Buffer.alloc((stride + 1) * height)
+  for (let y = 0; y < height; y++) {
     raw[y * (stride + 1)] = 0
     Buffer.from(rgba.buffer, rgba.byteOffset + y * stride, stride).copy(raw, y * (stride + 1) + 1)
   }

@@ -101,6 +101,12 @@ if (displayBytes > DISPLAY_FONT_BUDGET_KIB * 1024) {
   throw new Error(`Display font is ${(displayBytes / 1024).toFixed(1)} KiB, over its ${DISPLAY_FONT_BUDGET_KIB} KiB budget — run \`npm run display-font\`.`)
 }
 
+// The landing's blade fan is a lazy shell chunk; precached so it draws offline.
+const knife = manifest['src/shell/Knife.tsx']?.file
+if (!knife || !core.some((url) => url.endsWith(`/${knife}`))) {
+  throw new Error(`dist/sw.js does not precache the landing knife chunk (${knife ?? 'not found'}).`)
+}
+
 // The palette is how people get around; it is precached so search works
 // offline before anyone has opened it (scripts/sw-manifest.ts, isShellChunk).
 const palette = manifest['src/shell/CommandPalette.tsx']?.file
@@ -134,6 +140,21 @@ for (const [i, page] of toolPages.entries()) {
   if (!sitemap.includes(`<loc>${url}</loc>`)) throw new Error(`sitemap.xml does not list ${url}, the canonical of ${page}`)
   if (inlineScripts(html).join('\0') !== inlineScripts(indexHtml).join('\0')) {
     throw new Error(`${page}: inline scripts differ from dist/index.html`)
+  }
+}
+
+// One link-preview image for every page (`npm run og-image`). It is a public/
+// file, outside the bundle, and must stay out of the service worker: no visitor
+// needs a 56 KB picture that only crawlers fetch.
+const OG_IMAGE = `${origin}/og.png`
+const og = readFileSync('dist/og.png')
+if (og.readUInt32BE(16) !== 1200 || og.readUInt32BE(20) !== 630) throw new Error('dist/og.png is not 1200×630 — run `npm run og-image`.')
+if (sw.includes('og.png')) throw new Error('dist/sw.js references og.png; the link-preview image must not be precached or owned.')
+for (const page of ['dist/index.html', 'dist/404.html', ...toolPages]) {
+  const html = readFileSync(page, 'utf8')
+  for (const tag of ['property="og:image"', 'name="twitter:image"']) {
+    const value = new RegExp(`<meta ${tag} content="([^"]*)"`).exec(html)?.[1]
+    if (value !== OG_IMAGE) throw new Error(`${page}: ${tag} is ${value}, expected ${OG_IMAGE}`)
   }
 }
 
