@@ -1,3 +1,6 @@
+import { children, content, equalBytes, hex, integer, oid, readNode, text, whole, type AsnNode } from './der'
+import { publicKeyFromSpkiNode, RSA_PSS_OID, type PublicKey } from './spki'
+
 export interface DistinguishedName {
   display: string
   attributes: { name: string; value: string }[]
@@ -35,6 +38,8 @@ export interface CertificateInfo {
   publicKeyDetail: string
   spki: Uint8Array
   curve?: string
+  /** the subject key in the shared model (fingerprints, matching against keys and CSRs) */
+  publicKey: PublicKey
   isCA: boolean
   /** absent when the certificate has no basicConstraints extension */
   basicConstraints?: { ca: boolean; pathLen?: number }
@@ -45,14 +50,6 @@ export interface CertificateInfo {
   authorityKeyId?: string
   sha256?: string
   sha1?: string
-}
-
-interface AsnNode {
-  tag: number
-  start: number
-  contentStart: number
-  end: number
-  bytes: Uint8Array
 }
 
 const NAME_OIDS: Record<string, string> = {
@@ -76,6 +73,7 @@ const SIGNATURE_OIDS: Record<string, string> = {
   '1.2.840.10045.4.3.3': 'ECDSA with SHA-384',
   '1.2.840.10045.4.3.4': 'ECDSA with SHA-512',
   '1.3.101.112': 'Ed25519',
+  '1.3.101.113': 'Ed448',
 }
 
 const RSA_PKCS1_HASHES: Record<string, string> = {
@@ -89,13 +87,6 @@ const ECDSA_HASHES: Record<string, string> = {
 const DIGEST_OIDS: Record<string, string> = {
   '1.3.14.3.2.26': 'SHA-1', '2.16.840.1.101.3.4.2.1': 'SHA-256',
   '2.16.840.1.101.3.4.2.2': 'SHA-384', '2.16.840.1.101.3.4.2.3': 'SHA-512',
-}
-const RSA_PSS_OID = '1.2.840.113549.1.1.10'
-
-const CURVES: Record<string, { label: string; webCrypto: string }> = {
-  '1.2.840.10045.3.1.7': { label: 'P-256', webCrypto: 'P-256' },
-  '1.3.132.0.34': { label: 'P-384', webCrypto: 'P-384' },
-  '1.3.132.0.35': { label: 'P-521', webCrypto: 'P-521' },
 }
 
 const EKUS: Record<string, string> = {
@@ -113,82 +104,7 @@ const KEY_USAGES = [
 ]
 const KEY_CERT_SIGN = KEY_USAGES[5]
 
-function readNode(bytes: Uint8Array, start = 0): AsnNode {
-  if (start + 2 > bytes.length) throw new Error('Truncated ASN.1 value')
-  const tag = bytes[start]
-  let cursor = start + 1
-  let length = bytes[cursor++]
-  if (length & 0x80) {
-    const count = length & 0x7f
-    if (!count || count > 4 || cursor + count > bytes.length) throw new Error('Invalid ASN.1 length')
-    // DER: the shortest length form only — no leading zero bytes, no long form below 128
-    if (bytes[cursor] === 0) throw new Error('Invalid DER: non-minimal length')
-    length = 0
-    for (let i = 0; i < count; i += 1) length = length * 256 + bytes[cursor++]
-    if (length < 0x80) throw new Error('Invalid DER: non-minimal length')
-  }
-  const end = cursor + length
-  if (end > bytes.length) throw new Error('Truncated ASN.1 content')
-  return { tag, start, contentStart: cursor, end, bytes }
-}
-
-function children(node: AsnNode): AsnNode[] {
-  const out: AsnNode[] = []
-  let cursor = node.contentStart
-  while (cursor < node.end) {
-    const child = readNode(node.bytes, cursor)
-    out.push(child)
-    cursor = child.end
-  }
-  if (cursor !== node.end) throw new Error('Invalid ASN.1 container')
-  return out
-}
-
-function content(node: AsnNode): Uint8Array {
-  return node.bytes.slice(node.contentStart, node.end)
-}
-
-function whole(node: AsnNode): Uint8Array {
-  return node.bytes.slice(node.start, node.end)
-}
-
-function oid(node: AsnNode): string {
-  const data = content(node)
-  if (!data.length) throw new Error('Empty object identifier')
-  const parts = [Math.min(2, Math.floor(data[0] / 40)), data[0] < 80 ? data[0] % 40 : data[0] - 80]
-  let value = 0
-  for (let i = 1; i < data.length; i += 1) {
-    value = value * 128 + (data[i] & 0x7f)
-    if (!(data[i] & 0x80)) {
-      parts.push(value)
-      value = 0
-    }
-  }
-  return parts.join('.')
-}
-
-function integer(node: AsnNode): number {
-  let value = 0
-  for (const byte of content(node)) value = value * 256 + byte
-  return value
-}
-
-function text(node: AsnNode): string {
-  const data = content(node)
-  if (node.tag === 0x1e) {
-    let value = ''
-    for (let i = 0; i + 1 < data.length; i += 2) value += String.fromCharCode(data[i] * 256 + data[i + 1])
-    return value
-  }
-  if (node.tag === 0x1c) {
-    let value = ''
-    for (let i = 0; i + 3 < data.length; i += 4) value += String.fromCodePoint(data[i] * 0x1000000 + data[i + 1] * 0x10000 + data[i + 2] * 0x100 + data[i + 3])
-    return value
-  }
-  return new TextDecoder().decode(data)
-}
-
-function parseName(node: AsnNode): DistinguishedName {
+export function parseName(node: AsnNode): DistinguishedName {
   const attributes: DistinguishedName['attributes'] = []
   for (const set of children(node)) {
     for (const sequence of children(set)) {
@@ -206,10 +122,6 @@ function parseName(node: AsnNode): DistinguishedName {
 }
 
 const STRING_TAGS = new Set([0x0c, 0x13, 0x14, 0x16, 0x1c, 0x1e])
-
-function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
-  return a.length === b.length && a.every((byte, i) => byte === b[i])
-}
 
 /**
  * RFC 5280 §7.1 name matching: byte-equal, or the same RDNs in the same
@@ -254,10 +166,6 @@ function parseDate(node: AsnNode): Date {
     throw new Error(`Invalid certificate date: ${value}`)
   }
   return date
-}
-
-function hex(bytes: Uint8Array, separator = ''): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(separator).toUpperCase()
 }
 
 /** IPv4 dotted quad, or IPv6 in RFC 5952 form (lowercase, longest zero run as ::). */
@@ -333,16 +241,52 @@ const EXTENSION_NAMES: Record<string, string> = {
   '2.5.29.37': 'extendedKeyUsage', '2.5.29.14': 'subjectKeyIdentifier', '2.5.29.35': 'authorityKeyIdentifier',
 }
 
+export interface ExtensionSummary {
+  sans: string[]
+  ipAddresses: string[]
+  /** e-mail, URI and other SAN entries, as `type:value` */
+  otherNames: string[]
+  isCA: boolean
+  basicConstraints?: { ca: boolean; pathLen?: number }
+  hasKeyUsage: boolean
+  keyUsage: string[]
+  extendedKeyUsage: string[]
+  subjectKeyId?: string
+  authorityKeyId?: string
+  /** extensions present that are not interpreted above (name or OID) */
+  others: string[]
+}
+
+const OTHER_EXTENSION_NAMES: Record<string, string> = {
+  '2.5.29.32': 'certificatePolicies', '2.5.29.31': 'cRLDistributionPoints', '1.3.6.1.5.5.7.1.1': 'authorityInfoAccess',
+  '2.5.29.30': 'nameConstraints', '1.3.6.1.4.1.11129.2.4.2': 'Certificate Transparency SCTs', '1.3.6.1.5.5.7.1.24': 'TLS Feature (OCSP must-staple)',
+}
+
 function parseExtensions(node: AsnNode, info: CertificateInfo): void {
   const wrapper = children(node)[0]
   if (!wrapper) return
+  const summary = parseExtensionList(wrapper, 'Certificate')
+  info.sans = summary.sans
+  info.ipAddresses = summary.ipAddresses
+  info.isCA = summary.isCA
+  info.basicConstraints = summary.basicConstraints
+  info.hasKeyUsage = summary.hasKeyUsage
+  info.keyUsage = summary.keyUsage
+  info.extendedKeyUsage = summary.extendedKeyUsage
+  info.subjectKeyId = summary.subjectKeyId
+  info.authorityKeyId = summary.authorityKeyId
+}
+
+/** An Extensions SEQUENCE (RFC 5280 §4.1) — a certificate's, or a CSR's extensionRequest. */
+export function parseExtensionList(list: AsnNode, owner: string): ExtensionSummary {
+  const info: ExtensionSummary = { sans: [], ipAddresses: [], otherNames: [], isCA: false, hasKeyUsage: false, keyUsage: [], extendedKeyUsage: [], others: [] }
   const seen = new Set<string>()
-  for (const extension of children(wrapper)) {
+  for (const extension of children(list)) {
     const fields = children(extension)
     const id = oid(fields[0])
     // RFC 5280 §4.2: an extension appears at most once — merging two SANs
     // would let either one answer the hostname question
-    if (seen.has(id)) throw new Error(`Certificate contains the ${EXTENSION_NAMES[id] ?? id} extension more than once`)
+    if (seen.has(id)) throw new Error(`${owner} contains the ${EXTENSION_NAMES[id] ?? id} extension more than once`)
     seen.add(id)
     const valueNode = fields[fields.length - 1]
     if (!valueNode || valueNode.tag !== 0x04) continue
@@ -352,7 +296,10 @@ function parseExtensions(node: AsnNode, info: CertificateInfo): void {
     if (id === '2.5.29.17') {
       for (const name of children(inner)) {
         if (name.tag === 0x82) info.sans.push(new TextDecoder().decode(content(name)))
-        if (name.tag === 0x87) info.ipAddresses.push(formatIp(content(name)))
+        else if (name.tag === 0x87) info.ipAddresses.push(formatIp(content(name)))
+        else if (name.tag === 0x81) info.otherNames.push(`email:${new TextDecoder().decode(content(name))}`)
+        else if (name.tag === 0x86) info.otherNames.push(`URI:${new TextDecoder().decode(content(name))}`)
+        else info.otherNames.push(name.tag === 0xa0 ? 'otherName' : name.tag === 0xa4 ? 'directoryName' : `[${name.tag & 0x1f}]`)
       }
     } else if (id === '2.5.29.19') {
       const values = children(inner)
@@ -373,8 +320,11 @@ function parseExtensions(node: AsnNode, info: CertificateInfo): void {
     } else if (id === '2.5.29.35') {
       const keyId = children(inner).find((value) => value.tag === 0x80)
       if (keyId) info.authorityKeyId = hex(content(keyId), ':')
+    } else {
+      info.others.push(OTHER_EXTENSION_NAMES[id] ?? id)
     }
   }
+  return info
 }
 
 /** RSASSA-PSS-params (RFC 4055), with its SHA-1 / MGF1-SHA-1 / 20 / 1 defaults. */
@@ -395,24 +345,16 @@ function parsePssParams(algorithm: AsnNode): PssParams {
   return params
 }
 
-function publicKeyDetails(spki: AsnNode): { algorithm: string; detail: string; curve?: string } {
-  const fields = children(spki)
-  const algorithm = children(fields[0])
-  const algorithmOid = oid(algorithm[0])
-  if (algorithmOid === '1.2.840.113549.1.1.1' || algorithmOid === RSA_PSS_OID) {
-    const bitString = content(fields[1]).slice(1)
-    const rsa = children(readNode(bitString))
-    let modulus = content(rsa[0])
-    if (modulus[0] === 0) modulus = modulus.slice(1)
-    return { algorithm: 'RSA', detail: `${modulus.length * 8}-bit RSA${algorithmOid === RSA_PSS_OID ? ' (PSS only)' : ''}` }
+/** The signature AlgorithmIdentifier of a certificate or CSR, named. */
+export function signatureAlgorithmInfo(algorithmNode: AsnNode): Pick<SignedData, 'signatureOid' | 'signatureAlgorithm' | 'pss'> & { signatureHash?: string } {
+  const signatureOid = oid(children(algorithmNode)[0])
+  const pss = signatureOid === RSA_PSS_OID ? parsePssParams(algorithmNode) : undefined
+  return {
+    signatureOid,
+    pss,
+    signatureAlgorithm: pss?.hash ? `RSA-PSS with ${pss.hash}` : SIGNATURE_OIDS[signatureOid] ?? signatureOid,
+    signatureHash: pss ? pss.hash ?? undefined : RSA_PKCS1_HASHES[signatureOid] ?? ECDSA_HASHES[signatureOid],
   }
-  if (algorithmOid === '1.2.840.10045.2.1') {
-    const curveOid = algorithm[1] ? oid(algorithm[1]) : ''
-    const curve = CURVES[curveOid]
-    return { algorithm: 'EC', detail: curve ? `${curve.label} elliptic curve` : `EC curve ${curveOid}`, curve: curve?.webCrypto }
-  }
-  if (algorithmOid === '1.3.101.112') return { algorithm: 'Ed25519', detail: 'Ed25519' }
-  return { algorithm: algorithmOid, detail: algorithmOid }
 }
 
 export function parseCertificate(der: Uint8Array): CertificateInfo {
@@ -430,17 +372,12 @@ export function parseCertificate(der: Uint8Array): CertificateInfo {
   const subject = tbsFields[index++]
   const spki = tbsFields[index++]
   if (!serial || !tbsSignatureAlgorithm || validity.length !== 2 || !spki) throw new Error('Certificate is missing required fields')
-  const signatureOid = oid(children(signatureAlgorithmNode)[0])
-  const pss = signatureOid === RSA_PSS_OID ? parsePssParams(signatureAlgorithmNode) : undefined
-  const key = publicKeyDetails(spki)
+  const key = publicKeyFromSpkiNode(spki)
   const info: CertificateInfo = {
     der: der.slice(),
     tbs: whole(tbsNode),
     signature: content(signatureNode).slice(1),
-    signatureOid,
-    signatureAlgorithm: pss?.hash ? `RSA-PSS with ${pss.hash}` : SIGNATURE_OIDS[signatureOid] ?? signatureOid,
-    signatureHash: pss ? pss.hash ?? undefined : RSA_PKCS1_HASHES[signatureOid] ?? ECDSA_HASHES[signatureOid],
-    pss,
+    ...signatureAlgorithmInfo(signatureAlgorithmNode),
     algorithmMismatch: !equalBytes(whole(signatureAlgorithmNode), whole(tbsSignatureAlgorithm)),
     serialNumber: hex(content(serial)).replace(/^00/, '') || '00',
     subject: parseName(subject),
@@ -455,6 +392,7 @@ export function parseCertificate(der: Uint8Array): CertificateInfo {
     publicKeyDetail: key.detail,
     spki: whole(spki),
     curve: key.curve,
+    publicKey: key,
     isCA: false,
     hasKeyUsage: false,
     keyUsage: [],
@@ -627,44 +565,66 @@ async function importOrNull(spki: Uint8Array, params: RsaHashedImportParams | Ec
   }
 }
 
-export async function verifyIssuedBy(child: CertificateInfo, issuer: CertificateInfo): Promise<SignatureCheck> {
-  const family = signatureFamily(child.signatureOid)
-  if (!family) return { ok: null, reason: `${child.signatureAlgorithm} signatures are not checked here` }
-  if (family !== issuer.publicKeyAlgorithm) {
-    return { ok: false, reason: `Signed with ${family}, but the next certificate has an ${issuer.publicKeyAlgorithm} key — not issued by it` }
+export interface SignedData {
+  tbs: Uint8Array
+  signature: Uint8Array
+  signatureOid: string
+  signatureAlgorithm: string
+  pss?: PssParams
+}
+
+export interface SignerKey {
+  spki: Uint8Array
+  publicKeyAlgorithm: string
+  publicKeyDetail: string
+  curve?: string
+}
+
+/** How the messages name the key that should have signed. */
+export interface SignerWording { key: string; has: string; tail: string }
+
+const NEXT_CERTIFICATE: SignerWording = { key: 'the next certificate\'s key', has: 'the next certificate has', tail: ' — not issued by it' }
+
+export async function verifySignature(signed: SignedData, signer: SignerKey, wording: SignerWording): Promise<SignatureCheck> {
+  const family = signatureFamily(signed.signatureOid)
+  if (!family) return { ok: null, reason: `${signed.signatureAlgorithm} signatures are not checked here` }
+  if (family !== signer.publicKeyAlgorithm) {
+    return { ok: false, reason: `Signed with ${family}, but ${wording.has} an ${signer.publicKeyAlgorithm} key${wording.tail}` }
   }
-  const tbs = child.tbs as BufferSource
+  const tbs = signed.tbs as BufferSource
+  const signature = signed.signature as BufferSource
+  const verdict = (ok: boolean): SignatureCheck => ({ ok, reason: ok ? 'Signature valid' : `Signature does not verify with ${wording.key}` })
   try {
-    if (child.pss) {
-      const { hash, mgfHash, saltLength, trailer } = child.pss
+    if (signed.pss) {
+      const { hash, mgfHash, saltLength, trailer } = signed.pss
       if (!hash || hash !== mgfHash || trailer !== 1) return { ok: null, reason: 'These RSA-PSS parameters cannot be checked with WebCrypto' }
-      const key = await importOrNull(issuer.spki, { name: 'RSA-PSS', hash })
-      if (!key) return { ok: null, reason: 'This browser could not import the issuer key for RSA-PSS' }
-      const ok = await crypto.subtle.verify({ name: 'RSA-PSS', saltLength }, key, child.signature as BufferSource, tbs)
-      return { ok, reason: ok ? 'Signature valid' : 'Signature does not verify with the next certificate\'s key' }
+      const key = await importOrNull(signer.spki, { name: 'RSA-PSS', hash })
+      if (!key) return { ok: null, reason: 'This browser could not import the RSA key for RSA-PSS' }
+      return verdict(await crypto.subtle.verify({ name: 'RSA-PSS', saltLength }, key, signature, tbs))
     }
     if (family === 'RSA') {
-      const key = await importOrNull(issuer.spki, { name: 'RSASSA-PKCS1-v1_5', hash: RSA_PKCS1_HASHES[child.signatureOid] })
-      if (!key) return { ok: null, reason: 'This browser could not import the issuer\'s RSA key' }
-      const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, child.signature as BufferSource, tbs)
-      return { ok, reason: ok ? 'Signature valid' : 'Signature does not verify with the next certificate\'s key' }
+      const key = await importOrNull(signer.spki, { name: 'RSASSA-PKCS1-v1_5', hash: RSA_PKCS1_HASHES[signed.signatureOid] })
+      if (!key) return { ok: null, reason: 'This browser could not import the RSA key' }
+      return verdict(await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, tbs))
     }
     if (family === 'EC') {
-      if (!issuer.curve) return { ok: null, reason: `${issuer.publicKeyDetail} is not supported by WebCrypto` }
-      const key = await importOrNull(issuer.spki, { name: 'ECDSA', namedCurve: issuer.curve })
-      if (!key) return { ok: null, reason: 'This browser could not import the issuer\'s EC key' }
-      const raw = ecdsaDerToRaw(child.signature, issuer.curve === 'P-256' ? 32 : issuer.curve === 'P-384' ? 48 : 66)
+      if (!signer.curve) return { ok: null, reason: `${signer.publicKeyDetail} is not supported by WebCrypto` }
+      const key = await importOrNull(signer.spki, { name: 'ECDSA', namedCurve: signer.curve })
+      if (!key) return { ok: null, reason: 'This browser could not import the EC key' }
+      const raw = ecdsaDerToRaw(signed.signature, signer.curve === 'P-256' ? 32 : signer.curve === 'P-384' ? 48 : 66)
       if (!raw) return { ok: false, reason: 'Malformed ECDSA signature' }
-      const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: ECDSA_HASHES[child.signatureOid] }, key, raw as BufferSource, tbs)
-      return { ok, reason: ok ? 'Signature valid' : 'Signature does not verify with the next certificate\'s key' }
+      return verdict(await crypto.subtle.verify({ name: 'ECDSA', hash: ECDSA_HASHES[signed.signatureOid] }, key, raw as BufferSource, tbs))
     }
-    const key = await importOrNull(issuer.spki, { name: 'Ed25519' })
+    const key = await importOrNull(signer.spki, { name: 'Ed25519' })
     if (!key) return { ok: null, reason: 'This browser cannot check Ed25519 signatures' }
-    const ok = await crypto.subtle.verify('Ed25519', key, child.signature as BufferSource, tbs)
-    return { ok, reason: ok ? 'Signature valid' : 'Signature does not verify with the next certificate\'s key' }
+    return verdict(await crypto.subtle.verify('Ed25519', key, signature, tbs))
   } catch (cause) {
     return { ok: null, reason: `Could not check: ${cause instanceof Error ? cause.message : String(cause)}` }
   }
+}
+
+export function verifyIssuedBy(child: CertificateInfo, issuer: CertificateInfo): Promise<SignatureCheck> {
+  return verifySignature(child, issuer, NEXT_CERTIFICATE)
 }
 
 export interface CertificateReport {

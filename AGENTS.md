@@ -216,7 +216,28 @@ the precache list built by `scripts/sw-manifest.ts`.
   pathLen), valid today, and named as the child's issuer; any failure turns
   the verdict red. Hostnames match DNS SANs and IP SANs as bytes — the Common
   Name is never used (browsers ignore it). No trust store, revocation or
-  Public Suffix List, and the limits copy says so.
+  Public Suffix List, and the limits copy says so. The same input also takes
+  CSRs and keys: `inputs.ts` splits a paste into PEM blocks, RFC 4716 SSH2
+  blocks and OpenSSH public lines, each parsed on its own (a bad block is
+  listed, the rest still shown; messages never quote the input). `der.ts` is
+  the shared strict reader (minimal lengths, no high tag numbers; key
+  INTEGERs must be minimal and non-negative). `csr.ts` reads PKCS#10
+  (extensionRequest via `parseExtensionList`, challengePassword value never
+  shown) and verifies proof of possession with `verifySignature`. `spki.ts`
+  reduces SPKI, PKCS#1 and OpenSSH wire keys to one model whose `identity`
+  is how keys, CSRs and certificates are matched; it computes the SPKI pin
+  and ssh-keygen's SHA256/MD5 fingerprints (`md5.ts` is hand-written —
+  WebCrypto has none — and used for nothing else). `keys.ts` reads PKCS#8
+  (v1/v2), PKCS#1, SEC1, DSA, SPKI and openssh-key-v1: private numbers are
+  only checked for encoding, never kept; a public key a file omits (SEC1
+  without the point, Ed25519/X25519 seeds) is derived once through
+  WebCrypto's JWK export. Encrypted keys (PBES1/PBES2 PKCS#8, `Proc-Type:
+  4,ENCRYPTED`, OpenSSH with a KDF) are described, never decrypted; OpenSSH
+  keeps its public half in the clear, so those still fingerprint. Private
+  keys never reach the URL, storage or logs; the UI flags a pasted one and
+  can cut it from the textarea. Fixtures in `fixtures/` are throwaway keys
+  from `fixtures/generate.sh` (OpenSSL 3 + ssh-keygen); Vite refuses
+  `*.pem?raw` in jsdom, so the UI test reads them with `node:fs`.
 - `tools/regex/` — JavaScript regex match/replace. Every evaluation — matches
   and the Tests tab's cases, each with its own runner and worker — runs in
   `regex.worker.ts` via `runner.ts`, which terminates the worker after
