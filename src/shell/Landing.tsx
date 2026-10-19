@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { BladeMark } from './BladeMark'
-import { useModalFocus } from './focus'
 import { openPalette, paletteKeyLabel } from './palette'
 import { tools, type ToolMeta } from './registry'
 import { Link } from './router'
 import { toolMatches, useTaglines } from './taglines'
 import { useTheme } from './theme'
 
+export interface Category { id: ToolMeta['category']; name: string; short: string }
+
 /** Every registry category must be represented here so no tool becomes undiscoverable. */
-export const categories: { id: ToolMeta['category']; name: string; short: string }[] = [
+export const categories: Category[] = [
   { id: 'data', name: 'Data', short: 'DATA' },
   { id: 'security', name: 'Security', short: 'SEC' },
   { id: 'text', name: 'Text', short: 'TEXT' },
@@ -17,9 +18,6 @@ export const categories: { id: ToolMeta['category']; name: string; short: string
   { id: 'pdf', name: 'PDF', short: 'PDF' },
   { id: 'image', name: 'Images', short: 'IMG' },
 ]
-
-const lengths = [368, 334, 386, 352, 322, 376, 344]
-const SPREAD = 55
 
 function ToolIndex({ query }: { query: string }) {
   const taglines = useTaglines(query)
@@ -42,7 +40,6 @@ function ToolIndex({ query }: { query: string }) {
           </div>
           {list.map((tool) => (
             <Link key={tool.slug} to={`/${tool.slug}`}>
-              <i aria-hidden />
               <span>{tool.name}</span>
               <span className="landing-index-mark">{tool.mark}</span>
             </Link>
@@ -53,97 +50,25 @@ function ToolIndex({ query }: { query: string }) {
   )
 }
 
-function Knife() {
-  const [open, setOpen] = useState(false)
-  const [settled, setSettled] = useState(false)
-  const [ripple, setRipple] = useState(0)
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setOpen(true))
-    const timer = window.setTimeout(() => setSettled(true), 1100)
-    return () => {
-      cancelAnimationFrame(frame)
-      clearTimeout(timer)
-    }
-  }, [])
-
-  const blades = useMemo(() => categories.map((category, index) => ({
-    ...category,
-    tool: tools.find((tool) => tool.category === category.id)!,
-    length: lengths[index],
-  })), [])
-  const step = (SPREAD * 2) / (blades.length - 1)
-
-  return (
-    <div className="landing-knife-wrap">
-      <div className="landing-knife">
-        <svg viewBox="0 0 560 500" className="knife-guide" fill="none" aria-hidden>
-          <path d="M 15 285 A 320 320 0 0 1 545 285" />
-        </svg>
-
-        {blades.map((blade, index) => {
-          const angle = -90 - SPREAD + index * step
-          const style = {
-            '--blade-angle': `${angle}deg`,
-            '--blade-width': `${blade.length}px`,
-            '--blade-delay': settled ? '0ms' : `${index * 75}ms`,
-            '--blade-z': index + 1,
-          } as CSSProperties
-          return (
-            <Link
-              key={blade.id}
-              to={`/${blade.tool.slug}`}
-              className={`knife-blade${open ? ' open' : ''}`}
-              style={style}
-              tabIndex={open ? 0 : -1}
-              aria-label={`${blade.name}: open ${blade.tool.name}`}
-            >
-              <span className="knife-blade-face">
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <strong>{blade.short}</strong>
-              </span>
-            </Link>
-          )
-        })}
-
-        {ripple > 0 && <span key={ripple} className="knife-ripple" />}
-
-        <div className="knife-body">
-          <BladeMark className="knife-body-mark" />
-          <span /><span /><span />
-        </div>
-        <button
-          type="button"
-          className="knife-pivot"
-          onClick={() => { setOpen((value) => !value); setRipple((value) => value + 1) }}
-          aria-expanded={open}
-          aria-label={open ? 'Close the tool blades' : 'Open the tool blades'}
-        />
-      </div>
-      <p>{open ? 'pick a blade' : 'click the pivot to open'}</p>
-    </div>
-  )
-}
+/**
+ * The blade fan is artwork, drawn only on wide screens: it loads as its own
+ * small shell chunk (precached like the palette) to keep it off first paint.
+ * Its box is reserved by .landing-knife-wrap, so nothing shifts when it lands,
+ * and a chunk that fails to load leaves the box empty rather than the page broken.
+ */
+const Knife = lazy(() => import('./Knife').catch(() => ({ default: () => null })))
 
 export function Landing() {
   const [theme, toggleTheme] = useTheme()
-  const [menuOpen, setMenuOpen] = useState(false)
   const [query, setQuery] = useState('')
   const filterRef = useRef<HTMLInputElement>(null)
-  const indexRef = useRef<HTMLElement>(null)
-  // On narrow screens the index is a drawer: focus goes in, Escape closes it,
-  // and focus returns to the toggle.
-  useModalFocus(indexRef, menuOpen, { onEscape: () => setMenuOpen(false), media: '(max-width: 880px)', initial: 'container' })
+  const indexRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const focusFilter = (event: KeyboardEvent) => {
       if (event.key !== '/' || ['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName)) return
       event.preventDefault()
-      setMenuOpen(true)
       filterRef.current?.focus()
-      // A closed drawer is visibility: hidden and can't take focus; try again
-      // once it has opened.
-      setTimeout(() => filterRef.current?.focus())
     }
     window.addEventListener('keydown', focusFilter)
     return () => window.removeEventListener('keydown', focusFilter)
@@ -152,20 +77,10 @@ export function Landing() {
   return (
     <div className="landing">
       <header className="landing-header">
-        <button className="landing-menu-btn" type="button" onClick={() => setMenuOpen((value) => !value)} aria-label="Toggle tool index" aria-expanded={menuOpen} aria-controls="landing-index">
-          <span className="material-symbols-outlined" aria-hidden>{menuOpen ? 'close' : 'menu'}</span>
-        </button>
         <Link to="/" className="landing-brand" title="The Swiss Knife home">
           <span className="landing-brand-mark"><BladeMark /></span>
           <span><strong>The Swiss Knife</strong><small>theswissknife.com</small></span>
         </Link>
-
-        <button className="landing-search" type="button" onClick={openPalette} aria-label="Search tools">
-          <span className="material-symbols-outlined" aria-hidden>search</span>
-          <span>Search tools…</span>
-          <kbd>{paletteKeyLabel()}</kbd>
-        </button>
-
         <a href="https://github.com/BibekShrestha/theswissknife" target="_blank" rel="noreferrer" className="landing-gh-link">
           <span className="material-symbols-outlined" aria-hidden>code</span><span>GitHub</span>
         </a>
@@ -174,37 +89,40 @@ export function Landing() {
         </button>
       </header>
 
-      <div className="landing-body">
-        {menuOpen && <button className="landing-index-backdrop" onClick={() => setMenuOpen(false)} aria-label="Close tool index" />}
-        <aside ref={indexRef} id="landing-index" tabIndex={-1} aria-label="All tools" className={`landing-index${menuOpen ? ' open' : ''}`}>
-          <label className="landing-filter">
-            <span className="material-symbols-outlined" aria-hidden>search</span>
-            <input ref={filterRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter tools…" aria-label="Filter tools" />
-            {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear filter">×</button>}
-          </label>
-          <ToolIndex query={query} />
-          <div className="landing-index-foot"><span>LOCAL ONLY</span><span>{tools.length} TOOLS</span></div>
-        </aside>
-
-        <main id="main-content" className="landing-stage">
-          <div className="landing-grid-bg" aria-hidden />
-          <div className="landing-hero">
-            <div className="landing-copy">
-              <div className="landing-eyebrow"><span>The Swiss Knife</span><i /><span>{tools.length} utilities</span></div>
-              <h1>One<br />toolbox<span>.</span></h1>
-              <h2>Every utility<br />you need.</h2>
-              <button type="button" className="landing-command" onClick={openPalette}>
-                <kbd>{paletteKeyLabel()}</kbd><span>opens any tool</span>
-              </button>
+      {/* One column of content: the hero, then the index. Wide screens pin the
+          index to the left as a sidebar; narrow ones stack it under the hero,
+          so a phone gets the whole list without opening anything. */}
+      <main id="main-content" className="landing-stage">
+        <div className="landing-grid-bg" aria-hidden />
+        <div className="landing-hero">
+          <div className="landing-copy">
+            <div className="landing-eyebrow"><span>The Swiss Knife</span><i /><span>{tools.length} utilities</span></div>
+            <h1>One <br />toolbox<span>.</span></h1>
+            <p className="landing-promise">Free developer tools that run entirely in your browser. Nothing you paste leaves your machine.</p>
+            <div className="landing-find">
+              <span className="material-symbols-outlined" aria-hidden>search</span>
+              <input
+                ref={filterRef}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                // Enter opens the first match, the way the palette does.
+                onKeyDown={(event) => { if (event.key === 'Enter') indexRef.current?.querySelector('a')?.click() }}
+                placeholder="Filter tools…"
+                aria-label="Filter tools"
+              />
+              <button type="button" onClick={openPalette} aria-label="Open the command palette"><kbd>{paletteKeyLabel()}</kbd></button>
             </div>
-            <Knife />
           </div>
-          <footer className="landing-foot">
-            <span>Everything runs in your browser. Nothing is uploaded.</span>
-            <span>Open source · works offline for tools you've opened</span>
-          </footer>
-        </main>
-      </div>
+          <div className="landing-knife-wrap"><Suspense><Knife categories={categories} /></Suspense></div>
+        </div>
+        <div ref={indexRef} className="landing-index">
+          <ToolIndex query={query} />
+        </div>
+        <footer className="landing-foot">
+          <span>Open source · works offline for tools you've opened</span>
+        </footer>
+      </main>
     </div>
   )
 }

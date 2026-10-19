@@ -19,6 +19,7 @@ vi.mock('./CommandPalette', () => ({
 const { default: App } = await import('./App')
 const { navigate } = await import('./router')
 const { openPalette } = await import('./palette')
+const { tools } = await import('./registry')
 
 let root: Root
 let host: HTMLElement
@@ -99,7 +100,7 @@ describe('the canonical link', () => {
 
 describe('the landing tool index filter', () => {
   it('matches category headings by name and keeps their numbers', async () => {
-    const input = document.querySelector<HTMLInputElement>('.landing-filter input')!
+    const input = document.querySelector<HTMLInputElement>('.landing-find input')!
     const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
     await act(async () => {
       setValue.call(input, 'images')
@@ -113,17 +114,30 @@ describe('the landing tool index filter', () => {
   })
 })
 
-describe('the landing tool index drawer', () => {
-  it('takes focus, closes on Escape and hands focus back to its toggle', async () => {
-    const toggle = document.querySelector<HTMLButtonElement>('.landing-menu-btn')!
-    toggle.focus()
-    await act(async () => toggle.click())
-    expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    const drawer = document.querySelector('.landing-index')!
-    expect(drawer.contains(document.activeElement)).toBe(true)
+describe('the landing hero search', () => {
+  const type = async (value: string) => {
+    const input = document.querySelector<HTMLInputElement>('.landing-find input')!
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+    await act(async () => {
+      setValue.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    return input
+  }
 
-    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(document.activeElement).toBe(toggle)
+  it('lists every tool in the page, with no drawer to open', () => {
+    expect(document.querySelector('.landing-menu-btn')).toBeNull()
+    expect(document.querySelectorAll('.landing-index-group > a').length).toBe(tools.length)
+  })
+
+  it('opens the first match on Enter', async () => {
+    const input = await type('jwt')
+    await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+    expect(location.pathname).toBe('/jwt')
+  })
+
+  it('takes focus on /', async () => {
+    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: '/' })))
+    expect(document.activeElement).toBe(document.querySelector('.landing-find input'))
   })
 })
