@@ -67,7 +67,7 @@ missing from any of them, including the README table.
     storage, since it is the user's data; dropped on any route change away
     from the target and after 30 s).
 
-  Everything else in `shell/` (App, Landing, ToolSidebar, CommandPalette,
+  Everything else in `shell/` (App, Landing, Knife, ToolSidebar, CommandPalette,
   palette, sidebar, BladeMark, ErrorBoundary, pwa, taglines, tool-copy) is
   shell-internal; App
   already wraps every tool in `ErrorBoundary` and `Suspense`.
@@ -125,7 +125,8 @@ the precache list built by `scripts/sw-manifest.ts`.
   follows the entry chunk's *static* import graph, so anything that leaks
   into the eager graph is downloaded by every visitor on first paint — a second
   reason the laziness rule matters. The one exception is the shell's own lazy
-  chunks (command palette, `tool-copy` taglines, `pwa`; ~3 KB gz together):
+  chunks (command palette, `tool-copy` taglines, `pwa`, the landing's `Knife`
+  blade fan; ~4 KB gz together):
   dynamic imports into `src/shell/` modules are precached too
   (`isShellChunk` in `vite.config.ts`), so search works offline before anyone
   has opened it. Dynamic imports into `src/tools/` never are.
@@ -184,8 +185,23 @@ the precache list built by `scripts/sw-manifest.ts`.
   prerequisite)
 - `npm run icons` — regenerate `public/icons/*.png` from the site mark
   (one-shot; commit the output — the build does not run it)
+- `npm run og-image` — redraw `public/og.png`, the 1200×630 link preview that
+  index.html and every tool page name as `og:image`/`twitter:image`
+  (`scripts/gen-og.mjs`: the mark from `gen-icons.mjs`, text from Inter Tight
+  via `scripts/fonts/outline.py`, so it needs the fontTools prerequisite;
+  one-shot, commit the output). It is a public/ file, so the service worker
+  never precaches it — `check-bundle.mjs` fails if sw.js mentions it
 
 ## Existing tools
+
+- `shell/Landing.tsx` — the hero (promise + search that filters the index in
+  place; Enter opens the first match, `/` focuses it, ⌘K beside it opens the
+  palette) and the tool index: a left sidebar above 880 px, the page's own
+  stacked list (44 px rows) at or below it — there is no drawer. The blade
+  fan (`Knife.tsx`) is artwork, shown above 1180 px only: a lazy shell chunk
+  whose scaled box `.landing-knife-wrap` reserves, so nothing shifts when it
+  lands. It takes `categories` as a prop because a runtime import from
+  Landing is a cycle the bundler answers by splitting the entry (+0.6 KiB).
 
 - `tools/jq/` — jq playground: real jq 1.8.2 wasm in workers, CodeMirror
   editor with input-aware autocomplete, state shared as `#z=` (gzipped) in the

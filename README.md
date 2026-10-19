@@ -44,6 +44,7 @@ npm run dev      # dev server (deep links like /jq work)
 npm test         # unit + integration tests (runs the real wasm jq)
 npm run build    # production build → dist/ (+ 404.html SPA fallback)
 npm run icons    # regenerate the PWA icons from the site mark (one-shot)
+npm run og-image # redraw the link-preview image public/og.png (one-shot; needs fontTools)
 ```
 
 The service worker is only registered in a production build, so `npm run dev`
