@@ -79,6 +79,7 @@
 .codec-pane textarea:focus { outline-offset: -2px; }
 .codec-pane.has-error { border-color: var(--err); }
 .codec-error { background: var(--err-bg); border: 1px solid var(--err); border-radius: var(--radius-sm); color: var(--err); font: 13px/1.5 var(--font-mono); padding: 10px 12px; }
+.codec-warning { background: var(--warn-bg); border-top: 1px solid var(--border); color: var(--text); font-size: var(--fs-sm); line-height: 1.45; margin: 0; padding: 8px 12px; }
 
 .codec-swap {
   align-self: center;

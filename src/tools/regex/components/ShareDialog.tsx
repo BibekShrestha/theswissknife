@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { encodeState, LENGTH_MAX, LENGTH_WARN, MAX_SUBJECT, shareUrl, type LabState } from '../share'
+import { useDialogFocus } from './useDialogFocus'
 
 interface Props {
   state: LabState
@@ -7,42 +8,50 @@ interface Props {
   copy: (text: string, what: string) => void
 }
 
+interface EncodedLink {
+  url: string
+  /** What the link was encoded from. */
+  state: LabState
+  subject: boolean
+  cases: boolean
+}
+
 export function ShareDialog({ state, onClose, copy }: Props) {
   const [includeSubject, setIncludeSubject] = useState(false)
   const [includeCases, setIncludeCases] = useState(false)
-  const [url, setUrl] = useState('')
+  const [link, setLink] = useState<EncodedLink | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const subjectLength = state.subject?.length ?? 0
   const caseCount = state.cases?.length ?? 0
   const subjectTooBig = subjectLength > MAX_SUBJECT
+  const wantSubject = includeSubject && !subjectTooBig
 
-  useEffect(() => {
-    closeRef.current?.focus()
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  useDialogFocus(dialogRef, onClose, closeRef)
 
   // Compression is async, so the link arrives a tick after the dialog does.
   useEffect(() => {
     let alive = true
     const base = `${location.origin}${location.pathname}`
-    encodeState(state, { subject: includeSubject && !subjectTooBig, cases: includeCases })
-      .then((payload) => alive && setUrl(shareUrl(payload, base)))
-      .catch(() => alive && setUrl(''))
+    encodeState(state, { subject: wantSubject, cases: includeCases })
+      .then((payload) => alive && setLink({ url: shareUrl(payload, base), state, subject: wantSubject, cases: includeCases }))
+      .catch(() => alive && setLink(null))
     return () => {
       alive = false
     }
-  }, [state, includeSubject, includeCases, subjectTooBig])
+  }, [state, wantSubject, includeCases])
+
+  // Until the link for the current choices is encoded, show and copy nothing:
+  // the previous link may still carry the subject that was just unticked.
+  const ready = link !== null && link.state === state && link.subject === wantSubject && link.cases === includeCases
+  const url = ready ? link.url : ''
 
   const tooLong = url.length > LENGTH_MAX
   const longish = url.length > LENGTH_WARN
 
   return (
     <div className="regex-dialog-backdrop" onClick={onClose}>
-      <div className="regex-dialog" role="dialog" aria-modal="true" aria-labelledby="regex-share-title" onClick={(event) => event.stopPropagation()}>
+      <div ref={dialogRef} className="regex-dialog" role="dialog" aria-modal="true" aria-labelledby="regex-share-title" onClick={(event) => event.stopPropagation()}>
         <header>
           <strong id="regex-share-title">Share link</strong>
           <div className="spacer" />
@@ -74,7 +83,7 @@ export function ShareDialog({ state, onClose, copy }: Props) {
           {(includeSubject || includeCases) && (
             <p className="regex-dialog-warn">Anyone with the link can read the text you include. Leave real data out.</p>
           )}
-          <input className="regex-share-url" type="text" readOnly value={url} aria-label="Share link" onFocus={(event) => event.target.select()} />
+          <input className="regex-share-url" type="text" readOnly value={url} placeholder="Encoding…" aria-label="Share link" onFocus={(event) => event.target.select()} />
           {tooLong ? (
             <p className="regex-dialog-warn">This link is {url.length.toLocaleString('en-US')} characters — too long to paste anywhere useful. Leave the subject out.</p>
           ) : longish ? (

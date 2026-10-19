@@ -11,9 +11,9 @@ export interface WorkerLike {
 
 /**
  * Runs each comparison in a worker and kills it when the deadline passes.
- * Myers is O(ND): two large files with almost nothing in common can take
- * minutes, and a running loop cannot be interrupted from outside — so the
- * whole worker goes, and the next request gets a fresh one.
+ * Myers is O(ND): large files with many scattered changes can take minutes,
+ * and a running loop cannot be interrupted from outside — so the whole worker
+ * goes, and the next request gets a fresh one.
  *
  * Only the latest request matters: starting a new one abandons the previous
  * (terminating its worker if it was still busy), and its promise never settles.
@@ -48,7 +48,7 @@ export function createDiffRunner(spawn: () => WorkerLike, timeoutMs = DIFF_TIMEO
         kill()
         resolve({
           elapsedMs: timeoutMs,
-          result: { error: `Stopped after ${timeoutMs / 1000} s — these inputs have too little in common to diff quickly. Trim them to the part that changed and try again.` },
+          result: { error: `Stopped after ${timeoutMs / 1000} s — these inputs are too large, or differ in too many places, to diff within the time limit. Trim them to the part that changed and try again.` },
         })
       }, timeoutMs)
       w.postMessage({ ...request, id })

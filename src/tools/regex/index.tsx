@@ -4,6 +4,7 @@ import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { ExplainPanel, ErrorPointer } from './components/ExplainPanel'
+import { ResultTabs, tabId } from './components/ResultTabs'
 import { ShareDialog } from './components/ShareDialog'
 import { TestsPanel, type EditableCase } from './components/TestsPanel'
 import { toConstructor, toLiteral, toReplaceCall } from './copyjs'
@@ -14,7 +15,7 @@ import { createRegexRunner, createTestsRunner } from './runner'
 import { decodeFragment, FLAG_ORDER, type LabState } from './share'
 import { explainPattern } from './syntax/explain'
 import { parseRegex } from './syntax/parser'
-import { findBacktrackRisks } from './syntax/redos'
+import { analyzeBacktracking } from './syntax/redos'
 import type { MatchSpan, RegexOperation, RegexResult, TestsResult } from './types'
 import './regex.css'
 
@@ -152,7 +153,9 @@ export default function RegexTool() {
 
   const parsed = useMemo(() => parseRegex(pattern, flags), [pattern, flags])
   const tree = useMemo(() => (parsed.ok ? explainPattern(pattern, parsed.pattern, flags) : null), [parsed, pattern, flags])
-  const risks = useMemo(() => (parsed.ok ? findBacktrackRisks(pattern, parsed.pattern, flags) : []), [parsed, pattern, flags])
+  // Linear and capped (redos.ts WORK_BUDGET), so it can stay on the main thread.
+  const backtracking = useMemo(() => (parsed.ok ? analyzeBacktracking(pattern, parsed.pattern, flags) : null), [parsed, pattern, flags])
+  const risks = backtracking?.risks ?? []
 
   const current = result.result
   const fresh = result.key === matchKey
@@ -190,7 +193,11 @@ export default function RegexTool() {
 
   const testsFresh = tests !== null && tests.key === casesKey
   const passing = tests && !tests.result.error ? tests.result.results.filter((r) => r.pass).length : 0
-  const shareState: LabState = { pattern, flags, operation, replacement, subject, cases: cases.map(({ text, expect, full }) => ({ text, expect, full })) }
+  // Memoised so the share dialog can tell a new state from a re-render.
+  const shareState: LabState = useMemo(
+    () => ({ pattern, flags, operation, replacement, subject, cases: cases.map(({ text, expect, full }) => ({ text, expect, full })) }),
+    [pattern, flags, operation, replacement, subject, cases],
+  )
 
   const tabs: [Tab, string][] = [
     ['matches', `Matches${fresh && !current.error ? ` (${matches.length.toLocaleString('en-US')}${current.truncated ? '+' : ''})` : ''}`],
@@ -318,14 +325,8 @@ export default function RegexTool() {
           </section>
 
           <section className="regex-pane regex-results-pane" aria-label="Results">
-            <div className="regex-tabs" role="tablist" aria-label="Result views">
-              {tabs.map(([id, label]) => (
-                <button key={id} role="tab" aria-selected={activeTab === id} className={`regex-tab${activeTab === id ? ' on' : ''}`} onClick={() => setTab(id)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="regex-tab-body" role="tabpanel">
+            <ResultTabs tabs={tabs} active={activeTab} onSelect={setTab} panelId="regex-tabpanel" />
+            <div id="regex-tabpanel" className="regex-tab-body" role="tabpanel" tabIndex={0} aria-labelledby={tabId(activeTab)}>
               {activeTab === 'matches' && (
                 <MatchesView
                   result={current}
@@ -350,7 +351,7 @@ export default function RegexTool() {
               {activeTab === 'tests' && (
                 <TestsPanel cases={cases} result={tests?.result ?? null} pending={!testsFresh} onChange={setCases} onAdd={addCase} />
               )}
-              {activeTab === 'explain' && <ExplainPanel pattern={pattern} parsed={parsed} tree={tree} risks={risks} engineError={engineError} />}
+              {activeTab === 'explain' && <ExplainPanel pattern={pattern} parsed={parsed} tree={tree} risks={risks} riskCheckSkipped={!!backtracking?.skipped} engineError={engineError} />}
               {activeTab === 'js' && (
                 <div className="regex-code">
                   {([

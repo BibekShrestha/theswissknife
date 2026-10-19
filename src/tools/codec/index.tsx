@@ -29,7 +29,7 @@ export default function CodecTool() {
         brand={<><span className="material-symbols-outlined" aria-hidden>swap_horiz</span> Codec studio</>}
         localLabel="local text conversion"
       >
-        <button onClick={() => setInput(SAMPLE)} aria-label="Reset to sample" title="Reset to sample text"><span className="material-symbols-outlined">auto_fix_high</span></button>
+        <button onClick={() => setInput(SAMPLE)} aria-label="Reset to sample" title="Reset to sample text"><span className="material-symbols-outlined" aria-hidden>auto_fix_high</span></button>
       </ToolHeader>
 
       <main id="main-content" className="codec-main">
@@ -52,20 +52,21 @@ export default function CodecTool() {
             <header>
               <div><span className="codec-step">01</span><strong>Input</strong></div>
               <span>{input.length.toLocaleString()} chars · {utf8ByteLength(input).toLocaleString()} B</span>
-              <button onClick={() => setInput('')} disabled={!input} aria-label="Clear"><span className="material-symbols-outlined">close</span></button>
+              <button onClick={() => setInput('')} disabled={!input} aria-label="Clear"><span className="material-symbols-outlined" aria-hidden>close</span></button>
             </header>
             <textarea value={input} onChange={(event) => setInput(event.target.value)} spellCheck={false} aria-label="Codec input" placeholder="Paste text here" />
           </article>
 
-          <button className="codec-swap" onClick={swap} disabled={Boolean(result.error)} aria-label="Use output as input and reverse direction"><span className="material-symbols-outlined">swap_horiz</span></button>
+          <button className="codec-swap" onClick={swap} disabled={Boolean(result.error)} aria-label="Use output as input and reverse direction"><span className="material-symbols-outlined" aria-hidden>swap_horiz</span></button>
 
           <article className={`codec-pane${result.error ? ' has-error' : ''}`}>
             <header>
               <div><span className="codec-step">02</span><strong>Output</strong></div>
               {!result.error && <span>{result.value.length.toLocaleString()} chars · {utf8ByteLength(result.value).toLocaleString()} B</span>}
-              <button onClick={() => void copy(result.value, 'Output')} disabled={!result.value || Boolean(result.error)} aria-label="Copy"><span className="material-symbols-outlined">content_copy</span></button>
+              <button onClick={() => void copy(result.value, 'Output')} disabled={!result.value || Boolean(result.error)} aria-label="Copy"><span className="material-symbols-outlined" aria-hidden>content_copy</span></button>
             </header>
             {result.error ? <div className="codec-error" role="alert">{result.error}</div> : <textarea value={result.value} readOnly spellCheck={false} aria-label="Codec output" placeholder="Converted output appears here" />}
+            {result.warning && <p className="codec-warning" role="status">{result.warning}</p>}
           </article>
         </section>
       </main>

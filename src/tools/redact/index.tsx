@@ -8,15 +8,18 @@ import { MASK_CHARS } from './lib/characters'
 import { PRESETS } from './lib/patterns'
 import {
   DEFAULT_OPTIONS,
-  findRanges,
+  firstGrapheme,
+  isUsableMask,
   leaks,
   measure,
   normalizeMask,
-  redactRanges,
+  redactCounted,
+  type MatchReport,
   type SpaceMode,
   type Target,
 } from './lib/redact'
-import { countKinds, decodeFragment, type Scheme } from './lib/share'
+import { createMatchRunner, MATCH_TIMEOUT_MS, type MatchOutcome, type MatchRunner } from './lib/runner'
+import { countKinds, decodeFragment, keepLiterals, type Scheme } from './lib/share'
 import './redact.css'
 
 const SAMPLE = `Incident 4821 — 2026-08-09
@@ -36,6 +39,20 @@ interface Pick extends Target {
   id: number
 }
 
+/** A finished sweep and exactly what it swept, so stale results are never mistaken for fresh ones. */
+interface Matched {
+  text: string
+  picks: Pick[]
+  caseSensitive: boolean
+  outcome: MatchOutcome
+}
+
+const spawnWorker = () => new Worker(new URL('./lib/match.worker.ts', import.meta.url), { type: 'module' })
+
+/** U+2588-style code points, so an invisible or look-alike mask shows itself. */
+const codePoints = (text: string) =>
+  [...text].map((ch) => `U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`).join(' ')
+
 export default function RedactTool() {
   const [text, setText] = useState('')
   const [mask, setMask] = useState(DEFAULT_OPTIONS.mask)
@@ -46,12 +63,25 @@ export default function RedactTool() {
   const [draftIsRegex, setDraftIsRegex] = useState(false)
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [sharing, setSharing] = useState(false)
-  const [arrived, setArrived] = useState<{ patterns: number; literals: number } | null>(null)
+  const [arrived, setArrived] = useState<{ patterns: number; literals: number; mask: string } | null>(null)
+  const [matched, setMatched] = useState<Matched | null>(null)
 
   const { toast, showToast } = useToast()
   const copy = useCopy(showToast)
   const sourceRef = useRef<HTMLTextAreaElement>(null)
   const nextId = useRef(0)
+  const runnerRef = useRef<MatchRunner | null>(null)
+  const picksRef = useRef(picks)
+  picksRef.current = picks
+
+  useEffect(() => {
+    const runner = createMatchRunner(spawnWorker, MATCH_TIMEOUT_MS)
+    runnerRef.current = runner
+    return () => {
+      runnerRef.current = null
+      runner.dispose()
+    }
+  }, [])
 
   const scheme: Scheme = useMemo(
     () => ({ mask: normalizeMask(mask), spaces, scope, caseSensitive, targets: picks }),
@@ -76,8 +106,9 @@ export default function RedactTool() {
     const load = () => {
       decodeFragment(location.hash).then((incoming) => {
         if (!alive || !incoming) return
-        applyScheme(incoming)
-        setArrived(countKinds(incoming.targets))
+        // a link opened in a tab already in use keeps the terms picked there
+        applyScheme(keepLiterals(incoming, picksRef.current))
+        setArrived({ ...countKinds(incoming.targets), mask: incoming.mask })
       })
     }
     load()
@@ -104,25 +135,53 @@ export default function RedactTool() {
   const deferred = useDeferredValue(text)
   const options = useMemo(() => ({ mask: normalizeMask(mask), spaces }), [mask, spaces])
 
-  const report = useMemo(
-    () => (scope === 'picked' ? findRanges(deferred, picks, { caseSensitive }) : null),
-    [scope, deferred, picks, caseSensitive],
-  )
+  // Patterns come from the user or from a link, so the sweep runs in a worker
+  // that is killed after MATCH_TIMEOUT_MS: (a+)+$ costs a message, not the tab.
+  useEffect(() => {
+    if (scope !== 'picked') return
+    let alive = true
+    const sent = { text: deferred, picks, caseSensitive }
+    void runnerRef.current
+      ?.run({ text: deferred, targets: picks.map(({ kind, value }) => ({ kind, value })), caseSensitive })
+      .then((outcome) => alive && setMatched({ ...sent, outcome }))
+    return () => {
+      alive = false
+    }
+  }, [scope, deferred, picks, caseSensitive])
 
+  const fresh =
+    matched !== null && matched.text === deferred && matched.picks === picks && matched.caseSensitive === caseSensitive
+  const timedOut = scope === 'picked' && fresh && matched.outcome.timedOut ? matched.outcome : null
+  // The last finished sweep, paired with the text it swept. While a newer one
+  // runs after an edit to the text, the output shows that pair (never old
+  // ranges over new text) and cannot be copied. After a change to the picks
+  // it shows nothing: the old sweep may mask less than the new one will.
+  const report: MatchReport | null =
+    scope === 'picked' && matched && !matched.outcome.timedOut && matched.picks === picks && matched.caseSensitive === caseSensitive
+      ? matched.outcome.report
+      : null
+  const shown = scope === 'picked' ? (report ? matched!.text : '') : deferred
   const ranges = useMemo(
-    () => (report ? report.ranges : [{ start: 0, end: deferred.length }]),
-    [report, deferred.length],
+    () => (scope === 'picked' ? (report?.ranges ?? []) : [{ start: 0, end: shown.length }]),
+    [scope, report, shown.length],
   )
 
-  const output = useMemo(() => redactRanges(deferred, ranges, options), [deferred, ranges, options])
+  const { output, hidden } = useMemo(() => redactCounted(shown, ranges, options), [shown, ranges, options])
+  const ready = scope === 'all' || (fresh && !timedOut)
   const counts = useMemo(() => measure(deferred), [deferred])
   const notes = useMemo(
     () => (deferred.trim() ? leaks(deferred, options, scope === 'picked') : []),
     [deferred, options, scope],
   )
 
-  const masked = useMemo(() => ranges.reduce((sum, range) => sum + (range.end - range.start), 0), [ranges])
-  const missing = report ? report.counts.filter((count, i) => count === 0 && !!picks[i].value).length : 0
+  const reportFor = (pick: Pick) => {
+    if (!report || !matched) return null
+    const i = matched.picks.findIndex((other) => other.id === pick.id)
+    return i < 0 ? null : { count: report.counts[i] ?? 0, error: report.errors[i] ?? null }
+  }
+  const missing = report && fresh ? report.counts.filter((count, i) => count === 0 && !!picks[i]?.value).length : 0
+  const slowPick = timedOut && timedOut.culprit !== null ? matched!.picks[timedOut.culprit] : null
+  const maskRejected = mask !== '' && !isUsableMask(firstGrapheme(mask))
 
   const addPick = (value: string, kind: Target['kind']) => {
     const trimmed = kind === 'literal' ? value : value.trim()
@@ -166,25 +225,26 @@ export default function RedactTool() {
         localLabel="nothing leaves this tab"
       >
         <button onClick={() => setText(SAMPLE)} aria-label="Load sample text" title="Load a sample to redact">
-          <span className="material-symbols-outlined">description</span>
+          <span className="material-symbols-outlined" aria-hidden>description</span>
         </button>
         <button
           onClick={() => setSharing(true)}
           aria-label="Share this scheme"
           title="Share these settings and patterns — never your text"
         >
-          <span className="material-symbols-outlined">share</span>
+          <span className="material-symbols-outlined" aria-hidden>share</span>
         </button>
       </ToolHeader>
 
       <main id="main-content" className="redact-main">
         {arrived && (
           <div className="redact-arrived" role="status">
-            <span className="material-symbols-outlined">download_done</span>
+            <span className="material-symbols-outlined" aria-hidden>download_done</span>
             <p>
               Loaded a shared scheme — {arrived.patterns} pattern
               {arrived.patterns === 1 ? '' : 's'}
               {arrived.literals > 0 && `, ${arrived.literals} term${arrived.literals === 1 ? '' : 's'}`}
+              , mask <code className="redact-arrived-mask">{arrived.mask}</code> ({codePoints(arrived.mask)})
               . Your text stays yours; nothing came with it.
             </p>
             <button onClick={() => setArrived(null)}>Keep</button>
@@ -232,17 +292,25 @@ export default function RedactTool() {
                   {option.char}
                 </button>
               ))}
-              <label className="redact-custom" title="Any single character, including an emoji">
+              <label className="redact-custom" title="Any single visible character, including an emoji">
                 <span>own</span>
                 <input
                   type="text"
                   value={mask}
                   onChange={(event) => setMask(event.target.value)}
                   aria-label="Custom mask character"
+                  aria-invalid={maskRejected}
+                  aria-describedby={maskRejected ? 'redact-mask-note' : undefined}
                   spellCheck={false}
                 />
               </label>
             </div>
+            {maskRejected && (
+              <span id="redact-mask-note" className="redact-mask-note" role="status">
+                Not usable as a mask (invisible, a control character, or longer than one short
+                character) — using {options.mask}.
+              </span>
+            )}
           </div>
 
           <div className="redact-control">
@@ -272,7 +340,7 @@ export default function RedactTool() {
                 onClick={redactSelection}
                 title="Redact the text highlighted in the source (⌘⏎ / Ctrl+Enter)"
               >
-                <span className="material-symbols-outlined">ink_highlighter</span>
+                <span className="material-symbols-outlined" aria-hidden>ink_highlighter</span>
                 Redact selection
               </button>
 
@@ -331,24 +399,26 @@ export default function RedactTool() {
 
             {picks.length > 0 && (
               <ul className="redact-picks">
-                {picks.map((pick, i) => {
-                  const count = report?.counts[i] ?? 0
-                  const error = report?.errors[i] ?? null
+                {picks.map((pick) => {
+                  const result = reportFor(pick)
+                  const count = result?.count ?? 0
+                  const error = result?.error ?? null
+                  const slow = slowPick?.id === pick.id
                   return (
                     <li
                       key={pick.id}
-                      className={`redact-pick${error ? ' bad' : count === 0 ? ' empty' : ''}`}
+                      className={`redact-pick${error || slow ? ' bad' : result && count === 0 ? ' empty' : ''}`}
                     >
                       {pick.kind === 'regex' && <span className="redact-pick-kind">.*</span>}
                       <code>{ellipsis(pick.value, 30)}</code>
                       <span className="redact-pick-count">
-                        {error ? 'bad pattern' : count === 0 ? 'no match' : `${count}×`}
+                        {slow ? 'too slow' : error ? 'bad pattern' : !result ? '…' : count === 0 ? 'no match' : `${count}×`}
                       </span>
                       <button
                         onClick={() => setPicks((prev) => prev.filter((other) => other.id !== pick.id))}
                         aria-label={`Stop redacting ${pick.value}`}
                       >
-                        <span className="material-symbols-outlined">close</span>
+                        <span className="material-symbols-outlined" aria-hidden>close</span>
                       </button>
                     </li>
                   )
@@ -382,7 +452,7 @@ export default function RedactTool() {
                 {counts.words.toLocaleString()} words
               </span>
               <button onClick={() => setText('')} disabled={!text} aria-label="Clear source">
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined" aria-hidden>close</span>
               </button>
             </header>
             <textarea
@@ -405,20 +475,24 @@ export default function RedactTool() {
               </div>
               <span>
                 {scope === 'picked'
-                  ? `${masked.toLocaleString()} of ${(counts.masked + counts.spaces).toLocaleString()} chars hidden`
+                  ? ready
+                    ? `${hidden.toLocaleString()} of ${(counts.masked + counts.spaces).toLocaleString()} chars hidden`
+                    : timedOut
+                      ? 'stopped'
+                      : 'matching…'
                   : `${counts.masked.toLocaleString()} blocks`}
               </span>
               <button
                 onClick={() => copy(output, 'Redacted text')}
-                disabled={!output}
+                disabled={!output || !ready}
                 aria-label="Copy redacted text"
-                title="Copy the redacted text"
+                title={ready ? 'Copy the redacted text' : 'Wait for the patterns to finish'}
               >
-                <span className="material-symbols-outlined">content_copy</span>
+                <span className="material-symbols-outlined" aria-hidden>content_copy</span>
               </button>
             </header>
             <textarea
-              className="redact-output mono"
+              className={`redact-output mono${ready ? '' : ' stale'}`}
               value={output}
               readOnly
               spellCheck={false}
@@ -426,16 +500,24 @@ export default function RedactTool() {
               placeholder="The blocks appear here as you type."
             />
             <footer className="redact-foot">
+              {timedOut && (
+                <p className="redact-alarm" role="alert">
+                  <span className="material-symbols-outlined" aria-hidden>warning</span>
+                  {slowPick ? `“${ellipsis(slowPick.value, 30)}”` : 'A pattern'} took longer than{' '}
+                  {MATCH_TIMEOUT_MS / 1000} s on this text and was stopped, so nothing is shown. Remove
+                  or simplify it — nested repeats like (a+)+ are the usual cause.
+                </p>
+              )}
               {missing > 0 && (
                 <p className="redact-alarm">
-                  <span className="material-symbols-outlined">warning</span>
+                  <span className="material-symbols-outlined" aria-hidden>warning</span>
                   {missing} of your {picks.length} targets matched nothing — check the spelling, or
                   turn off “match case”.
                 </p>
               )}
               {report?.truncated && (
                 <p className="redact-alarm">
-                  <span className="material-symbols-outlined">warning</span>
+                  <span className="material-symbols-outlined" aria-hidden>warning</span>
                   Too many matches to mask them all — narrow the pattern.
                 </p>
               )}

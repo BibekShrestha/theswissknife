@@ -226,15 +226,25 @@ the precache list built by `scripts/sw-manifest.ts`.
   Schemes share as `#p=<base64url(deflate-raw(json))>` in the fragment, like
   jq's `#z=`: patterns travel, hand-picked literals do not unless the sharer
   opts in (they are the very values that were redacted), and the text never
-  does. `lib/share.ts` normalises anything arriving from a link.
+  does. `lib/share.ts` normalises anything arriving from a link (fragment
+  length and inflated size are capped; masks that hide invisible characters
+  are refused), and applying a scheme keeps the hand-picked terms already in
+  use (`keepLiterals`). Pattern matching runs in `lib/match.worker.ts` behind
+  `lib/runner.ts` (the regex deadline pattern, copied): a pattern that hangs
+  is named, the output stays blank and Copy stays disabled.
 - `tools/codec/` — Base64, URL, HTML-entity and UTF-8 hex encode/decode
-  (`codec.ts`).
+  (`codec.ts`). HTML entities decode through a `<textarea>` in a detached
+  document, so markup stays text and the browser's full entity table applies.
 - `tools/diff/` — line diff with hand-written linear-space Myers
   (`myers.ts`, tested minimal against a brute-force LCS). Runs in
   `diff.worker.ts` behind `runner.ts`'s deadline (O(ND) blows up on large,
-  unrelated inputs). JSON mode re-prints both sides with sorted keys; big
-  integers keep their digits via JSON.parse source text. `patch.ts` writes
-  `diff -u` output, including `\ No newline at end of file`.
+  unrelated inputs). JSON mode re-prints both sides with sorted keys; every
+  number keeps its exact decimal value via JSON.parse source text
+  (`normalizeNumber`), so 1 and 1.0 compare equal but values a double can't
+  tell apart don't. JSON mode writes no patch (it diffs the re-printed text).
+  `patch.ts` writes `diff -u` output with `a/`/`b/` labels, including
+  `\ No newline at end of file`; lines split on LF only and keep their CR, so
+  `patch -p1` and `git apply` reproduce CRLF files (tested against both).
 - `tools/time/` — Unix timestamps from seconds to nanoseconds, held as
   `bigint` nanoseconds so precision survives; local, UTC and any IANA zone.
 - `tools/cron/` — five-field cron explainer, no library: `parse.ts` (Vixie

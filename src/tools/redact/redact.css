@@ -70,6 +70,12 @@
   margin-left: 4px;
 }
 
+.redact-mask-note {
+  color: var(--warn);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
 .redact-custom span {
   color: var(--muted);
   font: 10px var(--font-mono);
@@ -143,6 +149,14 @@
   min-width: 200px;
 }
 
+.redact-arrived-mask {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  padding: 0 4px;
+}
+
 .redact-arrived button {
   font-size: 11.5px;
   min-height: 28px;
@@ -158,7 +172,8 @@
   justify-content: center;
   padding: 20px;
   position: fixed;
-  z-index: 60;
+  /* Above the shell's sticky tool sidebar (z-index 70). */
+  z-index: 90;
 }
 
 .redact-dialog {
@@ -535,6 +550,11 @@
 .redact-source:focus,
 .redact-output:focus {
   outline-offset: -2px;
+}
+
+/* the last finished sweep, shown while a newer one runs — not copyable */
+.redact-output.stale {
+  opacity: 0.6;
 }
 
 /* ---- what the output still gives away ---- */

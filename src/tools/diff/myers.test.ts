@@ -62,14 +62,25 @@ describe('diffSequences', () => {
     }
   })
 
-  it('stays fast on a large file with scattered edits', () => {
-    const a = Array.from({ length: 200_000 }, (_, i) => i)
+  it('does bounded work on a large file with scattered edits', () => {
+    const a = Array.from({ length: 50_000 }, (_, i) => i)
     const b = a.filter((x) => x % 997 !== 0).map((x) => (x % 1009 === 0 ? -x : x))
-    const started = performance.now()
-    const matches = diffSequences(a, b)
-    expect(performance.now() - started).toBeLessThan(2000)
+    // Counts element reads instead of timing the run, so a loaded machine
+    // cannot fail it. The bisection re-scans prefixes and suffixes at each
+    // level, so the bound is c·(N + M) + c·D² with a generous c.
+    let reads = 0
+    const counting = (seq: number[]): ArrayLike<number> => new Proxy(seq, {
+      get(target, key, receiver) {
+        if (typeof key === 'string' && key !== 'length') reads++
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const matches = diffSequences(counting(a), counting(b))
     checkMatches(a, b, matches)
-  })
+    const d = a.length + b.length - 2 * total(matches)
+    // ~0.75M reads today (N + M ≈ 100K, D = 149); a quadratic slip would be ~10^9
+    expect(reads).toBeLessThanOrEqual(8 * (a.length + b.length) + 8 * d * d)
+  }, 30_000) // Proxy reads are slow, slower still on Node 22
 })
 
 describe('createInterner', () => {

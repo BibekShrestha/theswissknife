@@ -1,9 +1,7 @@
 {
   "$comment": "Icon spans without aria-hidden that predate the guard in a11y.test.ts. Counts may only go down — fix them (PR H) and lower the number.",
   "unhiddenIcons": {
-    "src/tools/codec/index.tsx": 4,
     "src/tools/convert/index.tsx": 5,
-    "src/tools/diff/index.tsx": 7,
     "src/tools/jq/components/OptionsPanel.tsx": 5,
     "src/tools/pdf/components/FileDropzone.tsx": 3,
     "src/tools/pdf/components/PdfPreviewModal.tsx": 3,
@@ -22,8 +20,6 @@
     "src/tools/pdf/tools/SplitPdf.tsx": 3,
     "src/tools/pdf/tools/UnlockPdf.tsx": 2,
     "src/tools/pdf/tools/Watermark.tsx": 4,
-    "src/tools/qr/scan/Scanner.tsx": 1,
-    "src/tools/redact/components/ShareDialog.tsx": 2,
-    "src/tools/redact/index.tsx": 9
+    "src/tools/qr/scan/Scanner.tsx": 1
   }
 }
