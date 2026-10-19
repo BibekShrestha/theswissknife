@@ -411,7 +411,8 @@ function lengthDelimited(ctx: Ctx, node: DNode, start: number, end: number, dept
   }
 
   // 3. Packed repeated numbers.
-  const kinds: PackedKind[] = packedKind ? [packedKind] : ctx.packed ? ['varint', 'fixed32', 'fixed64'] : []
+  // A declared field already says what it is; only undeclared ones get every packed guess.
+  const kinds: PackedKind[] = packedKind ? [packedKind] : ctx.packed && (!field || field.kind === 'unknown') ? ['varint', 'fixed32', 'fixed64'] : []
   for (const kind of kinds) {
     const v = packed(ctx, kind, start, end, field)
     if (v) views.push(v)

@@ -75,7 +75,7 @@ export function parseInput(text: string, encoding: Encoding): ParsedInput {
   }
   const hex = parseHex(text)
   if (!('error' in hex)) {
-    const b64 = /^[0-9a-f\s]+$/i.test(text) ? parseBase64(text) : null
+    const b64 = /^[0-9a-f]+$/i.test(text.trim()) ? parseBase64(text) : null
     return {
       ...empty,
       bytes: hex.bytes,

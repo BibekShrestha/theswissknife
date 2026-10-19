@@ -11,7 +11,7 @@ import { decodeMsgpack } from './msgpack'
 import { parseProto } from './proto-schema'
 import { decodeProtobuf } from './protobuf'
 import { hex, rng, walk } from './testkit'
-import { Budget } from './util'
+import { Budget, closeOpen } from './util'
 import type { DecodeResult } from './types'
 
 const schema = parseProto('message R { string s = 1; repeated int64 xs = 2; R child = 3; map<string, R> m = 4; repeated float f = 5; E e = 6; enum E { A = 0; } }')
@@ -118,6 +118,14 @@ describe('fuzz', () => {
       const response = handleDecode({ bytes, format: 'auto', options: { packed: true, proto: '', root: '' } })
       expect(response.error).toBeNull()
     }
+  })
+
+  it('closes a huge open container without spreading its children into one call', () => {
+    // Regression: closeOpen used push(...children), which overflows a worker's smaller stack at 100,000 items.
+    const children = Array.from({ length: 1_000_000 }, (_, i) => ({ label: '', kind: 'uint', start: i, head: i, end: i + 1 }))
+    const nodes = [{ label: 'root', kind: 'array', start: 0, head: 3, end: -1, children }]
+    expect(() => closeOpen(nodes, 10)).not.toThrow()
+    expect(nodes[0].end).toBe(10)
   })
 
   it('caps every result at the node budget', () => {

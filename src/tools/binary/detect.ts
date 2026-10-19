@@ -51,6 +51,7 @@ export function detect(results: Record<Format, DecodeResult>, bytes: Uint8Array)
   const best = ranked[0]
   const clean = ranked.filter((x) => !x.r.errors.length)
   const failed = ranked.slice(1).filter((o) => o.r.errors.length)
+  const reads = (r: DecodeResult) => (r.truncated ? 'reads without error up to the item cap' : 'reads every byte')
   const sequence = (r: DecodeResult) => (r.format !== 'protobuf' && r.items > 1 ? ` as a sequence of ${plural(r.items, 'item')}` : '')
   const failedText = failed.length ? ` ${failed.map((o) => stopsAt(o.r)).join('; ')}.` : ''
 
@@ -71,12 +72,12 @@ export function detect(results: Record<Format, DecodeResult>, bytes: Uint8Array)
     return {
       format: best.format,
       confidence: single ? 'high' : 'medium',
-      reason: `${distant.length ? '' : 'Only '}${formatLabel[best.format]} reads every byte${sequence(best.r)}${distant.length ? ' as one item' : ''}.${distantText}${failedText}`,
+      reason: `${distant.length ? '' : 'Only '}${formatLabel[best.format]} ${reads(best.r)}${sequence(best.r)}${distant.length ? ' as one item' : ''}.${distantText}${failedText}`,
     }
   }
   return {
     format: best.format,
     confidence: 'medium',
-    reason: `${formatLabel[best.format]} reads every byte${sequence(best.r)}, but so does ${alsoClean.map((c) => `${formatLabel[c.format]}${sequence(c.r)}`).join(' and ')} — switch format if this reading looks wrong.${failedText}`,
+    reason: `${formatLabel[best.format]} ${reads(best.r)}${sequence(best.r)}, but so does ${alsoClean.map((c) => `${formatLabel[c.format]}${sequence(c.r)}`).join(' and ')} — switch format if this reading looks wrong.${failedText}`,
   }
 }

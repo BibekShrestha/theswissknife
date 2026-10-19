@@ -36,6 +36,13 @@ describe('format detection', () => {
     expect(d.reason).toMatch(/No format reads every byte/)
   })
 
+  it('does not claim every byte was read when the item cap stopped decoding', () => {
+    const r = handleDecode({ bytes: new Uint8Array(300_000), format: 'auto', options: { packed: false, proto: '', root: '' } })
+    expect(r.result.truncated).toBe(true)
+    expect(r.detection!.reason).toMatch(/^CBOR reads without error up to the item cap/)
+    expect(r.detection!.reason).not.toMatch(/every byte/)
+  })
+
   it('honours an explicit format and the .proto', () => {
     const r = run('089601', 'cbor')
     expect(r.detection).toBeNull()

@@ -203,4 +203,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/json-types'),
   },
+  {
+    slug: 'binary',
+    name: 'Binary decoder',
+    mark: '0x',
+    category: 'data',
+    load: () => import('../tools/binary'),
+  },
 ]

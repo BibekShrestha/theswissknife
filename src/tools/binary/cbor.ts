@@ -495,7 +495,7 @@ function embedded(ctx: Ctx, depth: number, start: number, end: number): { value:
   try {
     const it = decodeItem(inner, depth + 1, children, 'embedded')
     if (inner.pos !== end) return null
-    ctx.warnings.push(...inner.warnings)
+    for (const w of inner.warnings) ctx.warnings.push(w)
     return { value: it.node.value ?? it.node.kind, children }
   } catch (error) {
     if (error instanceof DecodeError && !error.limit) return null

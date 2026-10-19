@@ -153,7 +153,8 @@ export function closeOpen(nodes: DNode[], offset: number): void {
       node.end = Math.max(offset, node.head)
       ;(node.notes ??= []).push({ level: 'warn', text: 'Incomplete — decoding stopped inside this item' })
     }
-    if (node.children) stack.push(...node.children)
+    // A loop, not push(...children): spreading 100,000 arguments overflows a worker's stack.
+    if (node.children) for (const child of node.children) stack.push(child)
     if (node.key) stack.push(node.key)
   }
 }

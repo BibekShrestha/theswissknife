@@ -591,3 +591,31 @@ the precache list built by `scripts/sw-manifest.ts`.
   a dependency), and, when installed, builds the Go structs and decodes the
   samples with unknown fields disallowed, and compiles the Python (executing
   TypedDict on 3.11+, validating with pydantic when importable).
+- `tools/binary/` — schemaless Protobuf / CBOR / MessagePack decoder, no
+  libraries. `input.ts` reads hex (spaces, commas, `0x`, `\x`) or
+  Base64/Base64URL; auto prefers hex. Each decoder (`protobuf.ts`,
+  `cbor.ts`, `msgpack.ts`) returns one `DNode` tree with absolute byte
+  ranges (`start..head` is the header, `head..end` the content) and never
+  throws on bad bytes: errors come back as `{offset, message}` and the
+  partial tree is kept (`closeOpen` ends unfinished containers — with a
+  loop, since `push(...children)` overflows a worker's stack). Every length
+  is compared with the bytes left before anything is sliced or looped (a
+  CBOR length of 2^64 is an error, not an allocation); nesting is capped at
+  `MAX_DEPTH` and items at `Budget` (`MAX_NODES`, the tree is then marked
+  `truncated`). Protobuf length-delimited fields carry `views` (message,
+  text, packed varint/fixed32/fixed64 when asked or declared, bytes); the
+  default is printable text, then message, then packed. Failed nested-message
+  attempts refund the Budget, `MAX_WORK` field reads bound nested attempts,
+  and schemaless packed views share `PACKED_TOTAL` element nodes.
+  `proto-schema.ts` is a small .proto reader (messages, enums, map, oneof,
+  labels; imports not followed, proto2 groups and extensions skipped, with
+  notes). CBOR reports §4.2.1 deterministic-encoding breaks and MessagePack
+  non-shortest formats as warnings. `detect.ts` decodes as all three and
+  ranks (whole input read, one item over a sequence, field-number sanity,
+  the 0xd9d9f7 magic). Everything runs in `binary.worker.ts` behind
+  `runner.ts` (the regex runner, copied; `DECODE_TIMEOUT_MS`). The UI tree
+  (`ui/Tree.tsx`) and hex view (`ui/HexView.tsx`) are windowed —
+  `ui/model.ts` flattens with per-node reading choices in the ids and scales
+  the hex scroll range past the browser's element-height limit. Tests:
+  RFC 8949 Appendix A, msgpack spec formats, protobuf encoding-guide
+  examples, and seeded fuzzing (`fuzz.test.ts`).
