@@ -105,8 +105,11 @@ describe('the landing tool index filter', () => {
       setValue.call(input, 'images')
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
+    // Taglines load lazily and may add tools from other categories whose
+    // tagline mentions images; the category match and its number must hold either way.
     const headings = [...document.querySelectorAll('.landing-index-heading')].map((h) => h.textContent)
-    expect(headings).toEqual([expect.stringMatching(/^07Images\d+$/)])
+    expect(headings).toContainEqual(expect.stringMatching(/^07Images\d+$/))
+    expect(headings).not.toContainEqual(expect.stringMatching(/^0[1-6](Data|Text|Docs|Time|PDF)/))
   })
 })
 
