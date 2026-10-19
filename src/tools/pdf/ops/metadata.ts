@@ -25,7 +25,7 @@ export interface StripMetadataOptions {
   javascript: boolean
 }
 
-export type MetadataKind = 'info' | 'xmp' | 'piece-info' | 'thumbnail' | 'attachment' | 'javascript' | 'image-metadata'
+export type MetadataKind = 'info' | 'xmp' | 'piece-info' | 'thumbnail' | 'attachments' | 'javascript' | 'image-metadata'
 
 export interface MetadataFinding {
   kind: MetadataKind
@@ -238,7 +238,7 @@ export function inspectMetadata(doc: PDFDocument): MetadataFinding[] {
 
   if (thumbPages.length) add('thumbnail', thumbPages.some((p) => p > 0) ? `page${thumbPages.length === 1 ? '' : 's'} ${thumbPages.filter((p) => p > 0).join(', ')}` : undefined, thumbPages.length)
   if (embedded.size) {
-    found.set('attachment', { kind: 'attachment', count: embedded.size, details: [...new Set(attachmentNames)].slice(0, MAX_DETAILS) })
+    found.set('attachments', { kind: 'attachments', count: embedded.size, details: [...new Set(attachmentNames)].slice(0, MAX_DETAILS) })
   }
 
   walkDicts(context, (dict) => {
@@ -248,7 +248,7 @@ export function inspectMetadata(doc: PDFDocument): MetadataFinding[] {
     }
   })
 
-  const order: MetadataKind[] = ['info', 'xmp', 'piece-info', 'thumbnail', 'attachment', 'javascript', 'image-metadata']
+  const order: MetadataKind[] = ['info', 'xmp', 'piece-info', 'thumbnail', 'attachments', 'javascript', 'image-metadata']
   return order.flatMap((k) => (found.has(k) ? [found.get(k)!] : []))
 }
 
@@ -365,7 +365,7 @@ export async function removeMetadata(bytes: Uint8Array, options: StripMetadataOp
   const remain = inspectMetadata(check)
   const contentKept = sameContents(before, pageContents(check))
   const targeted: MetadataKind[] = ['info', 'xmp', 'piece-info', 'thumbnail']
-  if (options.attachments) targeted.push('attachment')
+  if (options.attachments) targeted.push('attachments')
   if (options.javascript) targeted.push('javascript')
   return { bytes: out, found, remain, targeted, pages: check.getPageCount(), contentKept, notes }
 }

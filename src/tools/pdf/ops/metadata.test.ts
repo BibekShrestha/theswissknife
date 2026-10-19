@@ -70,8 +70,8 @@ describe('Remove Metadata', () => {
     )
     expect(count(report.found, 'piece-info')).toBe(1) // the page's PieceInfo; its own LastModified is not counted twice
     expect(count(report.found, 'thumbnail')).toBe(1)
-    expect(count(report.found, 'attachment')).toBe(1)
-    expect(report.found.find((f) => f.kind === 'attachment')!.details).toEqual(['notes.txt'])
+    expect(count(report.found, 'attachments')).toBe(1)
+    expect(report.found.find((f) => f.kind === 'attachments')!.details).toEqual(['notes.txt'])
     expect(count(report.found, 'javascript')).toBe(3)
     expect(count(report.found, 'image-metadata')).toBe(1)
 
@@ -94,9 +94,9 @@ describe('Remove Metadata', () => {
 
   it('keeps attachments and JavaScript unless asked, and says they remain', async () => {
     const report = await removeMetadata(await loadedPdf(), neither)
-    expect(report.targeted).not.toContain('attachment')
+    expect(report.targeted).not.toContain('attachments')
     expect(report.targeted).not.toContain('javascript')
-    expect(count(report.remain, 'attachment')).toBe(1)
+    expect(count(report.remain, 'attachments')).toBe(1)
     expect(count(report.remain, 'javascript')).toBe(3)
     for (const kind of report.targeted) expect(count(report.remain, kind), kind).toBe(0)
     const text = await allText(report.bytes)
@@ -115,8 +115,8 @@ describe('Remove Metadata', () => {
     const annot = ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'FileAttachment', Rect: [0, 0, 10, 10], FS: { Type: 'Filespec', F: PDFString.of('a.bin'), EF: { F: file } } }))
     page.node.set(PDFName.of('Annots'), ctx.obj([annot]))
     const report = await removeMetadata(await doc.save(), both)
-    expect(count(report.found, 'attachment')).toBe(1)
-    expect(count(report.remain, 'attachment')).toBe(0)
+    expect(count(report.found, 'attachments')).toBe(1)
+    expect(count(report.remain, 'attachments')).toBe(0)
     expect(await allText(report.bytes)).not.toContain('ANNOT-FILE')
   })
 

@@ -53,11 +53,17 @@ export class PdfTimeoutError extends PdfInputError {
 }
 
 export class PdfCrashError extends PdfInputError {
-  constructor(readonly job: PdfJob) {
-    super(`${jobLabels[job]} failed: the PDF worker crashed — usually the browser ran out of memory for this file. Nothing was written — you can try again or choose another file.`)
+  constructor(readonly job: PdfJob, offline = false) {
+    super(
+      offline
+        ? `${jobLabels[job]} failed: the PDF worker could not start — this device is offline and the worker has not been downloaded yet. Run a PDF Buddy tool once while online to use it offline.`
+        : `${jobLabels[job]} failed: the PDF worker crashed — usually the browser ran out of memory for this file. Nothing was written — you can try again or choose another file.`,
+    )
     this.name = 'PdfCrashError'
   }
 }
+
+const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false
 
 export interface RunOptions {
   /** Called with each progress value the job reports (Merge: files done). */
@@ -103,7 +109,7 @@ export function createPdfRunner(spawn: () => WorkerLike, options: { stallMs?: nu
       const p = pending
       pending = null
       kill()
-      p?.reject(new PdfCrashError(p.job))
+      p?.reject(new PdfCrashError(p.job, isOffline()))
     }
     return w
   }

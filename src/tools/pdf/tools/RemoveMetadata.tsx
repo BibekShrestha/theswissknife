@@ -13,7 +13,7 @@ const kinds: { kind: MetadataKind; label: string; what: string }[] = [
   { kind: 'xmp', label: 'XMP metadata', what: 'XML metadata packets on the document, pages, images or fonts, and orphaned ones' },
   { kind: 'piece-info', label: 'Application data', what: 'Private data editing apps store (/PieceInfo) and last-modified dates' },
   { kind: 'thumbnail', label: 'Page thumbnails', what: 'Small preview images stored with pages (/Thumb)' },
-  { kind: 'attachment', label: 'Attachments', what: 'Embedded files and file-attachment annotations' },
+  { kind: 'attachments', label: 'Attachments', what: 'Embedded files and file-attachment annotations' },
   { kind: 'javascript', label: 'JavaScript', what: 'Document scripts and script actions on open, links, pages and form fields' },
   { kind: 'image-metadata', label: 'Photo metadata in images', what: 'EXIF/XMP inside embedded JPEG photos — images are kept byte for byte' },
 ]
