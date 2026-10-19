@@ -78,6 +78,13 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/diff'),
   },
   {
+    slug: 'unicode',
+    name: 'Unicode inspector',
+    mark: 'U+',
+    category: 'text',
+    load: () => import('../tools/unicode'),
+  },
+  {
     slug: 'markdown',
     name: 'Markdown preview & export',
     mark: 'M↓',

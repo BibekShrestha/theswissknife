@@ -14,6 +14,7 @@ export const taglines: Record<string, string> = {
   regex: 'Test JavaScript regex with highlighted groups, test cases, plain-language explanations and share links — in a worker that stops runaway patterns',
   redact: 'Black out text with block characters — the shape stays, the words are gone for good',
   codec: 'Encode and decode Base64, URLs, HTML entities and UTF-8 hex without uploads',
+  unicode: 'See every character in your text — code points, names, bytes and escapes — and catch zero-width, bidi, tag and look-alike characters, with normalise, strip and reveal',
   diff: 'Compare text or JSON line by line with word highlights, and export text diffs as a unified patch',
   markdown: 'Live Markdown preview with math and diagrams — export one self-contained HTML file or a PDF',
   time: 'Convert seconds through nanoseconds into precise local, UTC and zoned time',

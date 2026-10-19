@@ -12,7 +12,8 @@
     "og-image": "node scripts/gen-og.mjs",
     "icon-font": "node scripts/icon-font.ts",
     "test": "vitest run",
-    "display-font": "python3 scripts/fonts/display.py"
+    "display-font": "python3 scripts/fonts/display.py",
+    "unicode-names": "${PYTHON:-python3} scripts/unicode-names.py"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
