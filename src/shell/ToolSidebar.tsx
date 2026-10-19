@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { BladeMark } from './BladeMark'
+import { useModalFocus } from './focus'
 import { categories } from './Landing'
 import { tools } from './registry'
 import { Link, navigate } from './router'
@@ -11,12 +12,22 @@ interface ToolSidebarProps {
   onClose: () => void
 }
 
+/** Below this width the sidebar is a drawer (theme.css) and behaves as a modal while open. */
+const DRAWER_MEDIA = '(max-width: 960px)'
+
 export function ToolSidebar({ path, open, onClose }: ToolSidebarProps) {
   const [query, setQuery] = useState('')
+  const asideRef = useRef<HTMLElement>(null)
   const taglines = useTaglines(query)
-  const matches = (tool: (typeof tools)[number]) => toolMatches(tool, query, taglines)
+  useModalFocus(asideRef, open, { onEscape: onClose, media: DRAWER_MEDIA, initial: 'container' })
+
+  // Each category keeps its own number while filtering, so "06 PDF" stays 06.
   const groups = categories
-    .map((category) => ({ category, list: tools.filter((tool) => tool.category === category.id && matches(tool)) }))
+    .map((category, index) => ({
+      category,
+      number: index + 1,
+      list: tools.filter((tool) => tool.category === category.id && toolMatches(tool, query, taglines, category.name)),
+    }))
     .filter(({ list }) => list.length)
 
   const surprise = () => {
@@ -29,7 +40,7 @@ export function ToolSidebar({ path, open, onClose }: ToolSidebarProps) {
   return (
     <>
       {open && <button type="button" className="tool-sidebar-backdrop" onClick={onClose} aria-label="Close tool index" />}
-      <aside className={`tool-sidebar${open ? ' open' : ''}`} aria-label="All tools">
+      <aside ref={asideRef} id="tool-sidebar" tabIndex={-1} className={`tool-sidebar${open ? ' open' : ''}`} aria-label="All tools">
         <Link to="/" className="tool-sidebar-brand" onClick={onClose}>
           <span><BladeMark /></span>
           <span><strong>The Swiss Knife</strong><small>theswissknife.com</small></span>
@@ -42,10 +53,10 @@ export function ToolSidebar({ path, open, onClose }: ToolSidebarProps) {
         </label>
 
         <nav className="tool-sidebar-list" aria-label="Tools">
-          {groups.length ? groups.map(({ category, list }, categoryIndex) => (
+          {groups.length ? groups.map(({ category, number, list }) => (
             <section key={category.id}>
               <div className="tool-sidebar-heading">
-                <span>{String(categoryIndex + 1).padStart(2, '0')}</span>
+                <span>{String(number).padStart(2, '0')}</span>
                 <strong>{category.name}</strong>
                 <span>{list.length}</span>
               </div>

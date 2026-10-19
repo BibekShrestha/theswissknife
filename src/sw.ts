@@ -106,13 +106,28 @@ async function cacheFirst(request: Request): Promise<Response> {
  * Network-first so a deploy is picked up immediately, falling back to the
  * precached shell. Routing is history-based, so an offline reload of /jq
  * arrives here as a navigation for a path that was never a real file.
+ *
+ * 'no-cache' makes the browser revalidate with the server instead of reusing
+ * its HTTP cache: GitHub Pages sends HTML with max-age=600, so a plain fetch
+ * hands a returning visitor the previous deploy's page for ten minutes — a
+ * page naming hashed chunks that the deploy just deleted.
  */
 async function shellFirst(request: Request): Promise<Response> {
   try {
-    return await fetch(request)
+    return await fetch(request, { cache: 'no-cache' })
   } catch {
-    return (await caches.match(SHELL, { cacheName: CORE_CACHE })) ?? Response.error()
+    const own = request.mode === 'navigate' ? undefined : await caches.match(request)
+    return own ?? (await caches.match(SHELL, { cacheName: CORE_CACHE })) ?? Response.error()
   }
+}
+
+/**
+ * HTML is never content-addressed: the shell at base and the per-tool pages
+ * (/jq.html) keep their URLs across deploys, so answering them cache-first —
+ * even a script's fetch('/') — would serve whichever deploy happened to be cached.
+ */
+function isPage(pathname: string): boolean {
+  return pathname === SHELL || pathname.endsWith('.html')
 }
 
 sw.addEventListener('fetch', (event) => {
@@ -122,7 +137,7 @@ sw.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== location.origin) return
 
-  if (request.mode === 'navigate') {
+  if (request.mode === 'navigate' || isPage(url.pathname)) {
     event.respondWith(shellFirst(request))
     return
   }

@@ -36,8 +36,13 @@ row). To add one:
    with `<name>` exactly as in the registry.
 
 Everything else derives from the registry: landing page, sidebar, ⌘K palette,
-sitemap, landing JSON-LD and meta description (`scripts/tool-meta.ts`), and the
-build's lazy-chunk check. `src/shell/main-pages.test.ts` fails if a tool is
+sitemap, landing JSON-LD and meta description (`scripts/tool-meta.ts`), each
+tool's own page `dist/<slug>.html` (its title, tagline as description,
+canonical `https://theswissknife.com/<slug>` matching the sitemap, JSON-LD —
+GitHub Pages serves it for `/<slug>` with a 200; unknown paths still get
+`404.html`), and the build's lazy-chunk check. `check-bundle.mjs` fails if a
+tool page is missing, its canonical isn't in the sitemap, or its inline
+script differs from `index.html`'s (the CSP hash). `src/shell/main-pages.test.ts` fails if a tool is
 missing from any of them, including the README table.
 
 ## Hard rules
@@ -59,7 +64,8 @@ missing from any of them, including the README table.
   - `handoff.ts`: `sendTo(slug, { name, text?, bytes?, type? })` hands one
     payload to another tool and navigates there; that tool calls
     `takeHandoff(slug)` on mount (single use, memory only — never the URL or
-    storage, since it is the user's data).
+    storage, since it is the user's data; dropped on any route change away
+    from the target and after 30 s).
 
   Everything else in `shell/` (App, Landing, ToolSidebar, CommandPalette,
   palette, sidebar, BladeMark, ErrorBoundary, pwa, taglines, tool-copy) is
@@ -78,7 +84,7 @@ missing from any of them, including the README table.
   wired up.
 - **Tools must stay lazy.** Nothing outside `shell/` may be imported by
   `main.tsx`/landing. `npm run build` ends with `scripts/check-bundle.mjs`:
-  the entry chunk plus its static imports is ~66.3 KiB gz (react + shell +
+  the entry chunk plus its static imports is ~67.5 KiB gz (react + shell +
   registry) against a budget of 65.9 KiB + 0.08 KiB per tool, so registry
   lines alone never trip it. Adding a tool should move it by ~0.05 KiB (its
   registry line; taglines load lazily); a jump of kilobytes means the tool
@@ -116,9 +122,18 @@ emitted as `/sw.js` by the `pwa()` plugin in `vite.config.ts`, which inlines
 the precache list built by `scripts/sw-manifest.ts`.
 
 - **The shell is precached; tools are cached when first opened.** The list
-  follows the entry chunk's *static* import graph only, so anything that leaks
+  follows the entry chunk's *static* import graph, so anything that leaks
   into the eager graph is downloaded by every visitor on first paint — a second
-  reason the laziness rule matters.
+  reason the laziness rule matters. The one exception is the shell's own lazy
+  chunks (command palette, `tool-copy` taglines, `pwa`; ~3 KB gz together):
+  dynamic imports into `src/shell/` modules are precached too
+  (`isShellChunk` in `vite.config.ts`), so search works offline before anyone
+  has opened it. Dynamic imports into `src/tools/` never are.
+- **HTML is network-first, revalidated.** Navigations and any `.html`/shell
+  fetch go to the network with `cache: 'no-cache'` (GitHub Pages sends
+  `max-age=600`, which would otherwise hand returning visitors the previous
+  deploy's page whose chunks are gone) and fall back to the precached shell
+  offline. Hashed chunks are cache-first.
 - **Don't precache the heavy assets.** The jq wasm (929 KB), pdf.js worker
   (1.3 MB) and sql.js wasm (658 KB) are runtime-cached on first use. All of
   them are invisible to `dist/.vite/manifest.json`, which is why the list is
@@ -149,7 +164,9 @@ the precache list built by `scripts/sw-manifest.ts`.
   differ byte-wise per deploy or no browser sees the update, so the version
   hash covers the icons and `index.html`, not just hashed asset names.
 - A tool never opened online fails to load offline; `ErrorBoundary` says so
-  instead of reporting a crash.
+  instead of reporting a crash (only for chunk-load errors — a real crash
+  offline is still a crash). A failed tool stylesheet counts as a stale chunk
+  and offers Reload: Vite never re-requests CSS, so that is the only retry.
 
 ## Commands
 

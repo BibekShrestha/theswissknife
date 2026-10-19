@@ -16,6 +16,12 @@ describe('toolMatches', () => {
     expect(toolMatches(jq, taglines.jq.split(' ').at(-1)!, taglines)).toBe(true)
   })
 
+  it('matches the category’s display name, not only its id', () => {
+    const image = tools.find((tool) => tool.slug === 'image')!
+    // The heading says "Images"; the id is "image".
+    expect(toolMatches(image, 'images', null, 'Images')).toBe(true)
+  })
+
   it('matches everything for an empty query', () => {
     expect(toolMatches(jq, '  ', null)).toBe(true)
   })

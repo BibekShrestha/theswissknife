@@ -101,6 +101,44 @@ describe('buildSwManifest', () => {
   })
 })
 
+describe('buildSwManifest with lazy shell chunks', () => {
+  /**
+   * The palette and the taglines are shell code split off only to keep first
+   * paint small. A visitor offline before ever opening the palette would
+   * otherwise have no search at all, so they are precached — tools are not.
+   */
+  const withPalette: Record<string, BundleEntry> = {
+    ...bundle,
+    'assets/index-aaa.js': {
+      ...bundle['assets/index-aaa.js'],
+      dynamicImports: ['assets/CommandPalette-ppp.js', 'assets/jq-ddd.js'],
+    },
+    'assets/CommandPalette-ppp.js': {
+      type: 'chunk',
+      facadeModuleId: '/repo/src/shell/CommandPalette.tsx',
+      imports: ['assets/tool-copy-ttt.js'],
+    },
+    'assets/tool-copy-ttt.js': { type: 'chunk', facadeModuleId: '/repo/src/shell/tool-copy.ts' },
+    'assets/jq-ddd.js': { ...bundle['assets/jq-ddd.js'], facadeModuleId: '/repo/src/tools/jq/index.tsx' },
+  }
+  const isShell = (entry: BundleEntry) => /\/src\/shell\//.test(entry.facadeModuleId ?? '')
+  const manifest = buildSwManifest(withPalette, '/', extraCore, '', isShell)
+
+  it('precaches the shell’s own lazy chunks and what they import', () => {
+    expect(manifest.core).toContain('/assets/CommandPalette-ppp.js')
+    expect(manifest.core).toContain('/assets/tool-copy-ttt.js')
+  })
+
+  it('still leaves every tool out', () => {
+    expect(manifest.core).not.toContain('/assets/jq-ddd.js')
+    expect(manifest.core).not.toContain('/assets/jq-eee.wasm')
+  })
+
+  it('follows no dynamic import without the predicate', () => {
+    expect(buildSwManifest(withPalette, '/', extraCore).core).not.toContain('/assets/CommandPalette-ppp.js')
+  })
+})
+
 describe('buildSwManifest across deploys', () => {
   const next: Record<string, BundleEntry> = {
     ...bundle,

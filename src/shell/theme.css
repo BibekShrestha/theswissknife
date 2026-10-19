@@ -239,6 +239,12 @@ input:where(:not([type='text'], [type='checkbox'], [type='radio'], [type='range'
   outline-offset: 2px;
 }
 
+/* Programmatic focus targets (skip link, opened drawers): focus lands there so
+   the next Tab starts inside; a ring around the whole region says nothing. */
+:where(.tool-sidebar, .landing-index, #main-content[tabindex="-1"]):focus-visible {
+  outline: none;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
@@ -442,6 +448,25 @@ code {
   font-family: var(--font-mono);
   margin-right: 3px;
 }
+/* Stand-in when the palette's chunk can't load (App.tsx). */
+.palette-unavailable {
+  gap: 14px;
+  padding: 18px 18px 14px;
+}
+.palette-unavailable p {
+  font-size: 13px;
+  margin: 0;
+}
+.palette-unavailable-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.palette-unavailable-actions button {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
 
 @media (max-width: 620px) {
   .palette-btn kbd {
@@ -597,6 +622,23 @@ code {
 .pwa-update .pwa-update-later:hover {
   background: transparent;
   color: var(--text);
+}
+
+/* Centred with left: 50%, the banner may only use the right half of a phone
+   screen and wrapped onto four lines over the footer. Pin both edges instead. */
+@media (max-width: 560px) {
+  .pwa-update {
+    animation: none;
+    bottom: 12px;
+    font-size: 12px;
+    gap: 8px;
+    left: 12px;
+    padding: 6px 6px 6px 14px;
+    right: 12px;
+    transform: none;
+  }
+  .pwa-update > span { flex: 1; min-width: 0; }
+  .pwa-update button { padding: 5px 10px; white-space: nowrap; }
 }
 
 /* Shared mark for tool brand symbols in ToolHeader. */

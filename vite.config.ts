@@ -5,10 +5,12 @@ import react from '@vitejs/plugin-react'
 import {
   buildDescription,
   buildSitemap,
+  buildToolPage,
   injectJsonLd,
   injectMeta,
   originFromCname,
   parseToolMeta,
+  toolPageFile,
 } from './scripts/tool-meta'
 import {
   buildSwManifest,
@@ -66,6 +68,39 @@ function toolSeo(): Plugin {
 }
 
 /**
+ * Emits one page per registry tool (dist/<slug>.html, served by GitHub Pages
+ * for /<slug> with a 200) with that tool's title, description, canonical URL
+ * and JSON-LD. Without them every tool URL was the 404.html fallback — an HTTP
+ * 404 whose canonical pointed at the homepage.
+ *
+ * `order: 'post'` so it runs after Vite's HTML plugin has emitted the final
+ * index.html (script tags, the other plugins' transforms); each page is that
+ * file with head metadata swapped, so the CSP-hashed boot script is unchanged.
+ * It also runs after pwa()'s manifest is built, so the pages stay out of the
+ * service worker's owned set: they are network-first HTML, never cached.
+ */
+function toolPages(): Plugin {
+  const meta = () => parseToolMeta(read('./src/shell/registry.ts') ?? '', read('./src/shell/tool-copy.ts') ?? '')
+
+  return {
+    name: 'tool-pages',
+    apply: 'build',
+    generateBundle: {
+      order: 'post',
+      handler(_options, bundle) {
+        const index = bundle['index.html']
+        if (!index || index.type !== 'asset') throw new Error('tool-pages: index.html is not in the bundle')
+        const html = typeof index.source === 'string' ? index.source : new TextDecoder().decode(index.source)
+        const origin = originFromCname(read('./public/CNAME'))
+        for (const tool of meta()) {
+          this.emitFile({ type: 'asset', fileName: toolPageFile(tool.slug), source: buildToolPage(html, tool, origin) })
+        }
+      },
+    },
+  }
+}
+
+/**
  * Makes the site installable and usable offline: emits manifest.webmanifest and
  * sw.js, and points index.html at them.
  *
@@ -105,6 +140,9 @@ function pwa(): Plugin {
         base,
         extraCore,
         fingerprint,
+        // The palette, taglines and pwa module: small shell chunks that only
+        // load lazily. Tools live in src/tools/ and never match.
+        (entry) => /[\\/]src[\\/]shell[\\/]/.test(entry.facadeModuleId ?? ''),
       )
 
       const source = read('./src/sw.ts')
@@ -127,7 +165,7 @@ function pwa(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), toolSeo(), pwa()],
+  plugins: [react(), toolSeo(), toolPages(), pwa()],
   // GitHub Pages serves project sites under /<repo-name>/ — the deploy
   // workflow sets BASE_PATH accordingly; local dev stays at /.
   base: process.env.BASE_PATH || '/',

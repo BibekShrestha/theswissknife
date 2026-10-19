@@ -36,8 +36,11 @@ export function useTaglines(query: string): Taglines | null {
   return taglines
 }
 
-/** The landing index and the sidebar filter match the same way. */
-export function toolMatches(tool: ToolMeta, query: string, taglines: Taglines | null): boolean {
+/**
+ * The landing index and the sidebar filter match the same way: name, tagline,
+ * and the category both as its id and as the heading shows it ("Images").
+ */
+export function toolMatches(tool: ToolMeta, query: string, taglines: Taglines | null, categoryName = ''): boolean {
   const value = query.trim().toLowerCase()
-  return !value || `${tool.name} ${taglines?.[tool.slug] ?? ''} ${tool.category}`.toLowerCase().includes(value)
+  return !value || `${tool.name} ${taglines?.[tool.slug] ?? ''} ${tool.category} ${categoryName}`.toLowerCase().includes(value)
 }

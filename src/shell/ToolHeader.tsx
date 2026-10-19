@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { BladeMark } from './BladeMark'
 import { openPalette, paletteKeyLabel } from './palette'
 import { Link } from './router'
-import { openSidebar } from './sidebar'
+import { openSidebar, useSidebarOpen } from './sidebar'
 import { useTheme } from './theme'
 
 interface ToolHeaderProps {
@@ -16,10 +16,11 @@ interface ToolHeaderProps {
 
 export function ToolHeader({ brand, localLabel, beforeSwitcher, children }: ToolHeaderProps) {
   const [theme, toggleTheme] = useTheme()
+  const sidebarOpen = useSidebarOpen()
 
   return (
     <header className="shell-toolbar">
-      <button type="button" className="shell-menu-toggle" onClick={openSidebar} aria-label="Open tool index">
+      <button type="button" className="shell-menu-toggle" onClick={openSidebar} aria-label="Open tool index" aria-expanded={sidebarOpen} aria-controls="tool-sidebar">
         <span className="material-symbols-outlined" aria-hidden>menu</span>
       </button>
       <Link to="/" className="home-link" title="All tools — The Swiss Knife">

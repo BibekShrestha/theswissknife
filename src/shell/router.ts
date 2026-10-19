@@ -8,18 +8,34 @@ import { createElement, useSyncExternalStore, type AnchorHTMLAttributes, type Mo
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '')
 
 const listeners = new Set<() => void>()
-export const emit = () => listeners.forEach((fn) => fn())
+/**
+ * Also announced on window as 'shell:route' (detail: the new path) for code
+ * that lives in tool chunks and must not pull the router's state into them —
+ * handoff.ts drops a payload the user walked away from.
+ */
+export const emit = () => {
+  listeners.forEach((fn) => fn())
+  window.dispatchEvent(new CustomEvent('shell:route', { detail: currentPath() }))
+}
 
 function subscribe(fn: () => void) {
   listeners.add(fn)
   return () => listeners.delete(fn)
 }
 
-/** Current route relative to base: '' for the landing page, 'jq', 'jwt', … */
+/**
+ * Current route relative to base: '' for the landing page, 'jq', 'jwt', …
+ * The files behind those routes also answer under their own names —
+ * /index.html, and /jq.html (the per-tool page the build emits) — so the
+ * extension is dropped and index means the landing page.
+ */
 export function currentPath(): string {
   let p = location.pathname
   if (BASE && p.startsWith(BASE)) p = p.slice(BASE.length)
-  return p.replace(/^\/+|\/+$/g, '')
+  return p
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/(?:^|\/)index\.html$/, '')
+    .replace(/\.html$/, '')
 }
 
 export function usePath(): string {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { BladeMark } from './BladeMark'
+import { useModalFocus } from './focus'
 import { openPalette, paletteKeyLabel } from './palette'
 import { tools, type ToolMeta } from './registry'
 import { Link } from './router'
@@ -25,16 +26,17 @@ function ToolIndex({ query }: { query: string }) {
   const groups = categories
     .map((category) => ({
       category,
-      list: tools.filter((tool) => tool.category === category.id && toolMatches(tool, query, taglines)),
+      number: categories.indexOf(category) + 1,
+      list: tools.filter((tool) => tool.category === category.id && toolMatches(tool, query, taglines, category.name)),
     }))
     .filter(({ list }) => list.length)
 
   return (
     <nav className="landing-index-list" aria-label="Tool index">
-      {groups.length ? groups.map(({ category, list }, index) => (
+      {groups.length ? groups.map(({ category, number, list }) => (
         <section key={category.id} className="landing-index-group">
           <div className="landing-index-heading">
-            <span>{String(index + 1).padStart(2, '0')}</span>
+            <span>{String(number).padStart(2, '0')}</span>
             <strong>{category.name}</strong>
             <span>{list.length}</span>
           </div>
@@ -94,7 +96,7 @@ function Knife() {
               className={`knife-blade${open ? ' open' : ''}`}
               style={style}
               tabIndex={open ? 0 : -1}
-              aria-label={`Open ${blade.name} tools`}
+              aria-label={`${blade.name}: open ${blade.tool.name}`}
             >
               <span className="knife-blade-face">
                 <span>{String(index + 1).padStart(2, '0')}</span>
@@ -128,6 +130,10 @@ export function Landing() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [query, setQuery] = useState('')
   const filterRef = useRef<HTMLInputElement>(null)
+  const indexRef = useRef<HTMLElement>(null)
+  // On narrow screens the index is a drawer: focus goes in, Escape closes it,
+  // and focus returns to the toggle.
+  useModalFocus(indexRef, menuOpen, { onEscape: () => setMenuOpen(false), media: '(max-width: 880px)', initial: 'container' })
 
   useEffect(() => {
     const focusFilter = (event: KeyboardEvent) => {
@@ -135,6 +141,9 @@ export function Landing() {
       event.preventDefault()
       setMenuOpen(true)
       filterRef.current?.focus()
+      // A closed drawer is visibility: hidden and can't take focus; try again
+      // once it has opened.
+      setTimeout(() => filterRef.current?.focus())
     }
     window.addEventListener('keydown', focusFilter)
     return () => window.removeEventListener('keydown', focusFilter)
@@ -143,7 +152,7 @@ export function Landing() {
   return (
     <div className="landing">
       <header className="landing-header">
-        <button className="landing-menu-btn" type="button" onClick={() => setMenuOpen((value) => !value)} aria-label="Toggle tool index" aria-expanded={menuOpen}>
+        <button className="landing-menu-btn" type="button" onClick={() => setMenuOpen((value) => !value)} aria-label="Toggle tool index" aria-expanded={menuOpen} aria-controls="landing-index">
           <span className="material-symbols-outlined" aria-hidden>{menuOpen ? 'close' : 'menu'}</span>
         </button>
         <Link to="/" className="landing-brand" title="The Swiss Knife home">
@@ -167,7 +176,7 @@ export function Landing() {
 
       <div className="landing-body">
         {menuOpen && <button className="landing-index-backdrop" onClick={() => setMenuOpen(false)} aria-label="Close tool index" />}
-        <aside className={`landing-index${menuOpen ? ' open' : ''}`}>
+        <aside ref={indexRef} id="landing-index" tabIndex={-1} aria-label="All tools" className={`landing-index${menuOpen ? ' open' : ''}`}>
           <label className="landing-filter">
             <span className="material-symbols-outlined" aria-hidden>search</span>
             <input ref={filterRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter tools…" aria-label="Filter tools" />

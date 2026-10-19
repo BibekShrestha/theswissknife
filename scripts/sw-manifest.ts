@@ -36,8 +36,12 @@ function hash(input: string): string {
 export interface BundleEntry {
   type: 'chunk' | 'asset'
   isEntry?: boolean
-  /** Static imports only. Dynamic ones live in `dynamicImports` and are deliberately not walked. */
+  /** Static imports, always walked. */
   imports?: readonly string[]
+  /** Dynamic imports — walked only into chunks the `isShellChunk` predicate accepts. */
+  dynamicImports?: readonly string[]
+  /** The module a chunk was built for (its source path): how shell chunks are told from tools. */
+  facadeModuleId?: string | null
   /**
    * importedAssets are files the chunk's JS or CSS references by URL — for the
    * entry chunk, the icon font that theme.css points at.
@@ -58,11 +62,17 @@ const withBase = (base: string, file: string) => `${base.replace(/\/$/, '')}/${f
 
 /**
  * Walks the entry chunk's *static* import graph. Dynamic imports — every tool,
- * every PDF subtool, the command palette — are left out on purpose: that split
- * is what keeps the install cheap and defers a tool's chunk, worker and wasm to
- * the first time someone actually opens it.
+ * every PDF subtool — are left out on purpose: that split is what keeps the
+ * install cheap and defers a tool's chunk, worker and wasm to the first time
+ * someone actually opens it. The exception is the shell's own lazy chunks (the
+ * command palette, its taglines, the PWA module): a few KiB split off only to
+ * keep first paint small, let in by `isShellChunk` so search works offline
+ * before anyone has opened it.
  */
-function eagerGraph(bundle: Record<string, BundleEntry>): {
+function eagerGraph(
+  bundle: Record<string, BundleEntry>,
+  isShellChunk: (entry: BundleEntry) => boolean = () => false,
+): {
   files: string[]
   css: string[]
   assets: string[]
@@ -80,6 +90,10 @@ function eagerGraph(bundle: Record<string, BundleEntry>): {
     for (const id of entry.viteMetadata?.importedCss ?? []) css.add(id)
     for (const id of entry.viteMetadata?.importedAssets ?? []) assets.add(id)
     for (const imported of entry.imports ?? []) visit(imported)
+    for (const imported of entry.dynamicImports ?? []) {
+      const target = bundle[imported]
+      if (target && isShellChunk(target)) visit(imported)
+    }
   }
 
   for (const [file, entry] of Object.entries(bundle)) {
@@ -96,14 +110,17 @@ function eagerGraph(bundle: Record<string, BundleEntry>): {
  *                   Without it, editing an icon or the HTML leaves every hashed
  *                   asset name untouched, so sw.js comes out byte-identical and
  *                   no browser ever notices there was a deploy.
+ * @param isShellChunk  Which dynamically imported chunks of the shell to
+ *                   precache too (see eagerGraph). No tool may match.
  */
 export function buildSwManifest(
   bundle: Record<string, BundleEntry>,
   base: string,
   extraCore: readonly string[] = [],
   fingerprint = '',
+  isShellChunk?: (entry: BundleEntry) => boolean,
 ): SwManifest {
-  const { files, css, assets: eagerAssets } = eagerGraph(bundle)
+  const { files, css, assets: eagerAssets } = eagerGraph(bundle, isShellChunk)
   if (files.length === 0) {
     // Loud failure: an empty precache list ships a service worker that caches nothing.
     throw new Error('sw-manifest: no entry chunk found in the bundle')
