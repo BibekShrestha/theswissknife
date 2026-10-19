@@ -228,7 +228,7 @@ async function placedText(bytes: Uint8Array, pageIndex = 0) {
     const [a, b, , , e, f] = item.transform
     const [x, y] = viewport.convertToViewportPoint(e, f)
     const [x2, y2] = viewport.convertToViewportPoint(e + (a / Math.hypot(a, b)) * item.width, f + (b / Math.hypot(a, b)) * item.width)
-    return [{ str: item.str, x, y, endX: x2, upright: Math.abs(y2 - y) < 0.01 && x2 > x, viewW: viewport.width, viewH: viewport.height }]
+    return [{ str: item.str, x, y, endX: x2, size: Math.hypot(a, b), upright: Math.abs(y2 - y) < 0.01 && x2 > x, viewW: viewport.width, viewH: viewport.height }]
   })
   await task.destroy()
   return out
@@ -295,6 +295,25 @@ describe('Watermark', () => {
     const mark = (await placedText(out)).find((t) => t.str === 'DRAFT')!
     expect(mark.upright).toBe(true)
     expect((mark.x + mark.endX) / 2).toBeCloseTo(mark.viewW / 2, 0)
+  })
+
+  it('centres the text itself, not its baseline, on the page', async () => {
+    const out = await addWatermark(await makePdf([{ size: [300, 500] }]), { text: 'DRAFT', opacity: 0.5, position: 'center' })
+    const mark = (await placedText(out)).find((t) => t.str === 'DRAFT')!
+    // Helvetica-Bold capitals stand 0.718 em above the baseline
+    expect(mark.y - (mark.size * 0.718) / 2).toBeCloseTo(mark.viewH / 2, 0)
+  })
+
+  it.each(['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const)('shrinks long text to fit the page (%s)', async (position) => {
+    const text = 'CONFIDENTIAL — DO NOT DISTRIBUTE OUTSIDE THE COMPANY'
+    const out = await addWatermark(await makePdf([{ size: [300, 400] }]), { text, opacity: 0.5, position })
+    const mark = (await placedText(out)).find((t) => t.str === text)!
+    // inside the 40pt margins (pdf.js measures with its own copy of the metrics: 2pt slack)
+    expect(mark.x).toBeGreaterThanOrEqual(38)
+    expect(mark.endX).toBeLessThanOrEqual(mark.viewW - 38)
+    // short text keeps the usual size
+    const short = (await placedText(await addWatermark(await makePdf([{ size: [300, 400] }]), { text: 'X', opacity: 0.5, position }))).find((t) => t.str === 'X')!
+    expect(short.size).toBeCloseTo(30, 0)
   })
 
   it('tiles across the visible page', async () => {

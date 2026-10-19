@@ -34,8 +34,15 @@ export function PdfToImage() {
           const canvas = document.createElement('canvas')
           canvas.width = Math.floor(viewport.width)
           canvas.height = Math.floor(viewport.height)
-          await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport }).promise
-          const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+          let blob: Blob | null
+          try {
+            await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport }).promise
+            blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+          } finally {
+            // release the bitmap now rather than whenever the canvas is collected (Safari caps total canvas memory)
+            canvas.width = 0
+            canvas.height = 0
+          }
           if (!blob) throw new PdfInputError(`Page ${i} is too large to render in this browser.`)
           blobs.push(blob)
           page.cleanup()
