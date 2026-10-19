@@ -4,6 +4,7 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { reorderPages } from '../ops/organize'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function ReorderPages() {
   const [files, setFiles] = useState<File[]>([])
@@ -29,26 +30,19 @@ export function ReorderPages() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#fae8ff' }}>
-          <span className="material-symbols-outlined" style={{ color: '#d946ef' }}>swap_vert</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Reorder Pages</h2>
-          <p>Rearrange PDF pages by specifying a new order</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="swap_vert" color="#d946ef" title="Reorder Pages" description="Rearrange PDF pages by specifying a new order" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
 
       <div className="pdf-form-group">
         <label className="pdf-form-label" htmlFor="pdf-reorder">New page order, listing every page once (e.g. 3,1,2,4 or 10-1)</label>
-        <input id="pdf-reorder" className="pdf-text-input" type="text" value={order} onChange={(e) => setOrder(e.target.value)} placeholder="3,1,2,4" />
+        <input id="pdf-reorder" className="pdf-text-input" type="text" value={order} onChange={(e) => setOrder(e.target.value)} placeholder="3,1,2,4" aria-describedby="pdf-reorder-hint" />
+        <p className="pdf-form-hint" id="pdf-reorder-hint">Links, bookmarks, form fields and page labels move with their pages.</p>
       </div>
 
       <button className="pdf-action-btn" disabled={files.length === 0 || !order || processing} onClick={handleReorder}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Reordering...' : 'Reorder Pages'}
       </button>
 

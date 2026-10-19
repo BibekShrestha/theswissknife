@@ -8,13 +8,27 @@
  *    streams, writes every object afresh and leaves the old object stream
  *    behind, unreferenced, *after* them — pdf-lib then puts the stale copies
  *    back and pages come out blank or swapped. An object stream can only be
- *    live when some cross-reference stream can point into it; a file whose
- *    last xref section is a classic table without /XRefStm has none, so
- *    there its object streams are dropped instead of unpacked.
+ *    live when a cross-reference stream in the chain from the last startxref
+ *    (through every /Prev and /XRefStm) points into it; the others are
+ *    dropped instead of unpacked. A classic-table incremental update on top
+ *    of an xref-stream base keeps the base's object streams that way.
  * 2. A per-object hook, which is where decryption happens (crypt/document.ts):
  *    an encrypted object stream must be decrypted before it is unpacked.
  */
-import { PDFContext, PDFDocument, PDFName, PDFObject, PDFObjectStreamParser, PDFParser, PDFRawStream, PDFRef, PDFXRefStreamParser } from 'pdf-lib'
+import {
+  PDFContext,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFNumber,
+  PDFObject,
+  PDFObjectParser,
+  PDFObjectStreamParser,
+  PDFParser,
+  PDFRawStream,
+  PDFRef,
+  PDFXRefStreamParser,
+} from 'pdf-lib'
 
 interface ParserInternals {
   context: PDFContext
@@ -26,30 +40,88 @@ interface ParserInternals {
   parseIndirectObject(): Promise<PDFRef>
 }
 
+interface ObjectParserInternals {
+  bytes: { moveTo(offset: number): void }
+  parseObject(): PDFObject
+}
+
 export type ObjectHook = (ref: PDFRef, object: PDFObject) => Promise<PDFObject>
 
 const ENDOBJ = [...'endobj'].map((c) => c.charCodeAt(0))
 const decoder = new TextDecoder('latin1')
 const latin1 = (bytes: Uint8Array, from: number, to: number) => decoder.decode(bytes.subarray(Math.max(0, from), to))
+const CHUNK = 1 << 20
 
-/** False when no cross-reference stream can reference compressed objects (see above). */
-export function objectStreamsCanBeLive(bytes: Uint8Array): boolean {
-  const tail = latin1(bytes, bytes.length - 2048, bytes.length)
-  const m = /startxref\s+(\d+)\s*(?:%%EOF)?\s*$/.exec(tail) ?? [...tail.matchAll(/startxref\s+(\d+)/g)].pop()
-  if (!m) return true
-  const offset = Number(m[1])
-  if (!(offset < bytes.length)) return true
-  if (!/^\s*xref/.test(latin1(bytes, offset, offset + 16))) return true
-  // classic table: compressed objects exist only through a hybrid /XRefStm
-  for (let i = 0; i < bytes.length; i += 1 << 20) {
-    if (latin1(bytes, i, Math.min(bytes.length, i + (1 << 20) + 8)).includes('/XRefStm')) return true
+/** Offset of the next `word` at or after `from`, or -1. */
+function indexOf(bytes: Uint8Array, word: string, from: number): number {
+  for (let at = from; at < bytes.length; at += CHUNK) {
+    const i = latin1(bytes, at, Math.min(bytes.length, at + CHUNK + word.length)).indexOf(word)
+    if (i >= 0) return at + i
   }
-  return false
+  return -1
 }
 
-export async function parsePdf(bytes: Uint8Array, options: { hook?: ObjectHook; unpackObjectStreams: boolean }): Promise<PDFContext> {
+/**
+ * The numbers of the object streams some live cross-reference section
+ * points into, found by following the chain from the last startxref through
+ * every /Prev and /XRefStm and reading each xref stream's type-2 entries.
+ * null when the chain cannot be followed — then every object stream counts,
+ * as with pdf-lib's own parser.
+ */
+export function liveObjectStreams(bytes: Uint8Array): Set<number> | null {
+  const tail = latin1(bytes, bytes.length - 2048, bytes.length)
+  const m = /startxref\s+(\d+)\s*(?:%%EOF)?\s*$/.exec(tail) ?? [...tail.matchAll(/startxref\s+(\d+)/g)].pop()
+  if (!m) return null
+  const parser = PDFObjectParser.forBytes(bytes, PDFContext.create()) as unknown as ObjectParserInternals
+  const live = new Set<number>()
+  const queue = [Number(m[1])]
+  const seen = new Set<number>()
+  try {
+    while (queue.length) {
+      const offset = queue.shift()!
+      if (seen.has(offset)) continue
+      seen.add(offset)
+      if (!(offset >= 0 && offset < bytes.length)) return null
+      const head = latin1(bytes, offset, offset + 64)
+      let dict: PDFDict
+      if (/^\s*xref/.test(head)) {
+        const at = indexOf(bytes, 'trailer', offset)
+        if (at < 0) return null
+        parser.bytes.moveTo(at + 'trailer'.length)
+        const trailer = parser.parseObject()
+        if (!(trailer instanceof PDFDict)) return null
+        dict = trailer
+        const hybrid = dict.get(PDFName.of('XRefStm'))
+        if (hybrid instanceof PDFNumber) queue.push(hybrid.asNumber())
+      } else {
+        const header = /^\s*\d+\s+\d+\s+obj/.exec(head)
+        if (!header) return null
+        parser.bytes.moveTo(offset + header[0].length)
+        const stream = parser.parseObject()
+        if (!(stream instanceof PDFRawStream) || stream.dict.get(PDFName.of('Type')) !== PDFName.of('XRef')) return null
+        for (const entry of PDFXRefStreamParser.forStream(stream).parseIntoContext()) if (entry.inObjectStream) live.add(entry.offset)
+        dict = stream.dict
+      }
+      const prev = dict.get(PDFName.of('Prev'))
+      if (prev instanceof PDFNumber) queue.push(prev.asNumber())
+    }
+  } catch {
+    return null
+  }
+  return live
+}
+
+/** What parsePdf should unpack for these bytes: the live object streams, or all of them if that is unknowable. */
+export function objectStreamsToUnpack(bytes: Uint8Array): true | Set<number> {
+  return liveObjectStreams(bytes) ?? true
+}
+
+/** unpackObjectStreams: every object stream (true), none (false), or those numbered in the set. */
+export async function parsePdf(bytes: Uint8Array, options: { hook?: ObjectHook; unpackObjectStreams: boolean | ReadonlySet<number> }): Promise<PDFContext> {
   const parser = PDFParser.forBytesWithOptions(bytes, 100)
   const p = parser as unknown as ParserInternals
+  const unpack = options.unpackObjectStreams
+  const isLive = (ref: PDFRef) => (typeof unpack === 'boolean' ? unpack : unpack.has(ref.objectNumber))
   const dead: PDFRef[] = []
   p.parseIndirectObject = async () => {
     const ref = p.parseIndirectObjectHeader()
@@ -65,7 +137,7 @@ export async function parsePdf(bytes: Uint8Array, options: { hook?: ObjectHook; 
     }
     if (options.hook) object = await options.hook(ref, object)
     if (object instanceof PDFRawStream && type === PDFName.of('ObjStm')) {
-      if (options.unpackObjectStreams) {
+      if (isLive(ref)) {
         await PDFObjectStreamParser.forStream(object, p.shouldWaitForTick).parseIntoContext()
         return ref
       }

@@ -278,7 +278,16 @@ the precache list built by `scripts/sw-manifest.ts`.
   Everything loads through `lib/load.ts` → `lib/parse.ts`, pdf-lib's parser
   with a fix: pdf-lib ignores the xref and lets any object stream override
   earlier objects, and Preview-saved files carry a stale one — so object
-  streams are only unpacked when an xref stream could point into them.
+  streams are only unpacked when an xref stream in the chain from the last
+  startxref (every /Prev and /XRefStm) points into them.
+  Page edits never use pdf-lib's `copyPages`, which drags every page a link
+  or widget reaches into the output as an orphan (`lib/structure.ts`):
+  Remove/Reorder edit the parsed file in place, Split cuts each part from a
+  fork of it, Merge imports whole files under fresh object numbers. Links,
+  bookmarks, widgets, named dests and structure elements that lead to
+  left-out pages are pruned, labels recomputed, the page tree rebuilt and
+  unreachable objects collected; `ops/organize.test.ts` inflates every
+  stream of the output to prove a left-out page's bytes are gone.
   pdf-lib has no encryption: `lib/crypt/` is a hand-written Standard
   security handler (reads R2–R6: RC4, AES-128, AES-256; Protect writes R6
   AES-256), and every other tool refuses encrypted input rather than writing

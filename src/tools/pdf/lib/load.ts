@@ -1,6 +1,6 @@
 import type { PDFDocument } from 'pdf-lib'
 import { ENCRYPTED_MESSAGE, hasPdfHeader, PdfInputError } from './errors'
-import { documentFromContext, objectStreamsCanBeLive, parsePdf } from './parse'
+import { documentFromContext, objectStreamsToUnpack, parsePdf } from './parse'
 
 export { describeError, ENCRYPTED_MESSAGE, hasPdfHeader, PdfInputError } from './errors'
 
@@ -18,7 +18,7 @@ export async function loadPdf(bytes: Uint8Array, fileName = 'This file'): Promis
   if (!hasPdfHeader(bytes)) throw new PdfInputError(`${fileName} is not a PDF.`)
   let doc: PDFDocument
   try {
-    doc = documentFromContext(await parsePdf(bytes, { unpackObjectStreams: objectStreamsCanBeLive(bytes) }))
+    doc = documentFromContext(await parsePdf(bytes, { unpackObjectStreams: objectStreamsToUnpack(bytes) }))
   } catch {
     throw new PdfInputError(`${fileName} could not be read — it may be damaged or truncated.`)
   }

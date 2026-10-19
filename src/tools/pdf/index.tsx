@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { pdfTools, categories, type PdfToolId } from './lib/utils'
 import './pdf.css'
@@ -30,6 +30,15 @@ function SubtoolView({ id }: { id: PdfToolId }) {
 
 export default function PdfTool() {
   const [subtool, setSubtool] = useState<PdfToolId | null>(null)
+  const content = useRef<HTMLDivElement>(null)
+  const lastTool = useRef<PdfToolId | null>(null)
+
+  // the clicked card or button disappears: move focus to what replaced it
+  useEffect(() => {
+    if (subtool) content.current?.focus({ preventScroll: true })
+    else if (lastTool.current) document.getElementById(`pdf-card-${lastTool.current}`)?.closest('button')?.focus()
+    lastTool.current = subtool
+  }, [subtool])
 
   const activeTool = subtool ? pdfTools.find((t) => t.id === subtool) : null
 
@@ -41,7 +50,7 @@ export default function PdfTool() {
       >
         {subtool && (
           <button onClick={() => setSubtool(null)}>
-            <span className="material-symbols-outlined">apps</span> All Tools
+            <span className="material-symbols-outlined" aria-hidden="true">apps</span> All Tools
           </button>
         )}
       </ToolHeader>
@@ -57,8 +66,13 @@ export default function PdfTool() {
                   <div className="pdf-sidebar-group" key={cat.id}>
                     <div className="pdf-sidebar-group-label">{cat.name}</div>
                     {catTools.map((t) => (
-                      <button key={t.id} className={`pdf-sidebar-item${subtool === t.id ? ' on' : ''}`} onClick={() => setSubtool(t.id)}>
-                        <span className="material-symbols-outlined">{t.icon}</span>
+                      <button
+                        key={t.id}
+                        className={`pdf-sidebar-item${subtool === t.id ? ' on' : ''}`}
+                        aria-current={subtool === t.id ? 'page' : undefined}
+                        onClick={() => setSubtool(t.id)}
+                      >
+                        <span className="material-symbols-outlined" aria-hidden="true">{t.icon}</span>
                         {t.name}
                       </button>
                     ))}
@@ -66,7 +80,7 @@ export default function PdfTool() {
                 )
               })}
             </nav>
-            <div className="pdf-content">
+            <div className="pdf-content" ref={content} tabIndex={-1} aria-label={activeTool.name}>
               <SubtoolView id={subtool} />
             </div>
           </div>
@@ -77,17 +91,24 @@ export default function PdfTool() {
                 const catTools = pdfTools.filter((t) => t.category === cat.id)
                 return (
                   <div className="pdf-landing-category" key={cat.id}>
-                    <h3>{cat.name}</h3>
+                    <h2>{cat.name}</h2>
                     <p>{cat.description}</p>
                     <div className="pdf-landing-grid">
                       {catTools.map((t) => (
-                        <div key={t.id} className="pdf-tool-card" onClick={() => setSubtool(t.id)}>
-                          <div className="pdf-tool-card-icon">
-                            <span className="material-symbols-outlined" style={{ color: t.color }}>{t.icon}</span>
-                          </div>
-                          <h4>{t.name}</h4>
-                          <p>{t.description}</p>
-                        </div>
+                        <button
+                          key={t.id}
+                          type="button"
+                          className="pdf-tool-card"
+                          aria-labelledby={`pdf-card-${t.id}`}
+                          aria-describedby={`pdf-card-${t.id}-desc`}
+                          onClick={() => setSubtool(t.id)}
+                        >
+                          <span className="pdf-tool-card-icon" style={{ '--pdf-tile': t.color } as CSSProperties}>
+                            <span className="material-symbols-outlined" aria-hidden="true">{t.icon}</span>
+                          </span>
+                          <span className="pdf-tool-card-title" id={`pdf-card-${t.id}`}>{t.name}</span>
+                          <span className="pdf-tool-card-desc" id={`pdf-card-${t.id}-desc`}>{t.description}</span>
+                        </button>
                       ))}
                     </div>
                   </div>

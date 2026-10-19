@@ -87,7 +87,7 @@ describe('Merge PDF', () => {
   it('appends every page in file order, keeping sizes and rotations', async () => {
     const a = await makePdf(3)
     const b = await makePdf([{ size: [595, 842], rotate: 90, text: 'B1' }, { size: [842, 595], text: 'B2' }])
-    const out = await mergePdfs([named('a.pdf', a), named('b.pdf', b)])
+    const { bytes: out } = await mergePdfs([named('a.pdf', a), named('b.pdf', b)])
     expect(await pageTexts(out)).toEqual(['Page 1', 'Page 2', 'Page 3', 'B1', 'B2'])
     expect((await pageInfo(out)).slice(3)).toEqual([
       { width: 595, height: 842, rotate: 90 },
@@ -98,7 +98,7 @@ describe('Merge PDF', () => {
   it('needs two files, and at least one page between them', async () => {
     await expect(mergePdfs([named('a.pdf', await makePdf(1))])).rejects.toThrow(/at least two/)
     await expect(mergePdfs([named('a.pdf', await emptyPdf()), named('b.pdf', await emptyPdf())])).rejects.toThrow(/has any pages/)
-    expect(await pageTexts(await mergePdfs([named('a.pdf', await emptyPdf()), named('b.pdf', await makePdf(1))]))).toEqual(['Page 1'])
+    expect(await pageTexts((await mergePdfs([named('a.pdf', await emptyPdf()), named('b.pdf', await makePdf(1))])).bytes)).toEqual(['Page 1'])
   })
 
   it('reports progress per file', async () => {
@@ -228,7 +228,7 @@ async function placedText(bytes: Uint8Array, pageIndex = 0) {
     const [a, b, , , e, f] = item.transform
     const [x, y] = viewport.convertToViewportPoint(e, f)
     const [x2, y2] = viewport.convertToViewportPoint(e + (a / Math.hypot(a, b)) * item.width, f + (b / Math.hypot(a, b)) * item.width)
-    return [{ str: item.str, x, y, endX: x2, upright: Math.abs(y2 - y) < 0.01 && x2 > x, viewW: viewport.width, viewH: viewport.height }]
+    return [{ str: item.str, x, y, endX: x2, size: Math.hypot(a, b), upright: Math.abs(y2 - y) < 0.01 && x2 > x, viewW: viewport.width, viewH: viewport.height }]
   })
   await task.destroy()
   return out
@@ -297,6 +297,25 @@ describe('Watermark', () => {
     expect((mark.x + mark.endX) / 2).toBeCloseTo(mark.viewW / 2, 0)
   })
 
+  it('centres the text itself, not its baseline, on the page', async () => {
+    const out = await addWatermark(await makePdf([{ size: [300, 500] }]), { text: 'DRAFT', opacity: 0.5, position: 'center' })
+    const mark = (await placedText(out)).find((t) => t.str === 'DRAFT')!
+    // Helvetica-Bold capitals stand 0.718 em above the baseline
+    expect(mark.y - (mark.size * 0.718) / 2).toBeCloseTo(mark.viewH / 2, 0)
+  })
+
+  it.each(['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const)('shrinks long text to fit the page (%s)', async (position) => {
+    const text = 'CONFIDENTIAL — DO NOT DISTRIBUTE OUTSIDE THE COMPANY'
+    const out = await addWatermark(await makePdf([{ size: [300, 400] }]), { text, opacity: 0.5, position })
+    const mark = (await placedText(out)).find((t) => t.str === text)!
+    // inside the 40pt margins (pdf.js measures with its own copy of the metrics: 2pt slack)
+    expect(mark.x).toBeGreaterThanOrEqual(38)
+    expect(mark.endX).toBeLessThanOrEqual(mark.viewW - 38)
+    // short text keeps the usual size
+    const short = (await placedText(await addWatermark(await makePdf([{ size: [300, 400] }]), { text: 'X', opacity: 0.5, position }))).find((t) => t.str === 'X')!
+    expect(short.size).toBeCloseTo(30, 0)
+  })
+
   it('tiles across the visible page', async () => {
     const out = await addWatermark(await makePdf([{ size: [600, 400], rotate: 90 }]), { text: 'X', opacity: 0.3, position: 'tile' })
     const marks = (await placedText(out)).filter((t) => t.str === 'X')
@@ -315,7 +334,7 @@ describe('Protect PDF / Unlock PDF (see lib/crypt for the cipher suites)', () =>
   it('protects with a password that unlock then removes', async () => {
     const out = await protectPdf(await makeRichPdf(), 'hunter2')
     await expect(loadPdf(out)).rejects.toThrow(ENCRYPTED_MESSAGE)
-    const back = await PDFDocument.load(await unlockPdf(out, 'hunter2'))
+    const back = await PDFDocument.load((await unlockPdf(out, 'hunter2')).bytes)
     expect(back.getTitle()).toBe('Rich fixture')
     expect(back.getForm().getTextField('name').getText()).toBe('Ada')
   })

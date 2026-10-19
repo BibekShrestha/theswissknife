@@ -4,12 +4,14 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { mergePdfs } from '../ops/organize'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function MergePdf() {
   const [files, setFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<Uint8Array | null>(null)
+  const [notes, setNotes] = useState<string[]>([])
   const [error, setError] = useState('')
 
   async function handleMerge() {
@@ -17,11 +19,14 @@ export function MergePdf() {
     setProcessing(true)
     setProgress(0)
     setResult(null)
+    setNotes([])
     setError('')
 
     try {
       const inputs = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: await readBytes(f) })))
-      setResult(await mergePdfs(inputs, (done) => setProgress((done / files.length) * 100)))
+      const merged = await mergePdfs(inputs, (done) => setProgress((done / files.length) * 100))
+      setResult(merged.bytes)
+      setNotes(merged.notes)
     } catch (e) {
       setError(describeError(e))
     } finally {
@@ -31,21 +36,17 @@ export function MergePdf() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#fee2e2' }}>
-          <span className="material-symbols-outlined" style={{ color: '#dc2626' }}>merge</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Merge PDF</h2>
-          <p>Combine multiple PDFs into one document, in the order listed</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="merge" color="#dc2626" title="Merge PDF" description="Combine multiple PDFs into one document, in the order listed" />
 
       <FileDropzone files={files} onFilesChange={setFiles} />
       <FileList files={files} onFilesChange={setFiles} />
+      <p className="pdf-form-hint">
+        Links, bookmarks, form fields, page labels, attachments and accessibility tags of every file are kept. Title, author, XMP metadata and viewer
+        settings come from the first file; those of the others are not carried over.
+      </p>
 
       <button className="pdf-action-btn" disabled={files.length < 2 || processing} onClick={handleMerge}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Merging...' : files.length < 2 ? 'Select at least 2 PDFs' : `Merge ${files.length} PDFs`}
       </button>
 
@@ -61,7 +62,14 @@ export function MergePdf() {
       <ErrorText message={error} />
 
       {result && (
-        <ProcessedPdfActions fileName="merged.pdf" outputBytes={result} />
+        <>
+          {notes.length > 0 && (
+            <ul className="pdf-notes">
+              {notes.map((note) => <li key={note}>{note}</li>)}
+            </ul>
+          )}
+          <ProcessedPdfActions fileName="merged.pdf" outputBytes={result} />
+        </>
       )}
     </div>
   )

@@ -4,6 +4,7 @@ import { ErrorText } from '../components/ErrorText'
 import { describeError } from '../lib/errors'
 import { getPdfJs } from '../lib/pdfjs'
 import { extractText } from '../ops/read'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function PdfToText() {
   const [files, setFiles] = useState<File[]>([])
@@ -38,21 +39,13 @@ export function PdfToText() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#f1f5f9' }}>
-          <span className="material-symbols-outlined" style={{ color: '#64748b' }}>text_snippet</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>PDF to Text</h2>
-          <p>Extract text content from PDF files</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="text_snippet" color="#64748b" title="PDF to Text" description="Extract text content from PDF files" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleExtract}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Extracting...' : 'Extract Text'}
       </button>
 
@@ -65,14 +58,14 @@ export function PdfToText() {
       {text && (
         <div className="pdf-processed">
           <div className="pdf-processed-header">
-            <span className="material-symbols-outlined" style={{ color: '#059669' }}>check_circle</span>
+            <span className="material-symbols-outlined" aria-hidden="true" style={{ color: 'var(--ok)' }}>check_circle</span>
             <div className="pdf-processed-info">
               <h4>Text extracted ({text.length.toLocaleString()} chars)</h4>
             </div>
           </div>
           <div className="pdf-processed-actions">
             <button className="pdf-processed-preview" onClick={copyText}>
-              <span className="material-symbols-outlined">content_copy</span> {copied ? 'Copied' : 'Copy Text'}
+              <span className="material-symbols-outlined" aria-hidden="true">content_copy</span> {copied ? 'Copied' : 'Copy Text'}
             </button>
           </div>
           <pre style={{

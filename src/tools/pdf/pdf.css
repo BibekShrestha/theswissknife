@@ -89,6 +89,7 @@
 
 .pdf-content {
   flex: 1;
+  outline: none;
   overflow-y: auto;
   padding: 20px 24px;
   min-width: 0;
@@ -114,6 +115,14 @@
 
 .pdf-subtool-icon .material-symbols-outlined {
   font-size: 22px;
+}
+
+/* the tool's hue, mixed with theme surfaces so it reads in both themes */
+.pdf-subtool-icon,
+.pdf-tool-card-icon {
+  --pdf-tile: var(--pdf-accent);
+  background: color-mix(in srgb, var(--pdf-tile) 16%, var(--pdf-panel));
+  color: color-mix(in srgb, var(--pdf-tile) 70%, var(--pdf-text));
 }
 
 .pdf-subtool-info h2 {
@@ -419,10 +428,38 @@
   margin-bottom: 6px;
 }
 
+.pdf-notes {
+  margin: 12px 0 0;
+  padding: 8px 12px 8px 28px;
+  border: 1px solid var(--pdf-border);
+  background: var(--warn-bg);
+  color: var(--pdf-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+p.pdf-notes {
+  padding-left: 12px;
+}
+
 .pdf-form-hint {
   font-size: 11px;
   color: var(--pdf-muted);
   margin-top: 4px;
+}
+
+.pdf-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--pdf-text);
+  cursor: pointer;
+}
+
+.pdf-form-invalid {
+  color: var(--err);
 }
 
 .pdf-option-grid {
@@ -445,11 +482,20 @@
   text-align: center;
 }
 
-.pdf-option-card:hover {
-  border-color: var(--pdf-muted);
+button.pdf-option-card {
+  min-height: 0;
+  font: inherit;
+  color: var(--pdf-text);
 }
 
-.pdf-option-card.on {
+.pdf-option-card:hover,
+.pdf-option-card:hover:not(:disabled) {
+  border-color: var(--pdf-muted);
+  background: var(--pdf-panel);
+}
+
+.pdf-option-card.on,
+.pdf-option-card.on:hover:not(:disabled) {
   border-color: var(--pdf-accent);
   background: color-mix(in srgb, var(--pdf-accent) 6%, var(--pdf-panel));
 }
@@ -612,7 +658,7 @@
   gap: 28px;
 }
 
-.pdf-landing-category h3 {
+.pdf-landing-category h2 {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: .06em;
@@ -647,7 +693,18 @@
   transition: box-shadow 120ms, transform 120ms;
 }
 
-.pdf-tool-card:hover {
+button.pdf-tool-card {
+  align-items: flex-start;
+  width: 100%;
+  min-height: 0;
+  font: inherit;
+  text-align: left;
+}
+
+.pdf-tool-card:hover,
+.pdf-tool-card:hover:not(:disabled) {
+  border-color: var(--pdf-border);
+  background: var(--pdf-panel);
   box-shadow: var(--shadow);
   transform: translateY(-1px);
 }
@@ -659,17 +716,16 @@
   width: 40px;
   height: 40px;
   border-radius: var(--radius);
-  background: var(--pdf-panel-2);
   margin-bottom: 4px;
 }
 
-.pdf-tool-card h4 {
+.pdf-tool-card-title {
   font-size: 14px;
   font-weight: 600;
   margin: 0;
 }
 
-.pdf-tool-card p {
+.pdf-tool-card-desc {
   font-size: 12px;
   color: var(--pdf-muted);
   margin: 0;

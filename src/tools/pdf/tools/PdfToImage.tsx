@@ -6,6 +6,7 @@ import { describeError, PdfInputError } from '../lib/errors'
 import { getPdfJs } from '../lib/pdfjs'
 import { openPdf, renderScale } from '../ops/read'
 import JSZip from 'jszip'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function PdfToImage() {
   const [files, setFiles] = useState<File[]>([])
@@ -33,8 +34,15 @@ export function PdfToImage() {
           const canvas = document.createElement('canvas')
           canvas.width = Math.floor(viewport.width)
           canvas.height = Math.floor(viewport.height)
-          await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport }).promise
-          const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+          let blob: Blob | null
+          try {
+            await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport }).promise
+            blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+          } finally {
+            // release the bitmap now rather than whenever the canvas is collected (Safari caps total canvas memory)
+            canvas.width = 0
+            canvas.height = 0
+          }
           if (!blob) throw new PdfInputError(`Page ${i} is too large to render in this browser.`)
           blobs.push(blob)
           page.cleanup()
@@ -64,21 +72,13 @@ export function PdfToImage() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#dcfce7' }}>
-          <span className="material-symbols-outlined" style={{ color: '#16a34a' }}>image</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>PDF to Image</h2>
-          <p>Convert each PDF page to a PNG image</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="image" color="#16a34a" title="PDF to Image" description="Convert each PDF page to a PNG image" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleConvert}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Converting...' : 'Convert to Images'}
       </button>
 
@@ -95,7 +95,7 @@ export function PdfToImage() {
       {images.length > 0 && (
         <div className="pdf-processed">
           <div className="pdf-processed-header">
-            <span className="material-symbols-outlined" style={{ color: '#059669' }}>check_circle</span>
+            <span className="material-symbols-outlined" aria-hidden="true" style={{ color: 'var(--ok)' }}>check_circle</span>
             <div className="pdf-processed-info">
               <h4>{images.length} page{images.length !== 1 ? 's' : ''} converted</h4>
               <p>Each page rendered as a separate PNG image</p>
@@ -103,7 +103,7 @@ export function PdfToImage() {
           </div>
           <div className="pdf-processed-actions">
             <button className="pdf-processed-download" onClick={downloadAll}>
-              <span className="material-symbols-outlined">download</span> Download All
+              <span className="material-symbols-outlined" aria-hidden="true">download</span> Download All
             </button>
           </div>
         </div>

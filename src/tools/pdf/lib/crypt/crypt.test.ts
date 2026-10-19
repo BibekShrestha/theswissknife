@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PDFDocument, PDFHexString, PDFName } from 'pdf-lib'
 import { md5, rc4 } from './primitives'
-import { decryptPdf, encryptDocument, literalBytes, PdfSecurityError } from './document'
+import { decryptPdf, decryptPdfReport, encryptDocument, literalBytes, PdfSecurityError } from './document'
 import { legacyFileKey, legacyOwnerKey, legacyUserValue, ObjectCipher, type SecurityParams } from './standard'
 import { fixture, makePdf, pdfjsOpen, pdfjsText } from '../../test/helpers'
 import { hex, latin1, nodeMd5Hex } from '../../test/node'
@@ -164,5 +164,32 @@ describe('unlock: older handler revisions', () => {
     expect(await pdfjsText(out, 'user')).toEqual(['Page 1', 'Page 2'])
     for (const pw of ['user', 'owner']) expect(await pdfjsText(await decryptPdf(out, pw))).toEqual(['Page 1', 'Page 2'])
     await expect(decryptPdf(out, 'other')).rejects.toBeInstanceOf(PdfSecurityError)
+  })
+})
+
+describe('unlock: owner-only files and other security handlers', () => {
+  it('opens an owner-only file with the empty user password when the owner password given is wrong', async () => {
+    const result = await decryptPdfReport(fixture('rc4-128-owner-only.pdf'), 'not the owner password')
+    expect(result.opened).toBe('without-password')
+    expect(await pdfjsText(result.bytes)).toEqual(HELLO)
+    expect((await decryptPdfReport(fixture('rc4-128-owner-only.pdf'), '')).opened).toBe('without-password')
+    expect((await decryptPdfReport(fixture('rc4-128-owner-only.pdf'), 'owner pw')).opened).toBe('password')
+    // a file that does need a password still refuses the wrong one
+    await expect(decryptPdfReport(fixture('aes-128.pdf'), 'nope')).rejects.toMatchObject({ code: 'wrong-password' })
+  })
+
+  async function withHandler(filter: string, subFilter?: string) {
+    const doc = await PDFDocument.load(await makePdf(1))
+    const enc = doc.context.obj({ Filter: filter, ...(subFilter ? { SubFilter: subFilter } : {}), V: 4, R: 4 })
+    doc.context.trailerInfo.Encrypt = doc.context.register(enc)
+    return doc.save({ useObjectStreams: false })
+  }
+
+  it.each([
+    ['Adobe.PubSec', 'adbe.pkcs7.s5', /certificate \(public-key\) encryption/],
+    ['Adobe.APS', undefined, /Adobe LiveCycle Rights Management \(Adobe\.APS\).*DRM/],
+    ['FOPN_foweb', undefined, /“FOPN_foweb” security handler/],
+  ])('names the %s handler accurately', async (filter, subFilter, message) => {
+    await expect(decryptPdf(await withHandler(filter, subFilter), 'x')).rejects.toMatchObject({ code: 'unsupported', message: expect.stringMatching(message) })
   })
 })

@@ -15,6 +15,40 @@ export function PdfPreviewModal({ bytes, fileName, onClose }: PdfPreviewModalPro
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [error, setError] = useState('')
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
+  const dialog = useRef<HTMLDivElement>(null)
+  const closeButton = useRef<HTMLButtonElement>(null)
+
+  // a modal dialog: focus moves in, stays in, and goes back to the opener on close
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    closeButton.current?.focus()
+    return () => opener?.focus()
+  }, [])
+
+  // reaching the first or last page disables the button that had focus; keep focus inside
+  useEffect(() => {
+    if (!dialog.current?.contains(document.activeElement)) closeButton.current?.focus()
+  }, [pageNum, totalPages])
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.stopPropagation()
+      onClose()
+      return
+    }
+    if (e.key !== 'Tab' || !dialog.current) return
+    const focusable = [...dialog.current.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex]:not([tabindex="-1"])')]
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && (document.activeElement === first || !dialog.current.contains(document.activeElement))) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
 
   // Parse once per output, not once per page turn, and free pdf.js's copy on close.
   useEffect(() => {
@@ -69,21 +103,21 @@ export function PdfPreviewModal({ bytes, fileName, onClose }: PdfPreviewModalPro
   return (
     <>
       <div className="pdf-preview-backdrop" onClick={onClose} />
-      <div className="pdf-preview-modal" role="dialog" aria-modal="true" aria-label="PDF Preview">
+      <div className="pdf-preview-modal" role="dialog" aria-modal="true" aria-labelledby="pdf-preview-title" ref={dialog} onKeyDown={onKeyDown}>
         <div className="pdf-preview-head">
-          <h3>{fileName}</h3>
+          <h3 id="pdf-preview-title">Preview: {fileName}</h3>
           <div className="pdf-preview-controls">
             <button onClick={() => setPageNum((p) => Math.max(1, p - 1))} disabled={pageNum <= 1} aria-label="Previous page">
-              <span className="material-symbols-outlined">chevron_left</span>
+              <span className="material-symbols-outlined" aria-hidden="true">chevron_left</span>
             </button>
-            <span className="pdf-preview-page">
+            <span className="pdf-preview-page" aria-live="polite">
               {pageNum} / {totalPages || '?'}
             </span>
             <button onClick={() => setPageNum((p) => Math.min(totalPages, p + 1))} disabled={pageNum >= totalPages} aria-label="Next page">
-              <span className="material-symbols-outlined">chevron_right</span>
+              <span className="material-symbols-outlined" aria-hidden="true">chevron_right</span>
             </button>
-            <button onClick={onClose} aria-label="Close preview">
-              <span className="material-symbols-outlined">close</span>
+            <button ref={closeButton} onClick={onClose} aria-label="Close preview">
+              <span className="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
         </div>
@@ -91,7 +125,7 @@ export function PdfPreviewModal({ bytes, fileName, onClose }: PdfPreviewModalPro
           {error ? (
             <p style={{ color: 'var(--pdf-muted)' }}>{error}</p>
           ) : (
-            <canvas ref={canvasRef} />
+            <canvas ref={canvasRef} role="img" aria-label={`Page ${pageNum} of ${totalPages || '?'}`} />
           )}
         </div>
       </div>

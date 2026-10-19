@@ -4,6 +4,7 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { imagesToPdf } from '../ops/images'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 const IMAGE_ACCEPT = {
   'image/png': ['.png'],
@@ -48,21 +49,13 @@ export function ImageToPdf() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#d1fae5' }}>
-          <span className="material-symbols-outlined" style={{ color: '#059669' }}>photo_library</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Image to PDF</h2>
-          <p>Convert images to a PDF document, one page per image</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="photo_library" color="#059669" title="Image to PDF" description="Convert images to a PDF document, one page per image" />
 
       <FileDropzone files={files} onFilesChange={setFiles} accept={IMAGE_ACCEPT} label="Drop images here" description="PNG, JPG, or WebP" />
       <FileList files={files} onFilesChange={setFiles} />
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleConvert}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Converting...' : `Convert ${files.length} image${files.length !== 1 ? 's' : ''} to PDF`}
       </button>
 

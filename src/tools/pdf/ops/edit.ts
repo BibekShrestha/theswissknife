@@ -85,10 +85,13 @@ export async function addWatermark(bytes: Uint8Array, options: WatermarkOptions)
       }
       continue
     }
-    const size = Math.min(frame.width, frame.height) * 0.1
+    // a tenth of the short side, smaller when that would run past the margins
+    const size = Math.min(Math.min(frame.width, frame.height) * 0.1, (frame.width - 2 * MARGIN) / font.widthOfTextAtSize(text, 1))
     const width = font.widthOfTextAtSize(text, size)
+    // the capitals' height, so centring puts the visible text mid-page rather than its baseline
+    const capHeight = font.heightAtSize(size, { descender: false })
     const spots: Record<Exclude<WatermarkPosition, 'tile'>, [number, number]> = {
-      center: [(frame.width - width) / 2, frame.height / 2],
+      center: [(frame.width - width) / 2, (frame.height - capHeight) / 2],
       'top-left': [MARGIN, frame.height - MARGIN - size],
       'top-right': [frame.width - width - MARGIN, frame.height - MARGIN - size],
       'bottom-left': [MARGIN, MARGIN],

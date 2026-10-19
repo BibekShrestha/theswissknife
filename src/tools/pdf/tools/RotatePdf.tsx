@@ -4,6 +4,8 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { rotatePdf, type Rotation } from '../ops/organize'
+import { SubtoolHeader } from '../components/SubtoolHeader'
+import { OptionGroup } from '../components/OptionGroup'
 
 export function RotatePdf() {
   const [files, setFiles] = useState<File[]>([])
@@ -29,37 +31,24 @@ export function RotatePdf() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#cffafe' }}>
-          <span className="material-symbols-outlined" style={{ color: '#0891b2' }}>rotate_right</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Rotate PDF</h2>
-          <p>Rotate all pages by the chosen angle</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="rotate_right" color="#0891b2" title="Rotate PDF" description="Rotate all pages by the chosen angle" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
 
-      <div className="pdf-form-group">
-        <label className="pdf-form-label">Rotation angle</label>
-        <div className="pdf-option-grid">
-          {[
-            { value: 90 as Rotation, label: '90° CW', icon: 'rotate_90_degrees_cw' },
-            { value: 180 as Rotation, label: '180°', icon: 'flip' },
-            { value: 270 as Rotation, label: '90° CCW', icon: 'rotate_90_degrees_ccw' },
-          ].map((opt) => (
-            <div key={opt.value} className={`pdf-option-card${rotation === opt.value ? ' on' : ''}`} onClick={() => setRotation(opt.value)}>
-              <span className="material-symbols-outlined">{opt.icon}</span>
-              <span>{opt.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <OptionGroup
+        label="Rotation angle"
+        value={rotation}
+        onChange={setRotation}
+        options={[
+          { value: 90 as Rotation, label: '90° CW', icon: 'rotate_90_degrees_cw' },
+          { value: 180 as Rotation, label: '180°', icon: 'flip' },
+          { value: 270 as Rotation, label: '90° CCW', icon: 'rotate_90_degrees_ccw' },
+        ]}
+      />
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleRotate}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Rotating...' : 'Rotate PDF'}
       </button>
 

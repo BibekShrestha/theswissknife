@@ -4,6 +4,7 @@ import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { removePages } from '../ops/organize'
+import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function RemovePages() {
   const [files, setFiles] = useState<File[]>([])
@@ -29,26 +30,21 @@ export function RemovePages() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#ffe4e6' }}>
-          <span className="material-symbols-outlined" style={{ color: '#e11d48' }}>delete</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Remove Pages</h2>
-          <p>Delete unwanted pages from your PDF</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="delete" color="#e11d48" title="Remove Pages" description="Delete unwanted pages from your PDF" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
 
       <div className="pdf-form-group">
         <label className="pdf-form-label" htmlFor="pdf-remove-pages">Pages to remove (e.g. 1,3,5 or 2-4,7-)</label>
-        <input id="pdf-remove-pages" className="pdf-text-input" type="text" value={pagesToRemove} onChange={(e) => setPagesToRemove(e.target.value)} />
+        <input id="pdf-remove-pages" className="pdf-text-input" type="text" value={pagesToRemove} onChange={(e) => setPagesToRemove(e.target.value)} aria-describedby="pdf-remove-hint" />
+        <p className="pdf-form-hint" id="pdf-remove-hint">
+          Links and bookmarks that lead to removed pages are removed with them, and so are form fields that appear only on them.
+        </p>
       </div>
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleRemove}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Removing pages...' : 'Remove Pages'}
       </button>
 

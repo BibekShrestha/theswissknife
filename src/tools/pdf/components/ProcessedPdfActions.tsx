@@ -18,7 +18,7 @@ export function ProcessedPdfActions({ fileName, outputBytes, mimeType = 'applica
   return (
     <div className="pdf-processed">
       <div className="pdf-processed-header">
-        <span className="material-symbols-outlined">check_circle</span>
+        <span className="material-symbols-outlined" aria-hidden="true">check_circle</span>
         <div className="pdf-processed-info">
           <h4>Ready!</h4>
           <p>{fileName}</p>
@@ -26,11 +26,11 @@ export function ProcessedPdfActions({ fileName, outputBytes, mimeType = 'applica
       </div>
       <div className="pdf-processed-actions">
         <button className="pdf-processed-download" onClick={handleDownload}>
-          <span className="material-symbols-outlined">download</span> Download
+          <span className="material-symbols-outlined" aria-hidden="true">download</span> Download
         </button>
         {previewable && (
           <button className="pdf-processed-preview" onClick={() => setPreview(true)}>
-            <span className="material-symbols-outlined">visibility</span> Preview
+            <span className="material-symbols-outlined" aria-hidden="true">visibility</span> Preview
           </button>
         )}
       </div>

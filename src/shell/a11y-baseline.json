@@ -3,23 +3,6 @@
   "unhiddenIcons": {
     "src/tools/convert/index.tsx": 5,
     "src/tools/jq/components/OptionsPanel.tsx": 5,
-    "src/tools/pdf/components/FileDropzone.tsx": 3,
-    "src/tools/pdf/components/PdfPreviewModal.tsx": 3,
-    "src/tools/pdf/components/ProcessedPdfActions.tsx": 3,
-    "src/tools/pdf/index.tsx": 3,
-    "src/tools/pdf/tools/CompressPdf.tsx": 3,
-    "src/tools/pdf/tools/ImageToPdf.tsx": 2,
-    "src/tools/pdf/tools/MergePdf.tsx": 2,
-    "src/tools/pdf/tools/PageNumbers.tsx": 4,
-    "src/tools/pdf/tools/PdfToImage.tsx": 4,
-    "src/tools/pdf/tools/PdfToText.tsx": 4,
-    "src/tools/pdf/tools/ProtectPdf.tsx": 2,
-    "src/tools/pdf/tools/RemovePages.tsx": 2,
-    "src/tools/pdf/tools/ReorderPages.tsx": 2,
-    "src/tools/pdf/tools/RotatePdf.tsx": 3,
-    "src/tools/pdf/tools/SplitPdf.tsx": 3,
-    "src/tools/pdf/tools/UnlockPdf.tsx": 2,
-    "src/tools/pdf/tools/Watermark.tsx": 4,
     "src/tools/qr/scan/Scanner.tsx": 1
   }
 }

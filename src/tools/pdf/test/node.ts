@@ -5,7 +5,7 @@
 interface NodeBuiltins {
   'node:fs': { readFileSync(path: URL): Uint8Array }
   'node:crypto': { createHash(algorithm: string): { update(data: Uint8Array): { digest(encoding: 'hex'): string } } }
-  'node:zlib': { deflateSync(data: Uint8Array): Uint8Array }
+  'node:zlib': { deflateSync(data: Uint8Array): Uint8Array; inflateSync(data: Uint8Array): Uint8Array }
 }
 
 const builtin = <K extends keyof NodeBuiltins>(id: K): NodeBuiltins[K] =>
@@ -14,6 +14,7 @@ const builtin = <K extends keyof NodeBuiltins>(id: K): NodeBuiltins[K] =>
 export const readFile = (url: URL) => new Uint8Array(builtin('node:fs').readFileSync(url))
 export const nodeMd5Hex = (data: Uint8Array) => builtin('node:crypto').createHash('md5').update(data).digest('hex')
 export const deflate = (data: Uint8Array) => new Uint8Array(builtin('node:zlib').deflateSync(data))
+export const inflate = (data: Uint8Array) => new Uint8Array(builtin('node:zlib').inflateSync(data))
 
 export const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 export const fromHex = (s: string) => Uint8Array.from(s.match(/../g) ?? [], (h) => parseInt(h, 16))

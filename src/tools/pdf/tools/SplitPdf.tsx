@@ -5,14 +5,17 @@ import { ErrorText } from '../components/ErrorText'
 import { describeError, readBytes } from '../lib/load'
 import { splitPdf } from '../ops/organize'
 import JSZip from 'jszip'
+import { SubtoolHeader } from '../components/SubtoolHeader'
+import { OptionGroup } from '../components/OptionGroup'
+import { NumberField, parseWhole } from '../components/NumberField'
 
 type SplitMode = 'every' | 'first' | 'ranges'
 
 export function SplitPdf() {
   const [files, setFiles] = useState<File[]>([])
   const [mode, setMode] = useState<SplitMode>('every')
-  const [pagesPerFile, setPagesPerFile] = useState(1)
-  const [firstFilePages, setFirstFilePages] = useState(1)
+  const [pagesPerFile, setPagesPerFile] = useState('1')
+  const [firstFilePages, setFirstFilePages] = useState('1')
   const [ranges, setRanges] = useState('1-3,4-6,7-9')
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<Uint8Array | null>(null)
@@ -20,6 +23,11 @@ export function SplitPdf() {
 
   async function handleSplit() {
     if (files.length === 0) return
+    const count = mode === 'ranges' ? 1 : parseWhole(mode === 'every' ? pagesPerFile : firstFilePages)
+    if (count === null) {
+      setError(`Enter a whole number of pages, 1 or more, for “${mode === 'every' ? 'Pages per file' : 'Pages in first file'}”.`)
+      return
+    }
     setProcessing(true)
     setResult(null)
     setError('')
@@ -28,7 +36,7 @@ export function SplitPdf() {
       const bytes = await readBytes(files[0])
       const parts = await splitPdf(
         bytes,
-        mode === 'every' ? { kind: 'every', pages: pagesPerFile } : mode === 'first' ? { kind: 'first', pages: firstFilePages } : { kind: 'ranges', ranges },
+        mode === 'ranges' ? { kind: 'ranges', ranges } : { kind: mode, pages: count },
       )
       const zip = new JSZip()
       for (const part of parts) zip.file(part.name, part.bytes)
@@ -42,48 +50,29 @@ export function SplitPdf() {
 
   return (
     <div>
-      <div className="pdf-subtool-header">
-        <div className="pdf-subtool-icon" style={{ background: '#ffedd5' }}>
-          <span className="material-symbols-outlined" style={{ color: '#ea580c' }}>content_cut</span>
-        </div>
-        <div className="pdf-subtool-info">
-          <h2>Split PDF</h2>
-          <p>Split a PDF into multiple files, downloaded together as a ZIP</p>
-        </div>
-      </div>
+      <SubtoolHeader icon="content_cut" color="#ea580c" title="Split PDF" description="Split a PDF into multiple files, downloaded together as a ZIP" />
 
       <FileDropzone files={files} onFilesChange={setFiles} maxFiles={1} multiple={false} />
       <FileList files={files} onFilesChange={setFiles} />
+      <p className="pdf-form-hint">
+        Each file keeps the document properties and the bookmarks, links, form fields and page labels of its own pages; links and bookmarks that lead
+        to pages in another file are removed.
+      </p>
 
-      <div className="pdf-form-group">
-        <label className="pdf-form-label">Split mode</label>
-        <div className="pdf-option-grid">
-          {[
-            { id: 'every' as const, label: 'Every N pages', icon: 'view_column' },
-            { id: 'first' as const, label: 'First X pages', icon: 'first_page' },
-            { id: 'ranges' as const, label: 'Page ranges', icon: 'format_list_numbered' },
-          ].map((opt) => (
-            <div key={opt.id} className={`pdf-option-card${mode === opt.id ? ' on' : ''}`} onClick={() => setMode(opt.id)}>
-              <span className="material-symbols-outlined">{opt.icon}</span>
-              <span>{opt.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <OptionGroup
+        label="Split mode"
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: 'every' as const, label: 'Every N pages', icon: 'view_column' },
+          { value: 'first' as const, label: 'First X pages', icon: 'first_page' },
+          { value: 'ranges' as const, label: 'Page ranges', icon: 'format_list_numbered' },
+        ]}
+      />
 
-      {mode === 'every' && (
-        <div className="pdf-form-group">
-          <label className="pdf-form-label">Pages per file</label>
-          <input className="pdf-number-input" type="number" min={1} value={pagesPerFile} onChange={(e) => setPagesPerFile(Math.max(1, parseInt(e.target.value) || 1))} />
-        </div>
-      )}
+      {mode === 'every' && <NumberField id="pdf-split-every" label="Pages per file" value={pagesPerFile} onChange={setPagesPerFile} />}
 
-      {mode === 'first' && (
-        <div className="pdf-form-group">
-          <label className="pdf-form-label">Pages in first file</label>
-          <input className="pdf-number-input" type="number" min={1} value={firstFilePages} onChange={(e) => setFirstFilePages(Math.max(1, parseInt(e.target.value) || 1))} />
-        </div>
-      )}
+      {mode === 'first' && <NumberField id="pdf-split-first" label="Pages in first file" value={firstFilePages} onChange={setFirstFilePages} />}
 
       {mode === 'ranges' && (
         <div className="pdf-form-group">
@@ -93,7 +82,7 @@ export function SplitPdf() {
       )}
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleSplit}>
-        <span className="material-symbols-outlined pdf-spinner" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
+        <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>
         {processing ? 'Splitting...' : 'Split PDF'}
       </button>
 
