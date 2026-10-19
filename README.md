@@ -13,7 +13,7 @@ Buddy's pdf.js engine included.
 |---|---|---|
 | jq playground | [/jq](https://theswissknife.com/jq) | Real jq 1.8.2 (WebAssembly) with every CLI flag, input-aware autocomplete, examples, shareable links |
 | JWT decode & generate | [/jwt](https://theswissknife.com/jwt) | Decode, verify and sign JWTs (HS/RS/PS/ES/EdDSA) via WebCrypto |
-| SSL certificate verifier | [/ssl](https://theswissknife.com/ssl) | Inspect X.509 certificates, check expiry and hostname coverage, and verify supplied chain signatures locally |
+| SSL certificate verifier | [/ssl](https://theswissknife.com/ssl) | Inspect X.509 certificates, check expiry and hostname coverage, and verify supplied chain signatures locally; read PKCS#10 CSRs (requested SANs, signature check) and PKCS#8/PKCS#1/SEC1/SPKI/OpenSSH keys (type, size, SPKI pin, OpenSSH SHA256/MD5 fingerprints, encryption scheme without decrypting), and check whether a key or CSR matches a certificate |
 | Hash & HMAC | [/hash](https://theswissknife.com/hash) | SHA-1/256/384/512 digests and HMACs (text, hex or Base64 key) of UTF-8 text or a local file via WebCrypto, in hex or Base64; paste an expected checksum (or a `sha256sum` line) to see which one matches |
 | Regex lab | [/regex](https://theswissknife.com/regex) | JavaScript regular expressions with matches and capture groups highlighted in the text, should-match / should-not-match test cases, a plain-language explanation that warns about nested quantifiers, share links and copy as JS — every run in a worker that is stopped if a pattern backtracks catastrophically |
 | Text redactor | [/redact](https://theswissknife.com/redact) | Mask text with block characters, pick what to hide, share the scheme as a link |
