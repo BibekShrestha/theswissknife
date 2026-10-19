@@ -5,7 +5,7 @@ import { useCopy } from '../../shell/useCopy'
 import { useToast } from '../../shell/useToast'
 import { findingDetail, FINDING_TITLES, FLAG_LABELS, graphemeEscapes, LOUD_FLAGS, visible } from './copy'
 import type { Severity } from './lib/analyze'
-import { abbreviation, classify, HIDDEN_KINDS } from './lib/classify'
+import { abbreviation, classify, HIDDEN_KINDS, isNoncharacter } from './lib/classify'
 import { bytesHex, codePoints, cssEscape, htmlDecimal, htmlEscape, jsBraceEscape, jsEscape, unitsHex, uPlus, utf16, utf16Bytes, utf32Bytes, utf8 } from './lib/encode'
 import { CATEGORY_NAMES, scriptLabel } from './lib/props'
 import { FORMS, PAGE_SIZE, type CleanOptions, type Form, type GraphemeView } from './lib/views'
@@ -238,6 +238,19 @@ function FindingCard({ finding: f, onJump }: { finding: LabelledFinding, onJump:
   )
 }
 
+/**
+ * What to show where a name would be. Surrogates, private use, noncharacters
+ * and unassigned code points have no name by definition; they get the code
+ * point labels of Unicode §4.8 (`<surrogate-D800>`).
+ */
+function missingName(cp: number, gc: string, version: string | null): string {
+  const hex = uPlus(cp).slice(2)
+  if (gc === 'Cs') return `<surrogate-${hex}>`
+  if (gc === 'Co') return `<private-use-${hex}>`
+  if (gc === 'Cn') return isNoncharacter(cp) ? `<noncharacter-${hex}>` : `<reserved-${hex}>`
+  return version ? `not in the Unicode ${version} names table (newer than it)` : 'name unavailable'
+}
+
 /** How a grapheme is drawn in the list: as itself, or as labels when it draws nothing or reorders text. */
 function Glyph({ g }: { g: GraphemeView }) {
   const cps = codePoints(g.text)
@@ -263,6 +276,7 @@ function Characters({ result, open, setOpen, setPage, copy }: { result: InspectR
         <span>
           Graphemes {first.toLocaleString()}–{last.toLocaleString()} of {page.total.toLocaleString()}
           {page.pages > 1 && <> · listed {PAGE_SIZE} at a time</>}
+          <span className="uni-meta"> · click a character for its bytes and escapes</span>
         </span>
         {page.pages > 1 && (
           <span className="uni-pager-buttons">
@@ -283,7 +297,15 @@ function Characters({ result, open, setOpen, setPage, copy }: { result: InspectR
           const isOpen = open === g.index
           return (
             <li key={g.index} id={`uni-g-${g.index}`} tabIndex={-1} className={`uni-g${loud ? ' is-loud' : ''}`}>
-              <div className="uni-glyph"><Glyph g={g} /></div>
+              <button
+                className="uni-glyph"
+                aria-expanded={isOpen}
+                aria-label={`${isOpen ? 'Hide' : 'Show'} bytes and escapes of grapheme ${(g.index + 1).toLocaleString()}`}
+                title={isOpen ? 'Hide bytes & escapes' : 'Bytes & escapes'}
+                onClick={() => setOpen(isOpen ? null : g.index)}
+              >
+                <Glyph g={g} />
+              </button>
               <div className="uni-cps">
                 {g.cps.map((cp, i) => {
                   const bytes = utf8(cp.cp)
@@ -291,7 +313,7 @@ function Characters({ result, open, setOpen, setPage, copy }: { result: InspectR
                     <div className="uni-cp" key={i}>
                       <code className="uni-u">{uPlus(cp.cp)}</code>
                       <span className="uni-name">
-                        {cp.name ?? <span className="uni-muted">{result.names.status === 'ok' ? `no name in the Unicode ${result.names.version} table` : 'name unavailable'}</span>}
+                        {cp.name ?? <span className="uni-muted">{missingName(cp.cp, cp.gc, result.names.status === 'ok' ? result.names.version : null)}</span>}
                         {cp.alias && <span className="uni-muted"> (alias)</span>}
                       </span>
                       <span className="uni-gc" title={CATEGORY_NAMES.get(cp.gc)}><abbr title={CATEGORY_NAMES.get(cp.gc)}>{cp.gc}</abbr><span className="uni-gc-long"> {CATEGORY_NAMES.get(cp.gc)}</span></span>
@@ -306,9 +328,6 @@ function Characters({ result, open, setOpen, setPage, copy }: { result: InspectR
                   )
                 })}
                 {g.more > 0 && <p className="uni-note">…and {g.more.toLocaleString()} more code points in this grapheme (the first {g.cps.length} are listed).</p>}
-                <button className="uni-link" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : g.index)}>
-                  {isOpen ? 'Hide bytes & escapes' : 'Bytes & escapes'}
-                </button>
                 {isOpen && <Details g={g} copy={copy} />}
               </div>
             </li>
@@ -388,10 +407,10 @@ function Normalize({ result, form, setForm, copy }: { result: InspectResult, for
               {view.changes.map((c) => (
                 <li key={c.grapheme}>
                   <span className="uni-occ-pos">#{(c.grapheme + 1).toLocaleString()}</span>
-                  <bdi className="uni-change-text">{visible(c.before)}</bdi>
+                  <bdi className="uni-change-text">{visible(c.before, true)}</bdi>
                   <code>{codePoints(c.before).map(uPlus).join(' ')}</code>
                   <span aria-hidden>→</span><span className="uni-sr">becomes</span>
-                  <bdi className="uni-change-text">{visible(c.after)}</bdi>
+                  <bdi className="uni-change-text">{visible(c.after, true)}</bdi>
                   <code>{codePoints(c.after).map(uPlus).join(' ')}</code>
                 </li>
               ))}

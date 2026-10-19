@@ -99,13 +99,14 @@ export const LOUD_FLAGS: ReadonlySet<CpFlag> = new Set(['bidi', 'invisible', 'ta
  * Text that may hold bidi controls or invisibles, made safe to show: every
  * character that draws nothing (or reorders) becomes a [label]. Used for words
  * and normalisation changes, which come straight from the user's input.
+ * `spaces` also labels U+0020, for a change whose whole result is one space.
  */
-export function visible(text: string): string {
+export function visible(text: string, spaces = false): string {
   let out = ''
   for (const ch of text) {
     const cp = ch.codePointAt(0)!
     const kind = classify(cp)
-    if (kind && HIDDEN_KINDS.has(kind)) out += `[${abbreviation(cp) ?? uPlus(cp)}]`
+    if ((kind && HIDDEN_KINDS.has(kind)) || (spaces && cp === 0x20)) out += `[${abbreviation(cp) ?? uPlus(cp)}]`
     else out += ch
   }
   return out
