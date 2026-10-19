@@ -29,5 +29,6 @@ export const taglines: Record<string, string> = {
   convert: 'Convert between YAML, JSON and TOML with exact big integers, line-and-column errors and a warning for anything lost',
   otp: 'Generate and check TOTP and HOTP codes from a Base32 secret, an otpauth URI, a Google Authenticator export or its QR images — nothing is stored',
   sqlite: 'Open a SQLite file in your browser — browse tables, run SQL, export CSV, JSON or the edited database',
+  cidr: 'IPv4 and IPv6 subnet calculator — network, hosts, masks, reverse DNS and IANA special-purpose blocks, plus split, summarise, overlap and range to CIDR',
   curl: 'Turn a browser’s Copy as cURL into fetch, Python, Go or raw HTTP — secrets flagged and swapped for placeholders, nothing sent',
 }
