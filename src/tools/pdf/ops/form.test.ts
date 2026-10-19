@@ -139,7 +139,8 @@ describe('readForm', () => {
     expect(by.zip).toMatchObject({ kind: 'text', maxLength: 5, comb: true })
     expect(by.code).toMatchObject({ kind: 'text', maxLength: 8, comb: false })
     expect(by.locked).toMatchObject({ kind: 'text', value: 'Fixed', readOnly: true })
-    expect(by.email).toMatchObject({ kind: 'text', required: true })
+    expect(by.email).toMatchObject({ kind: 'text', required: true, label: 'Email address' })
+    expect(by.name.label).toBeUndefined()
     expect(by.agree).toMatchObject({ kind: 'checkbox', checked: false })
     expect(by.color).toMatchObject({ kind: 'radio', options: ['red', 'green', 'blue'], selected: [] })
     expect(by.color.widgets.map((w) => w.option)).toEqual(['red', 'green', 'blue'])
@@ -207,6 +208,23 @@ describe('filling fields', () => {
     const state = agree.getAppearanceState()!
     expect(state.decodeText()).toBe('Yes')
     expect((doc.context.lookup(agree.getNormalAppearance()) as PDFDict).has(state)).toBe(true)
+  })
+
+  it('sizes auto-sized multi-line text like viewers do (12 pt, smaller to fit) and keeps the field auto-sized', async () => {
+    const { bytes } = await fill(await makeFormPdf(), { notes: 'Line one\nLine two' })
+    const doc = await PDFDocument.load(bytes)
+    const widget = doc.getForm().getTextField('notes').acroField.getWidgets()[0]
+    const content = decode(doc.context.lookup(widget.getNormalAppearance()) as PDFStream)
+    expect([...content.matchAll(/([\d.]+) Tf/g)].map((m) => Number(m[1]))).toEqual([12])
+    expect(doc.getForm().getTextField('notes').acroField.getDefaultAppearance()).toMatch(/ 0 Tf/)
+    expect((await PDFDocument.load((await fill(await makeFormPdf(), { name: 'Ada' })).bytes)).getForm().getTextField('name').acroField.getDefaultAppearance()).toMatch(/ 0 Tf/)
+    // a long text shrinks below 12 pt so every line stays inside the box
+    const long = (await fill(await makeFormPdf(), { notes: Array.from({ length: 8 }, (_, i) => `Line ${i + 1}`).join('\n') })).bytes
+    const longDoc = await PDFDocument.load(long)
+    const longContent = decode(longDoc.context.lookup(longDoc.getForm().getTextField('notes').acroField.getWidgets()[0].getNormalAppearance()) as PDFStream)
+    const size = Number(/([\d.]+) Tf/.exec(longContent)![1])
+    expect(size).toBeLessThan(12)
+    expect(shownText(longContent).split('\n')).toHaveLength(8)
   })
 
   it('clears values and leaves untouched fields as they were', async () => {

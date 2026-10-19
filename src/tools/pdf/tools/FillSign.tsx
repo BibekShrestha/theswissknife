@@ -121,7 +121,19 @@ export function FillSign() {
     return size
   }
 
-  const focusItem = (id: number) => requestAnimationFrame(() => document.getElementById(`pdf-fs-item-${id}`)?.focus())
+  // an item that should take focus once it is on screen (new, or carried to another page)
+  const focusNext = useRef<number | null>(null)
+  const focusItem = (id: number) => {
+    focusNext.current = id
+  }
+  useEffect(() => {
+    const id = focusNext.current
+    if (id === null) return
+    const el = document.getElementById(`pdf-fs-item-${id}`)
+    if (!el) return
+    focusNext.current = null
+    el.focus()
+  })
 
   async function addItem(kind: ItemKind, sig?: number, list = signatures) {
     if (!loaded) return

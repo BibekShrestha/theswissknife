@@ -48,6 +48,7 @@ export async function makeFormPdf(options: FormFixtureOptions = {}): Promise<Uin
   locked.addToPage(p1, { x: 260, y: 400, width: 100, height: 20 })
   const email = form.createTextField('email')
   email.enableRequired()
+  email.acroField.dict.set(PDFName.of('TU'), PDFString.of('Email address'))
   email.addToPage(p1, { x: 20, y: 360, width: 200, height: 20 })
 
   const agree = form.createCheckBox('agree')
@@ -73,6 +74,8 @@ export async function makeFormPdf(options: FormFixtureOptions = {}): Promise<Uin
   if (options.needAppearances) acro.set(PDFName.of('NeedAppearances'), doc.context.obj(true))
   // drawing appearances goes through doc.getForm(), which drops /XFA: save first, add it after
   form.updateFieldAppearances()
+  // pdf-lib writes the size it drew at into /DA; give the fields "auto" (0), as forms made in Acrobat have
+  for (const field of form.getFields()) if (field.acroField.dict.has(PDFName.of('DA'))) field.acroField.dict.set(PDFName.of('DA'), PDFString.of('/Helv 0 Tf 0 g'))
   if (options.xfa) acro.set(PDFName.of('XFA'), doc.context.register(doc.context.stream('<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"/>')))
   return doc.save({ updateFieldAppearances: false })
 }

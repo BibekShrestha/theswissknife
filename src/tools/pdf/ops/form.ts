@@ -361,6 +361,86 @@ function exportChoiceValues(field: PDFDropdown | PDFOptionList): void {
   dict.set(PDFName.of('V'), strings.length === 1 ? strings[0] : dict.context.obj(strings))
 }
 
+const DA = PDFName.of('DA')
+const TF = /(\/[^\0\t\n\f\r ]+[\0\t\n\f\r ]+)(\d*\.\d+|\d+)([\0\t\n\f\r ]+Tf)/g
+/** Acrobat's ceiling for auto-sized multi-line text; pdf-lib would grow it until the box is full. */
+const MULTILINE_MAX_SIZE = 12
+const MULTILINE_MIN_SIZE = 4
+
+function daOf(dict: PDFDict): string | undefined {
+  const da = dict.lookup(DA)
+  return da instanceof PDFString || da instanceof PDFHexString ? da.decodeText() : undefined
+}
+
+/** Whether a field's text size is "auto" (Tf 0, or none given) for every widget. */
+function autoSized(dicts: PDFDict[]): boolean {
+  const sizes = dicts.flatMap((d) => [...(daOf(d) ?? '').matchAll(TF)].slice(-1).map((m) => Number(m[2])))
+  return sizes.every((n) => n === 0)
+}
+
+/** The largest size up to 12 pt at which `text`, wrapped at word breaks, fits a w×h box. */
+export function fitMultiline(text: string, font: PDFFont, w: number, h: number): number {
+  for (let size = MULTILINE_MAX_SIZE; size > MULTILINE_MIN_SIZE; size -= 0.5) {
+    let lines = 0
+    for (const paragraph of text.split('\n')) {
+      lines++
+      let used = 0
+      for (const word of paragraph.split(' ')) {
+        const width = font.widthOfTextAtSize(`${word} `, size)
+        if (used > 0 && used + width > w) {
+          lines++
+          used = 0
+        }
+        used += width
+      }
+    }
+    if (lines * font.heightAtSize(size) * 1.2 <= h) return size
+  }
+  return MULTILINE_MIN_SIZE
+}
+
+/** The field's dictionary and its widgets' (one dictionary when they are merged). */
+function fieldDicts(field: PDFField): PDFDict[] {
+  return [...new Set([field.acroField.dict, ...field.acroField.getWidgets().map((w) => w.dict)])]
+}
+
+/**
+ * Runs `draw` and then puts back every /DA it touched. pdf-lib writes the
+ * size it drew at into /DA, which would turn an "auto" field into a fixed
+ * one for whoever edits it next; the appearance it drew carries its own.
+ */
+function keepingDA(dicts: PDFDict[], draw: () => void): void {
+  const saved = dicts.map((d) => [d, d.get(DA)] as const)
+  try {
+    draw()
+  } finally {
+    for (const [d, da] of saved) {
+      if (da === undefined) d.delete(DA)
+      else d.set(DA, da)
+    }
+  }
+}
+
+/**
+ * pdf-lib auto-sizes multi-line text to fill the box, so two short lines
+ * come out 50 pt tall and clipped. Viewers start at 12 pt and shrink to
+ * fit; this draws at that size (the field's "auto" is put back after).
+ */
+function drawMultilineAuto(field: PDFTextField, font: PDFFont): void {
+  const size = Math.min(
+    ...field.acroField.getWidgets().map((w) => {
+      const [x1, y1, x2, y2] = rectOf(w)
+      return fitMultiline(field.getText() ?? '', font, x2 - x1 - 4, y2 - y1 - 4)
+    }),
+  )
+  for (const d of fieldDicts(field)) {
+    const da = daOf(d)
+    if (da) d.set(DA, PDFString.of(da.replace(TF, (_, a: string, _n: string, b: string) => `${a}${size}${b}`)))
+  }
+  if (!daOf(field.acroField.dict)) field.acroField.dict.set(DA, PDFString.of(`/Helv ${size} Tf 0 g`))
+  field.defaultUpdateAppearances(font)
+}
+
 const drawable = (f: PDFField) => f instanceof PDFTextField || f instanceof PDFDropdown || f instanceof PDFOptionList
 
 /** Draws appearances for changed fields and fields without one; returns the names it could not draw. */
@@ -372,7 +452,13 @@ function drawAppearances(form: PDFForm, font: PDFFont, redrawAll: boolean): stri
     if (!(redrawAll && drawable(field)) && !field.needsAppearancesUpdate()) continue
     try {
       if (field instanceof PDFCheckBox || field instanceof PDFRadioGroup) field.defaultUpdateAppearances()
-      else (field as PDFTextField).defaultUpdateAppearances(font)
+      else {
+        const dicts = fieldDicts(field)
+        keepingDA(dicts, () => {
+          if (field instanceof PDFTextField && field.isMultiline() && autoSized(dicts)) drawMultilineAuto(field, font)
+          else (field as PDFTextField).defaultUpdateAppearances(font)
+        })
+      }
     } catch {
       failed.push(field.getName())
     }

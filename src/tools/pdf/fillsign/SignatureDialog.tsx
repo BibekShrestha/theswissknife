@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { ErrorText } from '../components/ErrorText'
-import { addPoint, type Pt } from './pad'
+import { addPoint, endStroke, type Pt } from './pad'
 import { drawnSignature, INK_COLORS, paintStrokes, PEN_WIDTH, pickedSignature, SCRIPT_FONTS, typedSignature, type SignatureImage } from './raster'
 
 type Mode = 'pad' | 'typed' | 'file'
@@ -21,6 +21,7 @@ interface Props {
 function DrawPad({ strokes, setStrokes, color, onSize }: { strokes: Pt[][]; setStrokes: (s: Pt[][]) => void; color: string; onSize: (w: number, h: number) => void }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const live = useRef<Pt[] | null>(null)
+  const lastRaw = useRef<Pt | undefined>(undefined)
   const [width, setWidth] = useState(0)
 
   // the pad fills the dialog's width; its backing store follows the device pixel ratio
@@ -65,7 +66,8 @@ function DrawPad({ strokes, setStrokes, color, onSize }: { strokes: Pt[][]; setS
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
     live.current = []
-    addPoint(live.current, point(e))
+    lastRaw.current = point(e)
+    addPoint(live.current, lastRaw.current)
     repaint(live.current)
   }
 
@@ -76,14 +78,20 @@ function DrawPad({ strokes, setStrokes, color, onSize }: { strokes: Pt[][]; setS
     const samples = 'getCoalescedEvents' in e.nativeEvent ? e.nativeEvent.getCoalescedEvents() : []
     let changed = false
     const r = e.currentTarget.getBoundingClientRect()
-    for (const s of samples.length ? samples : [e.nativeEvent]) changed = addPoint(stroke, { x: s.clientX - r.left, y: s.clientY - r.top }) || changed
+    for (const s of samples.length ? samples : [e.nativeEvent]) {
+      lastRaw.current = { x: s.clientX - r.left, y: s.clientY - r.top }
+      changed = addPoint(stroke, lastRaw.current) || changed
+    }
     if (changed) repaint(stroke)
   }
 
   function up() {
     const stroke = live.current
     live.current = null
-    if (stroke && stroke.length) setStrokes([...strokes, stroke])
+    if (!stroke || !stroke.length) return
+    endStroke(stroke, lastRaw.current)
+    lastRaw.current = undefined
+    setStrokes([...strokes, stroke])
   }
 
   return (

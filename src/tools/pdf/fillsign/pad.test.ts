@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addPoint, alphaBounds, carryTo, centreOn, clampBox, fitSize, MIN_ITEM, nudge, resizeBox, strokeSegments, strokesBounds, whiteToAlpha, type Pt } from './pad'
+import { addPoint, endStroke, alphaBounds, carryTo, centreOn, clampBox, fitSize, MIN_ITEM, nudge, resizeBox, strokeSegments, strokesBounds, whiteToAlpha, type Pt } from './pad'
 
 const view = { width: 600, height: 800 }
 
@@ -12,6 +12,18 @@ describe('drawing pad strokes', () => {
     expect(stroke).toEqual([{ x: 10, y: 10 }, { x: 15, y: 10 }])
     expect(addPoint(stroke, { x: 20, y: 10 }, 1.5, 1)).toBe(true)
     expect(stroke[2]).toEqual({ x: 20, y: 10 })
+  })
+
+  it('ends a stroke at the last raw sample, which smoothing lags behind', () => {
+    const stroke: Pt[] = []
+    addPoint(stroke, { x: 0, y: 0 })
+    addPoint(stroke, { x: 100, y: 0 }, 1.5, 0.5)
+    expect(stroke[1]).toEqual({ x: 50, y: 0 })
+    endStroke(stroke, { x: 100, y: 0 })
+    expect(stroke[2]).toEqual({ x: 100, y: 0 })
+    endStroke(stroke, { x: 100.2, y: 0 })
+    expect(stroke).toHaveLength(3)
+    endStroke([], { x: 1, y: 1 })
   })
 
   it('turns a tap into a dot and two points into a line', () => {

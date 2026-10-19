@@ -42,6 +42,15 @@ export function addPoint(stroke: Pt[], sample: Pt, minDistance = MIN_POINT_DISTA
   return true
 }
 
+/**
+ * Ends a stroke where the pen actually lifted: smoothing trails the pointer,
+ * so without the raw last sample a quick stroke stops short.
+ */
+export function endStroke(stroke: Pt[], last: Pt | undefined): void {
+  const tail = stroke[stroke.length - 1]
+  if (last && tail && Math.hypot(last.x - tail.x, last.y - tail.y) >= 0.5) stroke.push({ x: last.x, y: last.y })
+}
+
 export type Segment =
   | { kind: 'dot'; at: Pt }
   | { kind: 'line'; from: Pt; to: Pt }

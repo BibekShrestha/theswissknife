@@ -73,7 +73,8 @@ export function PageView(props: Props) {
     const el = wrap.current
     if (!el) return
     const measure = () => {
-      const w = Math.floor(el.getBoundingClientRect().width)
+      const style = getComputedStyle(el)
+      const w = Math.floor(el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight))
       setAvail((old) => (Math.abs(old - w) > 2 ? w : old))
     }
     measure()
@@ -136,6 +137,8 @@ export function PageView(props: Props) {
     if (placing !== null) {
       const item = items.find((i) => i.id === placing)
       if (item && item.page === page) {
+        // no default: the press would otherwise move focus off the item to the scroll container
+        e.preventDefault()
         props.onPlaced(item.id, centreOn(item, toPage(e), view))
         document.getElementById(`pdf-fs-item-${item.id}`)?.focus()
         return
@@ -176,10 +179,11 @@ export function PageView(props: Props) {
 
   function itemKey(e: KeyboardEvent<HTMLElement>, item: Placed) {
     if (!view) return
+    const name = itemName(item, item.sig !== undefined ? signatures[item.sig]?.label : undefined)
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
       props.onRemove(item.id)
-      setStatus(`${itemName(item)} removed`)
+      setStatus(`${name} removed`)
       return
     }
     if (e.key === 'Escape') {
@@ -191,17 +195,19 @@ export function PageView(props: Props) {
     if (!next && (e.key === '-' || e.key === '_')) next = resizeBox(item, 1 / 1.1, view)
     if (!next && e.key === 'Enter' && placing === item.id) {
       props.onPlaced(item.id, item)
-      setStatus(`${itemName(item)} placed ${describe(item)}`)
+      setStatus(`${name} placed ${describe(item)}`)
       return
     }
     if (!next) return
     e.preventDefault()
     if (placing === item.id) props.onPlaced(item.id, next)
     else props.onChange(item.id, next)
-    setStatus(`${itemName(item)} ${describe(next)}`)
+    setStatus(`${name} ${describe(next)}`)
   }
 
   const here = items.filter((i) => i.page === page)
+  // on a turned page the fields' text runs with the page, as their appearances will
+  const rotation = viewport ? viewport.rotation % 360 : 0
 
   return (
     <div className="pdf-fs-viewer">
@@ -244,17 +250,22 @@ export function PageView(props: Props) {
                           top: b.y * scale,
                           width: b.width * scale,
                           height: b.height * scale,
-                          fontSize: Math.max(7, Math.min(b.height * 0.68, 12) * scale),
+                          fontSize: Math.max(7, Math.min((rotation % 180 ? b.width : b.height) * 0.68, 12) * scale),
                           letterSpacing: f.comb && f.maxLength ? `${Math.max(0, (b.width / f.maxLength) * scale - 7)}px` : undefined,
                         }}
                         aria-hidden="true"
                         title={f.label ?? f.name}
-                        onPointerDown={(e) => {
-                          e.stopPropagation()
-                          props.onFieldPointer(fi, w)
-                        }}
+                        // a click (not the press) so the focus it moves to the list control stays there
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => props.onFieldPointer(fi, w)}
                       >
-                        {text}
+                        {rotation ? (
+                          <span className="pdf-fs-marker-turned" style={{ width: (rotation % 180 ? b.height : b.width) * scale, height: (rotation % 180 ? b.width : b.height) * scale, transform: `translate(-50%, -50%) rotate(${rotation}deg)` }}>
+                            {text}
+                          </span>
+                        ) : (
+                          text
+                        )}
                       </div>
                     )
                   }),
