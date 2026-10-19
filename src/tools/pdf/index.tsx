@@ -19,6 +19,7 @@ const subtoolComponents: Record<PdfToolId, React.LazyExoticComponent<React.Compo
   protect: lazy(() => import('./tools/ProtectPdf').then(m => ({ default: m.ProtectPdf }))),
   unlock: lazy(() => import('./tools/UnlockPdf').then(m => ({ default: m.UnlockPdf }))),
   'remove-metadata': lazy(() => import('./tools/RemoveMetadata').then(m => ({ default: m.RemoveMetadata }))),
+  'fill-sign': lazy(() => import('./tools/FillSign').then(m => ({ default: m.FillSign }))),
 }
 
 function SubtoolView({ id }: { id: PdfToolId }) {

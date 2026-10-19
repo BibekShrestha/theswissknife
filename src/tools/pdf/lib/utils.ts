@@ -3,6 +3,7 @@ export type PdfToolId =
   | 'pdf-to-image' | 'image-to-pdf' | 'pdf-to-text'
   | 'compress' | 'page-numbers' | 'watermark'
   | 'protect' | 'unlock' | 'remove-metadata'
+  | 'fill-sign'
 
 export type PdfCategory = 'organize' | 'convert' | 'edit' | 'security'
 
@@ -26,6 +27,7 @@ export const pdfTools: PdfToolMeta[] = [
   { id: 'pdf-to-text', name: 'PDF to Text', description: 'Extract text content from PDF files', category: 'convert', icon: 'text_snippet', color: '#64748b' },
   { id: 'compress', name: 'Compress PDF', description: 'Repack the file structure losslessly — images untouched, savings vary', category: 'edit', icon: 'compress', color: '#2563eb' },
   { id: 'page-numbers', name: 'Page Numbers', description: 'Add page numbers to your PDF', category: 'edit', icon: 'format_list_numbered', color: '#d97706' },
+  { id: 'fill-sign', name: 'Fill & Sign', description: 'Fill in forms and place a visual signature, text, date or checkmark', category: 'edit', icon: 'signature', color: '#7c3aed' },
   { id: 'watermark', name: 'Watermark', description: 'Add a text watermark to PDF pages', category: 'edit', icon: 'water_drop', color: '#0d9488' },
   { id: 'protect', name: 'Protect PDF', description: 'Add password protection to your PDF', category: 'security', icon: 'lock', color: '#9333ea' },
   { id: 'unlock', name: 'Unlock PDF', description: 'Remove password from protected PDF', category: 'security', icon: 'lock_open', color: '#db2777' },
@@ -35,7 +37,7 @@ export const pdfTools: PdfToolMeta[] = [
 export const categories: { id: PdfCategory; name: string; description: string }[] = [
   { id: 'organize', name: 'Organize PDF', description: 'Merge, split, and arrange your PDF pages' },
   { id: 'convert', name: 'Convert PDF', description: 'Transform PDFs to and from other formats' },
-  { id: 'edit', name: 'Edit PDF', description: 'Compress, add watermarks, and modify PDFs' },
+  { id: 'edit', name: 'Edit PDF', description: 'Compress, fill and sign, add watermarks, and modify PDFs' },
   { id: 'security', name: 'PDF Security', description: 'Protect, unlock and remove metadata from PDF documents' },
 ]
 

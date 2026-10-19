@@ -1,0 +1,625 @@
+/* Fill & Sign (PDF Buddy). Class names carry the pdf-fs- prefix. */
+
+.pdf-fs-intro {
+  margin: -8px 0 16px;
+}
+
+.pdf-fs-notes {
+  margin: 0 0 16px;
+  padding-left: 28px;
+}
+
+.pdf-fs-notes li + li {
+  margin-top: 4px;
+}
+
+.pdf-fs-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: var(--sp-4);
+  align-items: start;
+  margin-bottom: var(--sp-4);
+}
+
+@media (max-width: 1100px) {
+  .pdf-fs-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ----- page viewer ----- */
+.pdf-fs-viewer {
+  border: 1px solid var(--pdf-border);
+  background: var(--pdf-panel-2);
+  min-width: 0;
+}
+
+.pdf-fs-pagebar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--pdf-border);
+  background: var(--pdf-panel);
+}
+
+.pdf-fs-pageno {
+  font: var(--label);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--pdf-muted);
+  min-width: 96px;
+  text-align: center;
+}
+
+.pdf-fs-placing {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  background: var(--warn-bg);
+  border-bottom: 1px solid var(--pdf-border);
+}
+
+.pdf-fs-stage-wrap {
+  padding: var(--sp-3);
+  min-width: 0;
+}
+
+.pdf-fs-stage {
+  position: relative;
+  margin: 0 auto;
+  box-shadow: var(--elev-2);
+  /* pages are paper: white in both themes, like every PDF viewer */
+  background: #fff;
+}
+
+.pdf-fs-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pdf-fs-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.pdf-fs-layer.placing {
+  cursor: crosshair;
+}
+
+.pdf-fs-marker {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #1b1a18;
+  font-family: Helvetica, Arial, sans-serif;
+  line-height: 1.1;
+  background: rgb(37 99 235 / .1);
+  outline: 1px solid rgb(37 99 235 / .45);
+  cursor: pointer;
+}
+
+.pdf-fs-marker-turned {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  white-space: inherit;
+}
+
+.pdf-fs-marker.multi {
+  align-items: flex-start;
+  white-space: pre-wrap;
+}
+
+.pdf-fs-marker.round {
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.pdf-fs-marker:not(.multi):not(.round) {
+  justify-content: flex-start;
+}
+
+.pdf-fs-marker.off {
+  background: rgb(0 0 0 / .05);
+  outline-style: dashed;
+  outline-color: rgb(0 0 0 / .35);
+  cursor: default;
+}
+
+.pdf-fs-marker.on {
+  outline: 2px solid #d92c20;
+  background: rgb(217 44 32 / .1);
+}
+
+.pdf-fs-item {
+  position: absolute;
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+  color: #000;
+  outline: 1px dashed rgb(0 0 0 / .35);
+}
+
+.pdf-fs-item.on,
+.pdf-fs-item:focus-visible {
+  outline: 2px solid #d92c20;
+  outline-offset: 1px;
+}
+
+.pdf-fs-item img,
+.pdf-fs-item svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.pdf-fs-item svg path {
+  fill: #000;
+}
+
+.pdf-fs-item-text {
+  display: block;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.pdf-fs-handle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  background: #d92c20;
+  border: 2px solid #fff;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.pdf-fs-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ----- side panel ----- */
+.pdf-fs-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.pdf-fs-card {
+  border: 1px solid var(--pdf-border);
+  background: var(--pdf-panel);
+  padding: var(--sp-3);
+}
+
+.pdf-fs-card-title {
+  font: var(--label);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--pdf-muted);
+  margin: 0 0 var(--sp-2);
+}
+
+.pdf-fs-disclaimer {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  background: var(--warn-bg);
+  border-left: 3px solid var(--warn);
+}
+
+.pdf-fs-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+.pdf-fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--pdf-text);
+  background: var(--pdf-panel);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.pdf-fs-btn:hover:not(:disabled) {
+  background: var(--pdf-panel-2);
+}
+
+.pdf-fs-btn:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.pdf-fs-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.pdf-fs-btn.icon {
+  padding: 0;
+  width: var(--control-h);
+}
+
+.pdf-fs-btn.primary {
+  background: var(--pdf-accent);
+  border-color: var(--pdf-accent);
+  color: var(--on-accent);
+}
+
+.pdf-fs-btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.pdf-fs-btn.danger {
+  color: var(--err);
+}
+
+.pdf-fs-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: var(--fs-sm);
+  color: var(--pdf-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pdf-fs-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.pdf-fs-row-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.pdf-fs-spacer {
+  flex: 1;
+}
+
+.pdf-fs-sigs {
+  list-style: none;
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.pdf-fs-sig {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.pdf-fs-sig img {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  object-fit: contain;
+  object-position: left center;
+  background: #fff;
+  border: 1px solid var(--pdf-border);
+}
+
+.pdf-fs-select {
+  width: 100%;
+  min-height: var(--control-h);
+  padding: 4px 8px;
+  font-size: var(--fs-md);
+  color: var(--pdf-text);
+  background: var(--pdf-panel);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+}
+
+.pdf-fs-select.narrow {
+  width: auto;
+}
+
+.pdf-fs-plain {
+  font-family: inherit;
+  border-color: var(--control-border);
+}
+
+textarea.pdf-fs-plain {
+  resize: vertical;
+}
+
+/* ----- field list ----- */
+.pdf-fs-group + .pdf-fs-group {
+  margin-top: var(--sp-3);
+}
+
+.pdf-fs-group-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  margin: 0 0 var(--sp-2);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--pdf-border);
+}
+
+.pdf-fs-field {
+  padding: var(--sp-2);
+  margin: 0 calc(-1 * var(--sp-2));
+  border-left: 3px solid transparent;
+}
+
+.pdf-fs-field.on {
+  border-left-color: var(--pdf-accent);
+  background: color-mix(in srgb, var(--pdf-accent) 5%, transparent);
+}
+
+.pdf-fs-field.off {
+  opacity: .8;
+}
+
+.pdf-fs-field .pdf-form-hint {
+  margin-bottom: 0;
+}
+
+.pdf-fs-field-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+.pdf-fs-fieldset {
+  border: none;
+  min-width: 0;
+}
+
+fieldset.pdf-fs-fieldset {
+  padding: var(--sp-2);
+}
+
+.pdf-fs-dialog .pdf-fs-fieldset {
+  padding: 0;
+  margin: var(--sp-3) 0 0;
+}
+
+.pdf-fs-radios {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--sp-3);
+}
+
+.pdf-fs-radios .pdf-checkbox {
+  margin-top: 0;
+}
+
+.pdf-fs-check {
+  margin-top: 0;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+
+.pdf-fs-badges {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.pdf-fs-badge {
+  font: var(--label);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--pdf-border);
+  color: var(--pdf-muted);
+}
+
+.pdf-fs-badge.required {
+  color: var(--err);
+  border-color: var(--err);
+}
+
+.pdf-fs-finish {
+  max-width: 720px;
+}
+
+.pdf-fs-finish > .pdf-checkbox {
+  display: flex;
+  align-items: flex-start;
+  margin: 0 0 var(--sp-3);
+}
+
+.pdf-fs-finish > .pdf-checkbox input {
+  margin-top: 2px;
+}
+
+/* ----- signature dialog ----- */
+.pdf-fs-dialog {
+  width: min(600px, calc(100vw - 24px));
+  height: auto;
+  max-height: min(92vh, 760px);
+}
+
+.pdf-fs-dialog-body {
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  overflow-y: auto;
+}
+
+.pdf-fs-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--pdf-border);
+  margin-bottom: var(--sp-3);
+}
+
+.pdf-fs-tab {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--pdf-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.pdf-fs-tab.on {
+  color: var(--pdf-text);
+  border-bottom-color: var(--pdf-accent);
+}
+
+.pdf-fs-panel {
+  min-height: 200px;
+}
+
+.pdf-fs-pad {
+  display: block;
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--control-border);
+  touch-action: none;
+  cursor: crosshair;
+  background-image: linear-gradient(to top, transparent 0 34px, #c9c6bf 34px 35px, transparent 35px);
+}
+
+.pdf-fs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--pdf-text);
+  background: var(--pdf-panel);
+  border: 1px solid var(--pdf-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.pdf-fs-chip[aria-pressed='true'] {
+  border-color: var(--pdf-accent);
+  background: color-mix(in srgb, var(--pdf-accent) 8%, var(--pdf-panel));
+}
+
+.pdf-fs-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  /* black ink on a dark chip still needs an edge */
+  box-shadow: 0 0 0 1px var(--control-border);
+}
+
+.pdf-fs-styles {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.pdf-fs-style {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--pdf-border);
+  background: #fff;
+  color: #1b1a18;
+  cursor: pointer;
+}
+
+.pdf-fs-style.on {
+  border-color: var(--pdf-accent);
+  outline: 1px solid var(--pdf-accent);
+}
+
+.pdf-fs-style:focus-within {
+  outline: 2px solid var(--pdf-accent);
+  outline-offset: 1px;
+}
+
+.pdf-fs-style-sample {
+  flex: 1;
+  min-width: 0;
+  font-size: 30px;
+  line-height: 1.3;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pdf-fs-style-name {
+  font: var(--label);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: #6b6862;
+}
+
+.pdf-fs-file {
+  display: block;
+  font-size: var(--fs-sm);
+  margin-bottom: var(--sp-2);
+  max-width: 100%;
+}
+
+.pdf-fs-upload-preview {
+  margin-top: var(--sp-3);
+  padding: var(--sp-2);
+  border: 1px solid var(--pdf-border);
+  /* a checkerboard shows what became transparent */
+  background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px;
+}
+
+.pdf-fs-upload-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 160px;
+  margin: 0 auto;
+}
+
+.pdf-fs-dialog-actions {
+  margin-top: var(--sp-3);
+}
+
+@media (max-width: 800px) {
+  .pdf-fs-stage-wrap {
+    padding: var(--sp-2);
+  }
+
+  .pdf-fs-dialog-body {
+    padding: var(--sp-3);
+  }
+
+  .pdf-fs-tab {
+    flex: 1;
+    padding: var(--sp-2);
+  }
+}

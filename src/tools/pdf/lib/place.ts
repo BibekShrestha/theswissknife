@@ -1,4 +1,4 @@
-import { degrees, type PDFPage, type PDFPageDrawTextOptions } from 'pdf-lib'
+import { degrees, type PDFImage, type PDFPage, type PDFPageDrawSVGOptions, type PDFPageDrawTextOptions } from 'pdf-lib'
 
 /**
  * A page as the reader sees it: the crop box (what viewers show), turned by
@@ -13,6 +13,10 @@ export interface ViewFrame {
   height: number
   /** Draw text whose baseline starts at viewer point (x, y). */
   drawText: (text: string, x: number, y: number, options: Omit<PDFPageDrawTextOptions, 'x' | 'y' | 'rotate'>) => void
+  /** Draw an image whose bottom-left corner is at viewer point (x, y), upright as the reader sees the page. */
+  drawImage: (image: PDFImage, x: number, y: number, width: number, height: number) => void
+  /** Draw an SVG path (y down) whose origin is viewer point (x, y). */
+  drawSvgPath: (path: string, x: number, y: number, options: Omit<PDFPageDrawSVGOptions, 'x' | 'y' | 'rotate'>) => void
 }
 
 export function viewFrame(page: PDFPage): ViewFrame {
@@ -33,6 +37,14 @@ export function viewFrame(page: PDFPage): ViewFrame {
     drawText(text, x, y, options) {
       const [ux, uy] = toUser(x, y)
       page.drawText(text, { ...options, x: ux, y: uy, rotate: degrees(rotation) })
+    },
+    drawImage(image, x, y, width, height) {
+      const [ux, uy] = toUser(x, y)
+      page.drawImage(image, { x: ux, y: uy, width, height, rotate: degrees(rotation) })
+    },
+    drawSvgPath(path, x, y, options) {
+      const [ux, uy] = toUser(x, y)
+      page.drawSvgPath(path, { ...options, x: ux, y: uy, rotate: degrees(rotation) })
     },
   }
 }
