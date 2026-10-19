@@ -47,6 +47,11 @@ export default function CidrTool() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
+  // At phone widths the tab strip scrolls on its own; keep the open tab in view.
+  useEffect(() => {
+    document.getElementById(`cidr-tab-${state.tab}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [state.tab])
+
   const fragment = useMemo(() => writeFragment(state), [state])
   useEffect(() => {
     if (window.location.hash !== fragment.hash) window.history.replaceState(window.history.state, '', fragment.hash)

@@ -18,10 +18,10 @@
 
 .cidr-field { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .cidr-field > label, .cidr-pane > label, .cidr-inline > span { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); text-transform: uppercase; }
-.cidr-input { background: transparent; border: 0; border-bottom: 2px solid var(--accent); border-radius: 0; font: 600 clamp(17px, 2.6vw, 26px) var(--font-mono); min-width: 0; padding: 6px 2px; width: 100%; }
+input.cidr-input { background: transparent; border: 0; border-bottom: 2px solid var(--accent); border-radius: 0; font: 600 clamp(17px, 2.6vw, 26px) var(--font-mono); min-width: 0; padding: 6px 2px; width: 100%; }
 /* The field's own underline is its outline; the focus ring adds a second cue. */
-.cidr-input:focus-visible { border-bottom-color: var(--accent-hover); outline-offset: 0; }
-.cidr-input-bad { border-bottom-color: var(--err); }
+input.cidr-input:focus-visible { border-bottom-color: var(--accent-hover); outline-offset: 0; }
+input.cidr-input-bad { border-bottom-color: var(--err); }
 .cidr-examples { display: flex; flex-wrap: wrap; gap: 6px; }
 .cidr-examples button { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 0; overflow-wrap: anywhere; padding: 3px 8px; text-align: left; }
 .cidr-examples button code { font-size: var(--fs-xs); }
@@ -88,7 +88,7 @@
 .cidr-split-by { align-items: center; display: flex; flex-wrap: wrap; gap: var(--sp-3); }
 .cidr-inline { align-items: center; display: inline-flex; gap: var(--sp-2); }
 .cidr-small-input { font: var(--fs-md) var(--font-mono); width: 96px; }
-.cidr-table-box { padding: 0; }
+.cidr-box.cidr-table-box { padding: 0; }
 .cidr-table-head { align-items: center; background: var(--panel-2); border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); min-height: 40px; padding: 6px 12px; }
 .cidr-table-head > span:first-child { color: var(--muted); flex: 1 1 260px; font-size: var(--fs-sm); }
 .cidr-table-head > h2 { flex: 1; }
@@ -107,7 +107,7 @@
 /* Summarise */
 .cidr-two { display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .cidr-two > div { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
-.cidr-pane { padding: 0; }
+.cidr-box.cidr-pane { padding: 0; }
 .cidr-pane > label { padding: var(--sp-3) var(--sp-4) 0; }
 .cidr-pane > .cidr-hint { padding: 0 var(--sp-4) var(--sp-3); }
 .cidr-pane textarea { background: transparent; border: 0; flex: 1; font: var(--fs-md)/1.6 var(--font-mono); min-height: 300px; padding: var(--sp-3) var(--sp-4); resize: vertical; width: 100%; }
