@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ToolHeader } from '../../shell/ToolHeader'
 import { pdfTools, categories, type PdfToolId } from './lib/utils'
+import { closePdfRunner } from './runner'
 import './pdf.css'
 
 const subtoolComponents: Record<PdfToolId, React.LazyExoticComponent<React.ComponentType>> = {
@@ -17,6 +18,7 @@ const subtoolComponents: Record<PdfToolId, React.LazyExoticComponent<React.Compo
   watermark: lazy(() => import('./tools/Watermark').then(m => ({ default: m.Watermark }))),
   protect: lazy(() => import('./tools/ProtectPdf').then(m => ({ default: m.ProtectPdf }))),
   unlock: lazy(() => import('./tools/UnlockPdf').then(m => ({ default: m.UnlockPdf }))),
+  'remove-metadata': lazy(() => import('./tools/RemoveMetadata').then(m => ({ default: m.RemoveMetadata }))),
 }
 
 function SubtoolView({ id }: { id: PdfToolId }) {
@@ -32,6 +34,9 @@ export default function PdfTool() {
   const [subtool, setSubtool] = useState<PdfToolId | null>(null)
   const content = useRef<HTMLDivElement>(null)
   const lastTool = useRef<PdfToolId | null>(null)
+
+  // the worker (pdf-lib and whatever it holds) goes when PDF Buddy is left
+  useEffect(() => closePdfRunner, [])
 
   // the clicked card or button disappears: move focus to what replaced it
   useEffect(() => {

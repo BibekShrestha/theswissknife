@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { mergePdfs } from '../ops/organize'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function MergePdf() {
@@ -24,7 +25,7 @@ export function MergePdf() {
 
     try {
       const inputs = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: await readBytes(f) })))
-      const merged = await mergePdfs(inputs, (done) => setProgress((done / files.length) * 100))
+      const merged = await runPdfJob('merge', { inputs }, { onProgress: (done) => setProgress((done / files.length) * 100) })
       setResult(merged.bytes)
       setNotes(merged.notes)
     } catch (e) {

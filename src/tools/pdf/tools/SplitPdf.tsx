@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { splitPdf } from '../ops/organize'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
 import JSZip from 'jszip'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 import { OptionGroup } from '../components/OptionGroup'
@@ -34,10 +35,10 @@ export function SplitPdf() {
 
     try {
       const bytes = await readBytes(files[0])
-      const parts = await splitPdf(
+      const parts = await runPdfJob('split', {
         bytes,
-        mode === 'ranges' ? { kind: 'ranges', ranges } : { kind: mode, pages: count },
-      )
+        mode: mode === 'ranges' ? { kind: 'ranges', ranges } : { kind: mode, pages: count },
+      })
       const zip = new JSZip()
       for (const part of parts) zip.file(part.name, part.bytes)
       setResult(await zip.generateAsync({ type: 'uint8array' }))

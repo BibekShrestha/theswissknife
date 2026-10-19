@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { unlockPdf } from '../ops/security'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function UnlockPdf() {
@@ -22,7 +23,7 @@ export function UnlockPdf() {
     setNote('')
 
     try {
-      const unlocked = await unlockPdf(await readBytes(files[0]), password)
+      const unlocked = await runPdfJob('unlock', { bytes: await readBytes(files[0]), password })
       setResult(unlocked.bytes)
       setNote(unlocked.note ?? '')
     } catch (e) {

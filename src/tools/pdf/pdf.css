@@ -763,3 +763,123 @@ button.pdf-tool-card {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ----- remove metadata ----- */
+.pdf-meta-scope {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--pdf-text);
+}
+
+.pdf-meta-option {
+  display: flex;
+  align-items: flex-start;
+}
+
+.pdf-meta-option input {
+  margin-top: 2px;
+}
+
+.pdf-meta-verdict {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--pdf-border);
+  border-radius: var(--radius-sm);
+  background: var(--pdf-panel);
+  font-size: 13px;
+}
+
+.pdf-meta-verdict p {
+  margin: 4px 0 0;
+  color: var(--pdf-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pdf-meta-verdict.ok {
+  border-color: var(--ok);
+}
+
+.pdf-meta-verdict.ok > .material-symbols-outlined {
+  color: var(--ok);
+}
+
+.pdf-meta-verdict.bad {
+  border-color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.pdf-meta-verdict.bad > .material-symbols-outlined {
+  color: var(--warn);
+}
+
+.pdf-meta-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+
+.pdf-meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.pdf-meta-caption {
+  caption-side: top;
+  text-align: left;
+  padding-bottom: 6px;
+  color: var(--pdf-muted);
+  font-size: 11px;
+}
+
+.pdf-meta-table th,
+.pdf-meta-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--pdf-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.pdf-meta-table thead th {
+  font: var(--label);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--pdf-muted);
+}
+
+.pdf-meta-table tbody th {
+  font-weight: 600;
+}
+
+.pdf-meta-table td {
+  width: 1%;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-meta-details {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  font-weight: 400;
+  color: var(--pdf-muted);
+  overflow-wrap: anywhere;
+}
+
+.pdf-meta-gone {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.pdf-meta-left {
+  color: var(--err);
+  font-weight: 600;
+}
+
+.pdf-meta-kept {
+  color: var(--pdf-muted);
+}

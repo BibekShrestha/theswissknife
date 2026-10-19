@@ -224,7 +224,7 @@ export async function decryptPdfReport(bytes: Uint8Array, password: string): Pro
   }
   const cipher = new ObjectCipher(fileKey, params)
 
-  const context = await parsePdf(bytes, { unpackObjectStreams: objectStreamsToUnpack(bytes), hook: async (ref, object) => {
+  const context = await parsePdf(bytes, { unpackObjectStreams: await objectStreamsToUnpack(bytes), hook: async (ref, object) => {
     if (ref === encRef) return object
     const { objectNumber: n, generationNumber: g } = ref
     if (object instanceof PDFRawStream) {

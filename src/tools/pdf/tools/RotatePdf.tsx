@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { rotatePdf, type Rotation } from '../ops/organize'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
+import type { Rotation } from '../ops/organize'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 import { OptionGroup } from '../components/OptionGroup'
 
@@ -21,7 +23,7 @@ export function RotatePdf() {
     setError('')
 
     try {
-      setResult(await rotatePdf(await readBytes(files[0]), rotation))
+      setResult(await runPdfJob('rotate', { bytes: await readBytes(files[0]), rotation }))
     } catch (e) {
       setError(describeError(e))
     } finally {

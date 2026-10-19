@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
 import { formatSize } from '../lib/utils'
-import { compressPdf } from '../ops/edit'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function CompressPdf() {
@@ -23,7 +24,7 @@ export function CompressPdf() {
     try {
       const bytes = await readBytes(files[0])
       setOriginalSize(bytes.length)
-      setResult(await compressPdf(bytes))
+      setResult(await runPdfJob('compress', { bytes }))
     } catch (e) {
       setError(describeError(e))
     } finally {

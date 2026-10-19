@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { FileDropzone, FileList } from '../components/FileDropzone'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
-import { describeError, readBytes } from '../lib/load'
-import { removePages } from '../ops/organize'
+import { describeError } from '../lib/errors'
+import { readBytes } from '../lib/files'
+import { runPdfJob } from '../runner'
 import { SubtoolHeader } from '../components/SubtoolHeader'
 
 export function RemovePages() {
@@ -20,7 +21,7 @@ export function RemovePages() {
     setError('')
 
     try {
-      setResult(await removePages(await readBytes(files[0]), pagesToRemove))
+      setResult(await runPdfJob('remove-pages', { bytes: await readBytes(files[0]), spec: pagesToRemove }))
     } catch (e) {
       setError(describeError(e))
     } finally {

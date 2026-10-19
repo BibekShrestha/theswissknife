@@ -2,7 +2,7 @@ export type PdfToolId =
   | 'merge' | 'split' | 'rotate' | 'remove-pages' | 'reorder'
   | 'pdf-to-image' | 'image-to-pdf' | 'pdf-to-text'
   | 'compress' | 'page-numbers' | 'watermark'
-  | 'protect' | 'unlock'
+  | 'protect' | 'unlock' | 'remove-metadata'
 
 export type PdfCategory = 'organize' | 'convert' | 'edit' | 'security'
 
@@ -29,13 +29,14 @@ export const pdfTools: PdfToolMeta[] = [
   { id: 'watermark', name: 'Watermark', description: 'Add a text watermark to PDF pages', category: 'edit', icon: 'water_drop', color: '#0d9488' },
   { id: 'protect', name: 'Protect PDF', description: 'Add password protection to your PDF', category: 'security', icon: 'lock', color: '#9333ea' },
   { id: 'unlock', name: 'Unlock PDF', description: 'Remove password from protected PDF', category: 'security', icon: 'lock_open', color: '#db2777' },
+  { id: 'remove-metadata', name: 'Remove Metadata', description: 'Strip document properties, XMP, thumbnails and app data', category: 'security', icon: 'visibility_off', color: '#475569' },
 ]
 
 export const categories: { id: PdfCategory; name: string; description: string }[] = [
   { id: 'organize', name: 'Organize PDF', description: 'Merge, split, and arrange your PDF pages' },
   { id: 'convert', name: 'Convert PDF', description: 'Transform PDFs to and from other formats' },
   { id: 'edit', name: 'Edit PDF', description: 'Compress, add watermarks, and modify PDFs' },
-  { id: 'security', name: 'PDF Security', description: 'Protect and unlock PDF documents' },
+  { id: 'security', name: 'PDF Security', description: 'Protect, unlock and remove metadata from PDF documents' },
 ]
 
 export function formatSize(bytes: number): string {

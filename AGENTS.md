@@ -90,7 +90,7 @@ missing from any of them, including the README table.
   registry line; taglines load lazily); a jump of kilobytes means the tool
   leaked into the eager graph.
 - **Sub-tools within a tool must also be lazy** when there are many (PDF
-  Buddy's 13 sub-tools are each a `lazy()` chunk), and so must heavy optional
+  Buddy's 14 sub-tools are each a `lazy()` chunk), and so must heavy optional
   paths (image's GIF encoder, pdf.js).
 - **Untrusted work goes in a worker with a deadline** when it can hang: jq runs
   in workers that are reloaded after a crash; regex runs in a worker that is
@@ -309,9 +309,27 @@ the precache list built by `scripts/sw-manifest.ts`.
   event title is never put in it.
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
   (`lib/pdfjs.ts` loads it lazily and points it at its runtime-cached worker).
-  13 sub-tools under `tools/`, each a lazy chunk; their pipelines are plain
+  14 sub-tools under `tools/`, each a lazy chunk; their pipelines are plain
   functions in `ops/` (no DOM), tested in Node against pdf.js and against
-  fixtures written by macOS PDFKit/CoreGraphics (`test/fixtures/`).
+  fixtures written by macOS PDFKit/CoreGraphics (`test/fixtures/`). Every
+  pdf-lib pipeline runs in `pdf.worker.ts` (`jobs.ts` maps job names to
+  `ops/`; `protocol.ts` types them): the screens call `runPdfJob` and never
+  import pdf-lib (guarded by `lazy.test.ts`). `runner.ts` queues jobs, transfers
+  bytes both ways, and terminates the worker when a job reports no step for
+  `PDF_STALL_MS` (steps: every 2,000 objects parsed, every page, part, file or
+  image) — the error names the operation and the next job gets a fresh worker.
+  `lib/work.ts` is the memory guard: object and xref streams, the only data
+  pdf-lib inflates while parsing, are decoded by `inflateGuarded` (the
+  browser's streaming `DecompressionStream`, pdf-lib's decoders as fallback)
+  against a per-job budget (`MAX_INFLATED_BYTES`), so a deflate bomb is refused
+  by counting bytes; `loadPdf` also walks the page tree once and refuses
+  shared or looping nodes. `runner.test.ts` drives the real jobs with a
+  virtual clock that advances with bytes inflated, so the bomb-vs-deadline
+  test counts work, not wall-clock time. Remove Metadata (`ops/metadata.ts`)
+  strips Info, every XMP stream, /PieceInfo + /LastModified, /Thumb and
+  optionally attachments/JavaScript, garbage-collects, then re-parses its
+  output for the "found → remain" counts and byte-compares page content;
+  JPEG EXIF inside images is listed, not removed.
   Everything loads through `lib/load.ts` → `lib/parse.ts`, pdf-lib's parser
   with a fix: pdf-lib ignores the xref and lets any object stream override
   earlier objects, and Preview-saved files carry a stale one — so object
@@ -328,10 +346,7 @@ the precache list built by `scripts/sw-manifest.ts`.
   pdf-lib has no encryption: `lib/crypt/` is a hand-written Standard
   security handler (reads R2–R6: RC4, AES-128, AES-256; Protect writes R6
   AES-256), and every other tool refuses encrypted input rather than writing
-  a half-decrypted file. pdf-lib runs on the main thread without a deadline,
-  so a hostile file (a deflate bomb in an object stream) can stall or crash
-  the tab — the `ops/` functions take and return bytes so they could move
-  into a worker.
+  a half-decrypted file.
 - `tools/image/` — batch convert/resize/compress. One engine
   (`useImagePipeline`) behind four screens; canvas work runs in
   `image.worker.ts`. `gif/` is a hand-written GIF89a encoder (median cut,

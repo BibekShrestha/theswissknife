@@ -56,17 +56,17 @@ describe('object streams below a classic-table incremental update (follows /Prev
 
   it('still ignores the stale object stream PDFKit leaves behind', async () => {
     const input = fixture('pdfkit-resaved.pdf')
-    expect(liveObjectStreams(input)?.size).toBe(0)
+    expect((await liveObjectStreams(input))?.size).toBe(0)
     expect(await pageTexts(await compressPdf(input))).toEqual(['Hello page 1', 'Hello page 2', 'Hello page 3'])
   })
 
   it('names exactly the object streams an xref stream in the chain points into', async () => {
     const plain = await makePdf(2)
-    const live = liveObjectStreams(plain)!
+    const live = (await liveObjectStreams(plain))!
     expect(live.size).toBeGreaterThan(0)
     const streams = [...latin1(plain).matchAll(/(\d+) 0 obj\s*<<((?!>>)[\s\S])*?\/ObjStm/g)].map((m) => Number(m[1]))
     expect(streams.length).toBeGreaterThan(0)
     expect([...live].sort()).toEqual(streams.sort())
-    expect(liveObjectStreams(await incrementalOnObjectStreams(false))).toEqual(live)
+    expect(await liveObjectStreams(await incrementalOnObjectStreams(false))).toEqual(live)
   })
 })
