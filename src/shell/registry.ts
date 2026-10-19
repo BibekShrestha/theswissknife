@@ -189,4 +189,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/cidr'),
   },
+  {
+    slug: 'json-types',
+    name: 'JSON to types',
+    mark: 'T{}',
+    category: 'data',
+    load: () => import('../tools/json-types'),
+  },
 ]

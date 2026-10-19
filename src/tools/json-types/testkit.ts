@@ -28,11 +28,11 @@ export const corpus: Case[] = [
     name: 'api',
     text: JSON.stringify({
       id: 1,
-      user_name: 'ada',
-      'e-mail': 'ada@example.com',
+      user_name: 'avery',
+      'e-mail': 'avery@example.com',
       created: '2024-05-01T10:00:00Z',
       day: '2024-01-01',
-      homepage: 'https://example.com/ada',
+      homepage: 'https://example.com/avery',
       orders: [
         { order_id: '0b9e7c1e-6a43-4f7e-9d0a-2c6f2a1b3c4d', total: 10.5, status: 'open', items: [{ sku: 'a', qty: 1 }] },
         { order_id: '3f0c1d2e-9b8a-4c7d-8e6f-5a4b3c2d1e0f', total: 3, status: 'open', note: null, items: [] },

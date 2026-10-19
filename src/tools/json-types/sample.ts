@@ -1,0 +1,5 @@
+/** The sample loaded on first open: JSON Lines with optional, nullable and repeated fields and one integer past 2^53. */
+export const SAMPLE = `{"id": 1, "name": "Avery", "email": "avery@example.com", "created_at": "2024-05-01T09:30:00Z", "plan": "pro", "tags": ["admin"], "address": {"city": "London", "zip": null}}
+{"id": 2, "name": "Blake", "email": "blake@example.org", "created_at": "2024-05-02T14:05:00+02:00", "plan": "free", "tags": [], "orders": [{"order_id": "3f0c1d2e-9b8a-4c7d-8e6f-5a4b3c2d1e0f", "total": 12.5, "status": "paid"}]}
+{"id": 9007199254740993, "name": "Casey", "email": "casey@example.net", "created_at": "2024-05-03T08:00:00Z", "plan": "pro", "tags": ["ops", "billing"], "address": {"city": "Portland", "zip": "97201"}, "orders": [{"order_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "total": 3, "status": "paid", "coupon": "SPRING"}, {"order_id": "b1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "total": 40, "status": "refunded"}]}
+{"id": 4, "name": "Drew", "email": "drew@example.com", "created_at": "2024-05-04T17:45:12.250Z", "plan": "free", "tags": ["research"], "address": {"city": "Boston", "zip": "02139"}}`
