@@ -137,7 +137,7 @@ export default function JsonTypesTool() {
                 autoComplete="off"
                 aria-label="JSON samples"
                 aria-invalid={Boolean(error)}
-                placeholder={'{"id": 1, "name": "Ada"}\n{"id": 2, "tags": ["x"]}'}
+                placeholder={'{"id": 1, "name": "Avery"}\n{"id": 2, "tags": ["x"]}'}
               />
               {error && (
                 <p className="jtypes-error" role="alert">
@@ -165,7 +165,7 @@ export default function JsonTypesTool() {
                 <input type="checkbox" checked={formats} onChange={(event) => setFormats(event.target.checked)} />
                 <span>Formats — refine strings where every value is an RFC 3339 date-time, a date, a UUID, an email or an http(s) URL</span>
               </label>
-              <div className="jtypes-check">
+              <div className="jtypes-check jtypes-enum">
                 <input id="jtypes-enums" type="checkbox" checked={enums} onChange={(event) => setEnums(event.target.checked)} />
                 <label htmlFor="jtypes-enums">Enums — strings with at most</label>
                 <select value={enumMax} onChange={(event) => setEnumMax(Number(event.target.value))} aria-label="Most distinct values for an enum">

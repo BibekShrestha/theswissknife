@@ -166,7 +166,8 @@ function positionOf(text: string, offset: number) {
 /** Turns an engine's JSON.parse message into a position in the whole input (V8 gives an offset, Firefox a line and column). */
 export function describeError(input: string, doc: Doc, sample: number, error: unknown): ParseError {
   const raw = error instanceof Error ? error.message : String(error)
-  const message = raw.replace(/^JSON\.parse: /, '')
+  // The engine's own position is relative to the one document; ours (below) is in the whole input.
+  const message = raw.replace(/^JSON\.parse: /, '').replace(/ (in JSON )?at position \d+( \(line \d+ column \d+\))?| at line \d+ column \d+ of the JSON data/, '')
   if (doc.text === ',') {
     return { message: 'A comma between documents — wrap them in [ ] to make one array, or put one per line (JSON Lines).', sample, ...positionOf(input, doc.start) }
   }

@@ -100,8 +100,10 @@
 .jtypes-inline > span { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); text-transform: uppercase; }
 .jtypes-field input { border: 1px solid var(--control-border); border-radius: var(--radius-sm); font: var(--fs-md) var(--font-mono); padding: var(--sp-1) var(--sp-2); }
 
-.jtypes-check { align-items: center; display: flex; flex-wrap: wrap; font-size: var(--fs-md); gap: var(--sp-1) var(--sp-2); }
-.jtypes-check input { flex: none; margin: 0; }
+.jtypes-check { align-items: flex-start; display: flex; font-size: var(--fs-md); gap: var(--sp-2); line-height: 1.4; }
+.jtypes-check input { flex: none; margin: 2px 0 0; }
+.jtypes-enum { align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
+.jtypes-enum input { margin: 0; }
 .jtypes-check select { font-size: var(--fs-sm); }
 
 .jtypes-fine { color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; margin: 0; }
@@ -197,4 +199,5 @@
   .jtypes-out { position: static; }
   .jtypes-out-body { max-height: 70dvh; }
   .jtypes-pane textarea { min-height: 220px; }
+  .jtypes-meta { flex-basis: 100%; order: 3; }
 }
