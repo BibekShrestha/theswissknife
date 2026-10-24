@@ -655,3 +655,37 @@ the precache list built by `scripts/sw-manifest.ts`.
   the hex scroll range past the browser's element-height limit. Tests:
   RFC 8949 Appendix A, msgpack spec formats, protobuf encoding-guide
   examples, and seeded fuzzing (`fuzz.test.ts`).
+- `tools/kml/` — KML/KMZ ⇄ DXF, no GIS libraries. `proj/` is a small
+  PROJ: `parseProj` reads the PROJ-string subset epsg.io prints (longlat,
+  utm, tmerc/etmerc, lcc 1SP/2SP, merc; `+ellps`/`+a`/`+rf`/`+R`, `+datum`
+  WGS84/NAD83/OSGB36, 3- or 7-parameter `+towgs84` as PROJ's
+  position-vector Helmert through ECEF, `+units`/`+to_meter`, `+pm`) and
+  refuses anything else by name — grids (`+nadgrids`) included. Without a
+  datum shift lat/lon pass through unchanged (PROJ's legacy rule; it is what
+  makes Web Mercator line up) and a non-WGS84 ellipsoid gets a warning.
+  Transverse Mercator is Krüger's 6th-order series (Karney 2011);
+  `proj/reference.json` holds pyproj 9.3 outputs both ways and
+  `crs.test.ts` holds every case to 1 mm / 1e-9°. KML is read by our own
+  non-validating XML reader (`kml/xml.ts`: DOMParser is missing in workers;
+  DTDs are skipped, never expanded): folders → layers, styleUrl/StyleMap/
+  inline styles, Point/LineString/LinearRing/Polygon with holes/
+  MultiGeometry/gx:Track/Model; overlays and network links are counted, not
+  fetched. KMZ goes through jszip (lazy). DXF out is ASCII R12 (`dxf/write.ts`:
+  POLYLINE/VERTEX/SEQEND, POINT, TEXT; nearest ACI from `dxf/aci.ts`, which
+  generates the palette; R12 layer names, cleaned and made unique, renames
+  noted) with `999` comments naming the CRS — `dxf/read.ts` reads that back
+  as the suggested CRS. DXF in (`dxf/read.ts`) walks the text with a cursor
+  (no line array): R12–2018, $DWGCODEPAGE before 2007, LAYER table
+  (off/frozen skipped unless asked), BLOCKS with nested and MINSERT
+  inserts (layer 0 and BYBLOCK inherited, depth and cycle bounded), OCS via
+  the arbitrary axis algorithm, bulges, NURBS by de Boor (`dxf/curves.ts`),
+  HATCH boundaries with holes by nesting; everything skipped is tallied in
+  the notes. `fixtures/generate.py` (ezdxf) writes `entities.dxf` and the
+  per-layer extents ezdxf computes, which `read.test.ts` must match. DXF →
+  KML needs a CRS and drawing units (`$INSUNITS` or chosen); a vertex is
+  kept only if it round-trips through the projection, since inverses outside
+  a projection's domain return plausible garbage. DWG and binary DXF are
+  recognised and refused with what to do instead. Conversion runs in
+  `kml.worker.ts` behind `runner.ts` (json-types' runner, copied;
+  `CONVERT_TIMEOUT_MS`); the parsed DXF is cached per file between option
+  changes.

@@ -3,6 +3,7 @@
   "account_tree",
   "add",
   "add_photo_alternate",
+  "altitude",
   "apps",
   "arrow_back",
   "arrow_downward",
@@ -82,6 +83,7 @@
   "javascript",
   "join",
   "keep",
+  "key",
   "label",
   "landscape",
   "language",
@@ -93,6 +95,7 @@
   "lock",
   "lock_open",
   "mail",
+  "map",
   "markdown",
   "menu",
   "menu_book",
@@ -171,5 +174,6 @@
   "visibility_off",
   "warning",
   "water_drop",
+  "width",
   "wifi"
 ]
