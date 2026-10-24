@@ -17,53 +17,53 @@
 .dates-error { background: var(--err-bg); border: 1px solid var(--err); border-radius: var(--radius); color: var(--err); font-size: 12.5px; line-height: 1.5; margin: 0; padding: 8px 12px; }
 .dates-badge { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: var(--radius-sm); font-size: 10.5px; padding: 1px 6px; white-space: nowrap; }
 
-/* Planner */
-.dates-planner { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.dates-controls { background: var(--panel); border: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 14px 24px; padding: 12px 14px; }
-.dates-control { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.dates-control input[type='date'] { min-width: 0; }
+/* Converter */
+.dates-conv { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.dates-conv-bar { align-items: center; background: var(--panel); border: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 12px 20px; padding: 12px 14px; }
+.dates-conv-bar > button { align-items: center; display: inline-flex; gap: 4px; margin-left: auto; }
+.dates-conv-bar .material-symbols-outlined { font-size: 18px; }
+.dates-live { align-items: center; color: var(--ok); display: inline-flex; font-size: 12.5px; font-weight: 600; gap: 6px; padding: 0 6px; }
+.dates-live i { background: var(--ok); border-radius: 50%; height: 8px; width: 8px; }
+.dates-conv-scrub { display: flex; flex: 1 1 260px; flex-direction: column; gap: 2px; max-width: 520px; min-width: 0; }
+.dates-conv-scrub input { accent-color: var(--accent); margin: 0; width: 100%; }
+.dates-conv-ticks { color: var(--muted); display: flex; font: 10.5px var(--font-mono); justify-content: space-between; }
+.dates-ref { border: 1px solid var(--accent); border-radius: var(--radius-sm); color: var(--accent); font: 10.5px var(--font-mono); letter-spacing: .06em; padding: 0 5px; text-transform: uppercase; }
+.dates-link { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 
-.dates-zones { background: var(--panel); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px 14px; }
-.dates-strips-scroll { overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 4px; }
-.dates-grid { cursor: pointer; display: grid; position: relative; user-select: none; -webkit-user-select: none; }
-.dates-strip-label { align-items: end; display: flex; grid-column: 1 / -1; min-width: 0; }
-.dates-strip-sticky { align-items: center; display: inline-flex; gap: 8px; left: 0; max-width: min(100%, calc(100vw - 48px)); padding: 0 2px 3px; position: sticky; white-space: nowrap; z-index: 2; }
-.dates-strip-sticky strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
-.dates-strip-sticky .mono { color: var(--muted); font-size: 11px; }
-.dates-strip-sticky button { align-items: center; background: transparent; border: 1px solid transparent; cursor: pointer; display: inline-flex; height: 22px; justify-content: center; padding: 0; width: 22px; }
-.dates-strip-sticky button:hover:not(:disabled) { border-color: var(--border-strong); }
-.dates-strip-sticky button .material-symbols-outlined { font-size: 15px; }
-.dates-ref { border: 1px solid var(--accent); border-radius: var(--radius-sm); color: var(--accent); font: 9.5px var(--font-mono); letter-spacing: .06em; padding: 0 5px; text-transform: uppercase; }
-
-.dates-cell { align-items: center; background: var(--panel-2); border-left: 1px solid var(--border); color: var(--muted); display: flex; font: 11px var(--font-mono); justify-content: center; min-width: 0; overflow: hidden; }
-.dates-cell small { font-size: 8.5px; }
-.dates-cell-work { background: var(--accent-dim); color: var(--text); }
-.dates-cell-other { opacity: .72; }
-.dates-cell-midnight { border-left: 2px solid var(--text); }
-.dates-cell-day { font-size: 9.5px; font-weight: 700; }
-.dates-overlap { background: var(--ok); border-radius: var(--radius-xs); margin-top: 3px; }
-.dates-sel { border: 2px solid var(--accent); border-radius: var(--radius-xs); box-shadow: 0 0 0 1px var(--panel) inset; pointer-events: none; z-index: 1; }
+.dates-conv-list { container-type: inline-size; display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+.dates-conv-row { align-items: center; background: var(--panel); border: 1px solid var(--border); border-top-width: 0; display: grid; gap: 6px 16px; grid-template-columns: minmax(180px, 1.3fr) auto minmax(200px, 1fr) auto; padding: 10px 14px; }
+.dates-conv-row:first-child { border-top-width: 1px; }
+.dates-conv-ref { box-shadow: inset 3px 0 0 var(--accent); }
+.dates-conv-zone { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dates-conv-name { align-items: center; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.dates-conv-name strong { font-size: 15px; }
+.dates-conv-abbr { color: var(--muted); font-size: 12px; }
+.dates-conv-id { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.dates-conv-when { display: flex; gap: 6px; }
+.dates-conv-when input { font-family: var(--font-mono); font-size: 15px; min-width: 0; }
+.dates-conv-when input[type='time'] { font-weight: 600; }
+.dates-conv-meta { align-items: center; display: flex; flex-wrap: wrap; font-size: 12.5px; gap: 4px 10px; min-width: 0; }
+.dates-conv-day { font-weight: 600; }
+.dates-conv-diff { color: var(--muted); font-size: 12px; }
+.dates-conv-period { align-items: center; color: var(--muted); display: inline-flex; gap: 5px; }
+.dates-conv-period i { border-radius: 50%; display: inline-block; height: 8px; width: 8px; }
+.dates-conv-business i { background: var(--ok); }
+.dates-conv-morning i, .dates-conv-evening i { background: var(--warn); }
+.dates-conv-night i { background: var(--border-strong); }
+.dates-conv-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.dates-conv-actions button { align-items: center; background: transparent; border: 1px solid transparent; display: inline-flex; height: 30px; justify-content: center; padding: 0; width: 30px; }
+.dates-conv-actions button:hover:not(:disabled) { border-color: var(--border-strong); }
+.dates-conv-actions .material-symbols-outlined { font-size: 17px; }
+@container (max-width: 800px) {
+  .dates-conv-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .dates-conv-when { grid-column: 1 / -1; }
+  .dates-conv-meta { grid-column: 1 / -1; }
+  .dates-conv-actions { grid-column: 2; grid-row: 1; }
+}
+.dates-conv-dst { color: var(--muted); font-size: 12px; grid-column: 1 / -1; margin: 0; }
 
 .dates-hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }
-.dates-legend { align-items: center; display: inline-flex; gap: 6px; margin-left: 10px; }
-.dates-swatch { border-radius: var(--radius-xs); display: inline-block; height: 10px; width: 14px; }
-.dates-swatch-work { background: var(--accent-dim); border: 1px solid var(--border-strong); }
-.dates-swatch-overlap { background: var(--ok); margin-left: 6px; }
-.dates-transitions { font-size: 12px; line-height: 1.5; margin: 0; padding-left: 18px; }
 .dates-add { max-width: 520px; }
-
-.dates-meeting { background: var(--panel); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
-.dates-meeting-head { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: space-between; }
-.dates-overlap-text { font-size: 13px; margin: 0; }
-.dates-times { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
-.dates-times li { align-items: baseline; border: 1px solid var(--border); border-top-width: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 10px; }
-.dates-times li:first-child { border-top-width: 1px; }
-.dates-times-zone { font-weight: 600; min-width: 180px; }
-.dates-times-zone small { color: var(--muted); font-size: 10.5px; font-weight: 400; margin-left: 4px; }
-.dates-times-when { font-size: 13.5px; }
-.dates-times-off { color: var(--muted); font-size: 11.5px; }
-.dates-actions { gap: 8px; }
-.dates-title { flex: 1 1 220px; min-width: 0; }
 
 /* Picker */
 .dates-picker { position: relative; width: 100%; }
@@ -120,8 +120,8 @@
 
 @media (max-width: 620px) {
   .dates-app { padding: 10px; }
-  .dates-times-zone { min-width: 0; width: 100%; }
-  .dates-legend { display: flex; margin: 4px 0 0; }
+  .dates-conv-bar > button { margin-left: 0; }
+  .dates-conv-when input[type='date'] { flex: 1 1 auto; }
   .dates-swap { transform: rotate(90deg); }
   .dates-field { flex-basis: 100%; }
 }

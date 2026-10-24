@@ -1,23 +1,21 @@
 import { canonicalZone, zoneList } from './catalog'
-import { parseIsoDate, parseLocalDateTime } from './zone'
+import { parseIsoDate, parseLocalDateTime, resolveWall, wallMs } from './zone'
 
 /**
- * Fragment state. The planner uses `#zones=…&date=…&work=…&sel=…`, the
- * durations tab `#d=…&dz=…&e=…&ez=…&p=…&b=…&bz=…&op=…`. Only zone names,
- * dates, times and a duration travel — the meeting title never does.
+ * Fragment state. The converter uses `#zones=…[&at=YYYY-MM-DDTHH:MMZ]` (no
+ * `at` means "now"), the durations tab `#d=…&dz=…&e=…&ez=…&p=…&b=…&bz=…&op=…`.
+ * Only zone names, dates, times and a duration travel.
+ *
+ * Links from the old meeting planner (`#zones=…&date=…`) still open: their
+ * zones, and 09:00 on that date in the first zone.
  */
 
-export const MAX_ZONES = 10
+export const MAX_ZONES = 12
 
-export interface PlannerState {
+export interface ConverterState {
   zones: string[]
-  date: string
-  /** Working hours, whole hours: start inclusive, end exclusive (end may be 24). */
-  work: [number, number]
-  /** Selected slots [from, to) on the timeline, if any. */
-  sel: [number, number] | null
-  /** Meeting length in minutes for a click. */
-  len: number
+  /** Epoch ms, whole minutes; null follows the clock. */
+  at: number | null
 }
 
 export interface DurationsState {
@@ -32,32 +30,27 @@ export interface DurationsState {
 }
 
 export type HashState =
-  | { tab: 'zones', planner: Partial<PlannerState> }
+  | { tab: 'convert', converter: Partial<ConverterState> }
   | { tab: 'durations', durations: Partial<DurationsState> }
   | { tab: null }
-
-const LENGTHS = [15, 30, 45, 60, 90, 120, 180, 240]
-export const MEETING_LENGTHS = LENGTHS
 
 const zoneParam = (z: string) => encodeURIComponent(z).replace(/%2F/g, '/')
 const dtParam = (s: string) => encodeURIComponent(s).replace(/%3A/g, ':')
 
-export function plannerHash(s: PlannerState): string {
-  let out = `#zones=${s.zones.map(zoneParam).join(',')}&date=${s.date}&work=${s.work[0]}-${s.work[1]}&len=${s.len}`
-  if (s.sel) out += `&sel=${s.sel[0]}-${s.sel[1]}`
+/** "2026-10-20T09:00Z" */
+export function atParam(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 16) + 'Z'
+}
+
+export function converterHash(s: ConverterState): string {
+  let out = `#zones=${s.zones.map(zoneParam).join(',')}`
+  if (s.at !== null) out += `&at=${atParam(s.at)}`
   return out
 }
 
 export function durationsHash(s: DurationsState): string {
   return `#d=${dtParam(s.start)}&dz=${zoneParam(s.startZone)}&e=${dtParam(s.end)}&ez=${zoneParam(s.endZone)}`
     + `&p=${encodeURIComponent(s.iso)}&b=${dtParam(s.base)}&bz=${zoneParam(s.baseZone)}&op=${s.op}`
-}
-
-function pair(text: string | null, max: number): [number, number] | null {
-  const m = /^(\d{1,3})-(\d{1,3})$/.exec(text ?? '')
-  if (!m) return null
-  const a = Number(m[1]), b = Number(m[2])
-  return a <= max && b <= max ? [a, b] : null
 }
 
 export function readHash(hash: string): HashState {
@@ -78,19 +71,18 @@ export function readHash(hash: string): HashState {
     const v = params.get(key)
     return v && parseLocalDateTime(v) ? v : undefined
   }
-  if (params.has('zones')) {
-    const planner: Partial<PlannerState> = {}
+  if (params.has('zones') || params.has('at')) {
+    const converter: Partial<ConverterState> = {}
     const zones = (params.get('zones') ?? '').split(',').map(canonical).filter((z): z is string => z !== undefined)
-    if (zones.length) planner.zones = [...new Set(zones)].slice(0, MAX_ZONES)
-    const date = params.get('date')
-    if (date && parseIsoDate(date)) planner.date = date
-    const work = pair(params.get('work'), 24)
-    if (work && work[0] < 24 && work[1] > 0 && work[0] !== work[1]) planner.work = work
-    const sel = pair(params.get('sel'), 100)
-    if (sel && sel[0] < sel[1]) planner.sel = sel
-    const len = Number(params.get('len'))
-    if (LENGTHS.includes(len)) planner.len = len
-    return { tab: 'zones', planner }
+    if (zones.length) converter.zones = [...new Set(zones)].slice(0, MAX_ZONES)
+    const at = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})Z$/.exec(params.get('at') ?? '')
+    const atWall = at ? parseLocalDateTime(at[1]) : null
+    if (atWall) converter.at = wallMs(atWall)
+    else {
+      const date = parseIsoDate(params.get('date') ?? '')
+      if (date) converter.at = resolveWall({ ...date, hour: 9, minute: 0, second: 0, ms: 0 }, converter.zones?.[0] ?? 'UTC').ms
+    }
+    return { tab: 'convert', converter }
   }
   if (params.has('d')) {
     const durations: Partial<DurationsState> = {}

@@ -4,15 +4,15 @@ import { useCopy } from '../../shell/useCopy'
 import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { Durations } from './Durations'
-import { Planner } from './Planner'
+import { Converter } from './Converter'
 import { readHash, type HashState } from './share'
 import './dates.css'
 
-type Tab = 'zones' | 'durations'
+type Tab = 'convert' | 'durations'
 
 export default function DatesTool() {
   const [initial, setInitial] = useState<HashState>(() => readHash(window.location.hash))
-  const [tab, setTab] = useState<Tab>(() => (initial.tab ?? 'zones'))
+  const [tab, setTab] = useState<Tab>(() => (initial.tab ?? 'convert'))
   const [generation, setGeneration] = useState(0)
   const { toast, showToast } = useToast()
   const copy = useCopy(showToast)
@@ -30,7 +30,7 @@ export default function DatesTool() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  const plannerInitial = initial.tab === 'zones' ? initial.planner : {}
+  const converterInitial = initial.tab === 'convert' ? initial.converter : {}
   const durationsInitial = initial.tab === 'durations' ? initial.durations : {}
 
   return (
@@ -40,7 +40,7 @@ export default function DatesTool() {
         localLabel="computed locally"
         beforeSwitcher={
           <div className="dates-tabs" role="tablist" aria-label="Mode">
-            <button role="tab" aria-selected={tab === 'zones'} className={tab === 'zones' ? 'on' : ''} onClick={() => setTab('zones')}>Time zones</button>
+            <button role="tab" aria-selected={tab === 'convert'} className={tab === 'convert' ? 'on' : ''} onClick={() => setTab('convert')}>Convert</button>
             <button role="tab" aria-selected={tab === 'durations'} className={tab === 'durations' ? 'on' : ''} onClick={() => setTab('durations')}>Durations</button>
           </div>
         }
@@ -49,8 +49,8 @@ export default function DatesTool() {
       </ToolHeader>
 
       <main id="main-content" className="dates-main">
-        <div hidden={tab !== 'zones'} role="tabpanel" aria-label="Time zones">
-          <Planner key={`p${generation}`} initial={plannerInitial} active={tab === 'zones'} copy={copy} showToast={showToast} />
+        <div hidden={tab !== 'convert'} role="tabpanel" aria-label="Convert">
+          <Converter key={`c${generation}`} initial={converterInitial} active={tab === 'convert'} copy={copy} />
         </div>
         <div hidden={tab !== 'durations'} role="tabpanel" aria-label="Durations">
           <Durations key={`d${generation}`} initial={durationsInitial} active={tab === 'durations'} copy={copy} />

@@ -19,7 +19,7 @@ export const taglines: Record<string, string> = {
   markdown: 'Live Markdown preview with math and diagrams — export one self-contained HTML file or a PDF',
   time: 'Convert seconds through nanoseconds into precise local, UTC and zoned time',
   cron: 'Read a cron expression in plain English and see its next run times in any time zone',
-  dates: 'Plan a meeting across time zones with DST-aware hour strips, and do date differences and ISO 8601 duration math',
+  dates: 'Convert a date and time between time zones, DST-aware, and do date differences and ISO 8601 duration math',
   pdf: 'Merge, split, convert, compress, watermark, fill and sign, protect, unlock, and strip metadata from PDFs — all client-side',
   image: 'Convert, resize and compress JPEG, PNG, WebP and GIF — batch, with a size target',
   qr: 'Make QR codes for links, Wi-Fi, contacts and events, or read one from an image or paste — all offline',
