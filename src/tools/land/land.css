@@ -1,0 +1,151 @@
+.land-app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0 auto;
+  max-width: 1200px;
+  min-height: 100%;
+  padding: 14px 18px 20px;
+}
+
+.land-main {
+  align-items: start;
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-areas: 'input results' 'defs results';
+  grid-template-columns: minmax(300px, 440px) minmax(0, 1fr);
+}
+
+.land-main > :nth-child(1) { grid-area: input; }
+.land-results { grid-area: results; }
+.land-defs { grid-area: defs; }
+
+.land-pane { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+
+.land-pane > header {
+  align-items: center;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 10px;
+}
+
+.land-pane h2 { font: var(--label); letter-spacing: var(--label-track); margin: 0; text-transform: uppercase; }
+.land-step { color: var(--accent); font: 700 var(--fs-2xs) var(--font-mono); }
+.land-body { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); }
+
+.land-seg { align-self: flex-start; border: 1px solid var(--control-border); border-radius: var(--radius-sm); display: inline-flex; flex-wrap: wrap; overflow: hidden; }
+.land-seg button { background: transparent; border: 0; border-left: 1px solid var(--control-border); border-radius: 0; color: var(--muted); font-size: var(--fs-md); padding: 6px 12px; }
+.land-seg button:first-child { border-left: 0; }
+.land-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+
+.land-fields { align-items: flex-end; display: grid; gap: var(--sp-2); grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.land-fields-terai { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.land-fields-unit { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+
+.land-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.land-field > span { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); text-transform: uppercase; }
+.land-field > span [lang='ne'] { font: var(--fs-xs) var(--font-ui); letter-spacing: 0; text-transform: none; }
+.land-field input { font: 600 var(--fs-lg) var(--font-mono); min-width: 0; width: 100%; }
+.land-field select { width: 100%; }
+.land-field input[aria-invalid='true'] { border-color: var(--err); outline-color: var(--err); }
+
+.land-hint { color: var(--muted); font-size: var(--fs-sm); margin: 0; }
+.land-error { background: var(--err-bg); border-left: 3px solid var(--err); color: var(--err); font-size: var(--fs-md); margin: 0; padding: var(--sp-2) 10px; }
+.land-placeholder { color: var(--muted); margin: 0; padding: var(--sp-5) 0; text-align: center; }
+
+.land-cards { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.land-card { border: 1px solid var(--border); border-top: 3px solid var(--accent); padding: var(--sp-3); }
+.land-card > header { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.land-card h3 { font-size: var(--fs-md); margin: 0; }
+.land-card > header > span { color: var(--muted); font: var(--fs-2xs) var(--font-mono); }
+.land-card > header button { margin-left: auto; }
+.land-compound { display: block; font: 700 var(--fs-2xl)/1.2 var(--font-mono); margin: var(--sp-2) 0; overflow-wrap: anywhere; }
+.land-card dl { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin: 0; }
+.land-card dt { color: var(--muted); font-size: var(--fs-xs); }
+.land-card dd { font: 600 var(--fs-md) var(--font-mono); margin: 0; }
+
+.land-table { border-collapse: collapse; width: 100%; }
+.land-table th, .land-table td { border-top: 1px solid var(--border); padding: 6px 4px; text-align: left; }
+.land-table th { font-size: var(--fs-md); font-weight: 500; }
+.land-table th [lang='ne'], .land-defs dt [lang='ne'] { color: var(--muted); font-size: var(--fs-sm); margin-left: 4px; }
+.land-table td:nth-child(2) { font: var(--fs-md) var(--font-mono); text-align: right; }
+.land-table td:last-child { text-align: right; width: 1%; }
+.land-table button, .land-card button { padding: 2px 6px; }
+.land-table .material-symbols-outlined, .land-card .material-symbols-outlined { font-size: 16px; }
+.land-sr { clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+
+.land-defs dl { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; }
+.land-defs dt { font-size: var(--fs-md); font-weight: 600; }
+.land-defs dd { color: var(--muted); font-size: var(--fs-sm); margin: 2px 0 0; }
+
+/* Sketch mode: the editor spans the page, results and definitions below. */
+.land-main.is-plot { grid-template-areas: 'input input' 'results defs'; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); }
+
+.land-plot { display: flex; flex-direction: column; gap: var(--sp-3); }
+.land-plot-bar { align-items: center; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.land-plot-start { align-items: center; display: inline-flex; gap: 6px; }
+.land-plot-start > span { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); text-transform: uppercase; }
+.land-plot-bar .land-seg:last-child { margin-left: auto; }
+
+.land-plot-grid { align-items: start; display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); }
+.land-sketch-wrap { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.land-sketch { background: var(--panel); border: 1px solid var(--control-border); cursor: crosshair; display: block; height: auto; touch-action: none; user-select: none; width: 100%; }
+.land-sketch.closed, .land-sketch.tool-diagonal { cursor: default; }
+.land-sketch pattern path { fill: none; stroke: var(--border); stroke-width: 1; }
+.land-shape { fill: var(--accent-dim); fill-opacity: .55; stroke: var(--text); stroke-linejoin: round; stroke-width: 2; }
+.land-shape.open { fill: none; }
+.land-sketch text { fill: var(--text); font: 600 16px var(--font-mono); paint-order: stroke; stroke: var(--panel); stroke-width: 4px; text-anchor: middle; }
+.land-side, .land-diag { cursor: text; }
+.land-side .hit, .land-diag .hit { stroke: transparent; stroke-width: 16; }
+.land-side.missing text { fill: var(--warn); }
+.land-side.bad text, .land-diag.bad text, .land-corner .angle.bad { fill: var(--err); }
+.land-diag line:not(.hit) { stroke: var(--accent); stroke-dasharray: 6 5; stroke-width: 1.5; }
+.land-diag text { fill: var(--accent); }
+.land-corner { cursor: grab; }
+.land-corner circle { fill: var(--panel); stroke: var(--text); stroke-width: 2; }
+.land-corner.from circle, .land-corner.closer circle { fill: var(--accent); stroke: var(--accent); }
+.land-corner .name { font-weight: 700; }
+.land-corner .angle { fill: var(--muted); font-size: 14px; font-weight: 500; }
+.land-sketch.tool-diagonal .land-corner { cursor: pointer; }
+.land-sketch-hint { fill: var(--muted) !important; font-weight: 400 !important; }
+
+.land-measures { display: flex; flex-direction: column; gap: var(--sp-3); max-height: 520px; overflow: auto; }
+.land-measures fieldset { border: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; margin: 0; padding: var(--sp-2) 10px 10px; }
+.land-measures legend { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); padding: 0 4px; text-transform: uppercase; }
+.land-measure { align-items: center; display: grid; gap: var(--sp-2); grid-template-columns: 44px minmax(0, 1fr) auto; }
+.land-measure > span, .land-measure > label { font: 600 var(--fs-md) var(--font-mono); }
+.land-measure input { font: var(--fs-md) var(--font-mono); min-width: 0; width: 100%; }
+.land-measure input[aria-invalid='true'] { border-color: var(--err); }
+.land-measure button { font-size: var(--fs-sm); padding: 3px 8px; }
+.land-measure button.on { background: var(--chip-on-bg); border-color: var(--chip-on-border); font-weight: 600; }
+.land-measure .material-symbols-outlined { font-size: 16px; }
+.land-add-diag { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }
+
+.land-plot-status p { margin: 0; }
+.land-need { background: var(--warn-bg); border-left: 3px solid var(--warn); font-size: var(--fs-md); padding: var(--sp-2) 10px; }
+.land-plot-done { align-items: flex-start; display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.land-plot-done > div { display: flex; flex: 1; flex-direction: column; gap: var(--sp-2); min-width: 220px; }
+.land-plot-area { font-size: var(--fs-lg); }
+.land-warn { background: var(--warn-bg); border-left: 3px solid var(--warn); font-size: var(--fs-md); padding: var(--sp-2) 10px; }
+.land-warn ul { margin: 4px 0 0; padding-left: 18px; }
+.land-measured { border: 1px solid var(--border); margin: 0; padding: 6px; width: 220px; }
+.land-measured svg { display: block; height: auto; max-height: 220px; width: 100%; }
+.land-measured polygon { fill: var(--accent-dim); stroke: var(--accent); stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.land-measured text { fill: var(--text); font: 600 11px var(--font-mono); text-anchor: middle; }
+.land-measured figcaption { color: var(--muted); font-size: var(--fs-xs); padding-top: 4px; text-align: center; }
+
+@media (max-width: 860px) {
+  .land-main.is-plot { grid-template-areas: 'input' 'results' 'defs'; grid-template-columns: minmax(0, 1fr); }
+  .land-plot-grid { grid-template-columns: minmax(0, 1fr); }
+  .land-measures { max-height: none; }
+  .land-plot-bar .land-seg:last-child { margin-left: 0; }
+
+  .land-app { padding: 10px var(--sp-4); }
+  .land-main { grid-template-areas: 'input' 'results' 'defs'; grid-template-columns: minmax(0, 1fr); }
+  .land-fields, .land-fields-terai { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .land-compound { font-size: var(--fs-xl); }
+}

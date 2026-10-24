@@ -689,3 +689,23 @@ the precache list built by `scripts/sw-manifest.ts`.
   `kml.worker.ts` behind `runner.ts` (json-types' runner, copied;
   `CONVERT_TIMEOUT_MS`); the parsed DXF is cached per file between option
   changes.
+- `tools/land/` — Nepal's land units. `units.ts` holds every unit as an
+  exact bigint fraction of a square metre (both systems are defined in feet:
+  ropani = 74 ft × 74 ft = 16 aana = 64 paisa = 256 dam; bigha = 20 kattha =
+  400 dhur, dhur = 13.5 ft × 13.5 ft; foot = 0.3048 m exactly), so nesting
+  is exact. `toCompound` rounds only the smallest part and lets the rounding
+  carry upward (never "4 dam"); `parseCompound` reads land-record notation
+  (`0-4-2-1`, `/` or spaces, short forms fill from the left, Devanagari
+  digits). Add a unit only with a definition that has a single settled
+  value — regional variants are why the tool is scoped to Nepal. "Sketch a
+  plot" (`plot/`): the SVG sketch (`PlotEditor.tsx`, aria-hidden — every
+  measurement is also a labelled field) gives only corner order and
+  handedness; lengths come from the fields. Sides alone don't fix a shape,
+  so `solve.ts` needs diagonals or corner angles (an angle becomes the
+  distance between its neighbours by the law of cosines), places corners by
+  two-circle intersection on the sketch's side, takes the shoelace area
+  (concave plots work), reports what is missing, and checks every
+  measurement against the result (`TOLERANCE`, 0.2°) and the outline for
+  self-crossing. Its area is a double, kept to 1e-8 m². Fragment:
+  `#m=<mode>&v=<a_b_c>&u=<unit>`, or for a plot `p`/`c`/`s`/`d`/`g`/`u`
+  (`share.ts`).

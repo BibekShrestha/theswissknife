@@ -217,4 +217,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/kml'),
   },
+  {
+    slug: 'land',
+    name: 'Land area converter (Nepal)',
+    mark: 'ROP',
+    category: 'data',
+    load: () => import('../tools/land'),
+  },
 ]
