@@ -679,7 +679,12 @@ the precache list built by `scripts/sw-manifest.ts`.
   imperial architectural units, where one unit is an inch (a 9,000 m² plot
   reported as 62 ft²). Output can be rescaled to m/ft/US ft/mm; a rescaled
   file omits the `CRS:` comment, since its coordinates are no longer the
-  grid's. Reading, `$LUNITS` 3/4 without `$INSUNITS` means inches. DXF in (`dxf/read.ts`) walks the text with a cursor
+  grid's. Reading, `$LUNITS` 3/4 without `$INSUNITS` means inches.
+  `local-tm` is a tmerc with k = 1 centred on the data (`localGridProj`):
+  CAD then measures ground distances (UTM's k0 = 0.9996 and growth away
+  from the meridian make a UTM drawing's areas ~0.05–0.1% off, which users
+  notice against Google Earth or /land). `areaScale` reports any projected
+  grid's area factor at the data by central differences against M and N. DXF in (`dxf/read.ts`) walks the text with a cursor
   (no line array): R12–2018, $DWGCODEPAGE before 2007, LAYER table
   (off/frozen skipped unless asked), BLOCKS with nested and MINSERT
   inserts (layer 0 and BYBLOCK inherited, depth and cycle bounded), OCS via

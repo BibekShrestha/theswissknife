@@ -18,10 +18,11 @@ interface LoadedFile {
   direction: Direction
 }
 
-type CrsMode = 'auto' | 'utm' | 'lonlat' | 'webmerc' | 'custom' | 'none'
+type CrsMode = 'auto' | 'local' | 'utm' | 'lonlat' | 'webmerc' | 'custom' | 'none'
 
 const CRS_MODES: { id: CrsMode; label: string; kml: boolean; dxf: boolean }[] = [
   { id: 'auto', label: 'UTM — zone from the data', kml: true, dxf: false },
+  { id: 'local', label: 'Local grid — true ground distances', kml: true, dxf: false },
   { id: 'none', label: 'Choose…', kml: false, dxf: true },
   { id: 'utm', label: 'UTM — pick the zone', kml: true, dxf: true },
   { id: 'lonlat', label: 'Longitude / latitude (degrees)', kml: true, dxf: true },
@@ -42,6 +43,7 @@ let nextFileId = 0
 function crsString(mode: CrsMode, zone: number, south: boolean, custom: string): string {
   switch (mode) {
     case 'auto': return 'utm-auto'
+    case 'local': return 'local-tm'
     case 'utm': return utmProj(zone, south)
     case 'lonlat': return LONLAT
     case 'webmerc': return WEB_MERCATOR
@@ -101,7 +103,7 @@ export default function KmlTool() {
   const deferredCustom = useDeferredValue(custom)
   const crs = crsString(mode, zone, south, mode === 'custom' ? deferredCustom : custom)
   const crsCheck = useMemo(() => {
-    if (!crs || crs === 'utm-auto') return { error: '', label: '', unitLabel: crs ? 'metres' : '' }
+    if (!crs || crs === 'utm-auto' || crs === 'local-tm') return { error: '', label: '', unitLabel: crs ? 'metres' : '' }
     try {
       const parsed = parseProj(crs)
       return { error: '', label: parsed.label, unitLabel: parsed.unitLabel }
@@ -149,7 +151,7 @@ export default function KmlTool() {
     setFile({ id: ++nextFileId, name, size: bytes.length, bytes, direction: kind })
     setOutcome(null)
     if (kind === 'dxf-to-kml') {
-      setMode((m) => (m === 'auto' ? 'none' : m))
+      setMode((m) => (m === 'auto' || m === 'local' ? 'none' : m))
       setUnits('auto')
     } else {
       setMode((m) => (m === 'none' ? 'auto' : m))

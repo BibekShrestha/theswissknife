@@ -136,7 +136,7 @@ export function EarthPanel({ data, error, loading, onFile, onSelect, onSketch }:
             <p className="land-hint">Skipped {data.read.paths.length} open path{data.read.paths.length > 1 ? 's' : ''} ({data.read.paths.slice(0, 3).join(', ')}{data.read.paths.length > 3 ? ', …' : ''}) — a path has no area unless it ends where it starts.</p>
           )}
           {data.read.badCoordinates > 0 && <p className="land-hint">{data.read.badCoordinates} coordinate{data.read.badCoordinates > 1 ? 's' : ''} could not be read and {data.read.badCoordinates > 1 ? 'were' : 'was'} left out.</p>}
-          <p className="land-hint">Measured on the WGS84 ellipsoid from the outline as drawn. Satellite imagery can be off by a metre or more and plot edges are hard to see, so treat this as an estimate — the land office’s measurement is the record.</p>
+          <p className="land-hint">Measured on the WGS84 ellipsoid from the outline as drawn (checked against pyproj’s geodesic area). Google Earth’s own ruler can read a few tenths of a percent higher, and a CAD drawing in UTM a few hundredths of a percent lower — different models of the earth, same outline. Satellite imagery can be off by a metre or more and plot edges are hard to see, so treat this as an estimate — the land office’s measurement is the record.</p>
         </>
       )}
     </div>
