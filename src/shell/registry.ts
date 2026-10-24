@@ -210,4 +210,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/binary'),
   },
+  {
+    slug: 'kml',
+    name: 'KML ⇄ DXF converter',
+    mark: 'KML',
+    category: 'data',
+    load: () => import('../tools/kml'),
+  },
 ]
