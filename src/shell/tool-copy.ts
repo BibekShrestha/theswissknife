@@ -34,6 +34,6 @@ export const taglines: Record<string, string> = {
   binary: 'Decode Protobuf, CBOR and MessagePack from hex, Base64 or a file without a schema — a tree with byte offsets and a linked hex view',
   curl: 'Turn a browser’s Copy as cURL into fetch, Python, Go or raw HTTP — secrets flagged and swapped for placeholders, nothing sent',
   kml: 'Convert Google Earth KML or KMZ to AutoCAD DXF and back — through UTM or a Transverse Mercator, Lambert or Mercator grid, with folders as layers',
-  land: 'Convert land area between Ropani-Aana-Paisa-Dam, Bigha-Kattha-Dhur, square feet, square metres, hectares and acres — or sketch a plot, enter its measured sides, diagonals and angles, and get its area',
+  land: 'Convert land area between Ropani-Aana-Paisa-Dam, Bigha-Kattha-Dhur, square feet, square metres, hectares and acres — sketch a plot from its measured sides, diagonals and angles, or drop a polygon drawn in Google Earth',
   'json-types': 'Paste JSON samples or JSON Lines and get TypeScript, Zod, JSON Schema, Go or Python types — optional keys, nullables and unions merged from every sample',
 }

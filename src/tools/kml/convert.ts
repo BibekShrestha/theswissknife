@@ -15,9 +15,13 @@ import { CrsError, LONLAT, parseProj, utmProj, utmZoneFor, UNITS, type Crs } fro
 
 export type Direction = 'kml-to-dxf' | 'dxf-to-kml'
 
+/** Units the DXF can be written in; 'crs' keeps the coordinate system's own. */
+export type DxfUnit = 'crs' | 'm' | 'ft' | 'us-ft' | 'mm'
+
 export interface KmlToDxfOptions {
   /** A PROJ string, or 'utm-auto' for the UTM zone at the data's centre. */
   crs: string
+  units: DxfUnit
   altitude: boolean
   labels: boolean
   /** One layer per folder, or everything on one layer. */
@@ -182,13 +186,21 @@ export async function kmlToDxf(name: string, bytes: Uint8Array, options: KmlToDx
     const crs = resolveCrs(options.crs, read.features)
     if (crs.datumWarning) notes.unshift({ level: 'warn', text: crs.datumWarning })
 
+    // The drawing unit: the CRS's own, or another length the user picked
+    // (projected coordinates are then rescaled; degrees stay degrees).
+    const outKey = crs.kind === 'geographic' || options.units === 'crs' ? null : options.units
+    const outMetres = outKey ? UNITS[outKey].metres : crs.unitMetres
+    const scale = crs.kind === 'geographic' ? 1 : crs.unitMetres / outMetres
+    const outLabel = crs.kind === 'geographic' ? 'degrees' : outKey ? UNITS[outKey].label : crs.unitLabel
+    const insunits = crs.kind === 'geographic' ? 0 : Number(Object.entries(INSUNITS).find(([, u]) => Math.abs(u.metres - outMetres) < 1e-12)?.[0] ?? 0)
+
     let failed = 0
     const project = (c: number[]) => {
       const out: number[] = []
       for (let i = 0; i < c.length; i += 3) {
         const [x, y] = crs.forward(c[i], c[i + 1])
         if (!Number.isFinite(x) || !Number.isFinite(y)) { failed++; continue }
-        out.push(x, y, c[i + 2] / (crs.kind === 'geographic' ? 1 : crs.unitMetres))
+        out.push(x * scale, y * scale, c[i + 2] / (crs.kind === 'geographic' ? 1 : outMetres))
       }
       return out
     }
@@ -225,18 +237,27 @@ export async function kmlToDxf(name: string, bytes: Uint8Array, options: KmlToDx
 
     const layerOrder = options.folders ? read.layers : ['']
     const written = writeDxf(features, layerOrder, {
-      comments: [`Converted from ${name} by The Swiss Knife (theswissknife.com/kml)`, `CRS: ${crs.proj}`, `Units: ${crs.unitLabel}`],
+      comments: [
+        `Converted from ${name} by The Swiss Knife (theswissknife.com/kml)`,
+        // Only written when the coordinates are the CRS's own, so reading it back is exact.
+        ...(scale === 1 ? [`CRS: ${crs.proj}`] : [`Projection: ${crs.proj}, coordinates rescaled from ${crs.unitLabel} to ${outLabel}`]),
+        `Units: ${outLabel}`,
+      ],
       precision: crs.kind === 'geographic' ? 9 : 4,
       use3d: options.altitude,
       textHeight: height,
+      insunits,
+      metric: crs.kind === 'geographic' || outMetres === 1 || outMetres === 0.001 || outMetres === 1000,
     })
     notes.push(...written.notes)
     if (read.hasAltitude && !options.altitude) notes.push({ level: 'info', text: 'The KML has altitudes; they were dropped (every vertex at Z = 0). Tick “Altitude as Z” to keep them as 3D polylines.' })
-    if (options.altitude && read.hasAltitude) notes.push({ level: 'info', text: `Z values are the KML altitudes${crs.kind === 'projected' && crs.unitMetres !== 1 ? `, converted from metres to ${crs.unitLabel}` : ' in metres'} — above sea level or ground, as each placemark's altitude mode says.` })
+    if (options.altitude && read.hasAltitude) notes.push({ level: 'info', text: `Z values are the KML altitudes${crs.kind === 'projected' && outMetres !== 1 ? `, converted from metres to ${outLabel}` : ' in metres'} — above sea level or ground, as each placemark's altitude mode says.` })
+    if (scale !== 1) notes.push({ level: 'info', text: `Coordinates are ${crs.label} values converted from ${crs.unitLabel} to ${outLabel}, so they no longer match that grid's published eastings and northings — distances and areas are right in ${outLabel}.` })
+    if (crs.kind === 'projected' && !insunits) notes.push({ level: 'warn', text: `AutoCAD has no unit code for ${outLabel}, so the file says “unitless”. Set the drawing's units by hand after opening it.` })
     if (read.features.some((f) => f.geometry.type === 'polygon')) notes.push({ level: 'info', text: 'Polygons became closed polylines (one per ring); DXF R12 has no fill.' })
 
     const b = bounds(features)
-    const units = crs.kind === 'geographic' ? '°' : ` ${crs.unitLabel}`
+    const units = crs.kind === 'geographic' ? '°' : ` ${outLabel}`
     const outName = `${stem(name)}.dxf`
     return {
       ok: true,
@@ -248,6 +269,7 @@ export async function kmlToDxf(name: string, bytes: Uint8Array, options: KmlToDx
           ['Coordinate system', crs.label],
           ['Area (lat, lon)', lonLatBox(read.features)],
           ['Drawing extents', `${fmtNumber(b.maxX - b.minX, 2)} × ${fmtNumber(b.maxY - b.minY, 2)}${units}`],
+          ['Drawing units', crs.kind === 'geographic' ? 'degrees (unitless in CAD)' : `${outLabel}, decimal${insunits ? ` ($INSUNITS ${insunits})` : ''}`],
           ['Layers', String(new Set(features.map((f) => written.layerNames.get(f.layer) ?? f.layer)).size)],
           ...(options.labels && features.some((f) => f.source === 'label') ? [['Label height', `${fmtNumber(height, 4)}${units}`] as [string, string]] : []),
           ['DXF', 'AutoCAD R12 (AC1009), ASCII'],
@@ -312,7 +334,12 @@ export async function dxfToKml(name: string, bytes: Uint8Array, options: DxfToKm
     else if (looksLikeDegrees(drawn)) suggestion = { proj: LONLAT, reason: 'Every coordinate is within longitude/latitude ranges, so the drawing may be in degrees.' }
 
     const b = bounds(drawn)
-    const unitEntry = options.units === 'auto' ? (read.insunits !== undefined ? INSUNITS[read.insunits] : undefined) : { key: options.units, metres: UNITS[options.units]?.metres ?? 1 }
+    // With no $INSUNITS, architectural or engineering $LUNITS still pin the unit: AutoCAD draws them in inches.
+    const inchUnits = !read.insunits && (read.lunits === 3 || read.lunits === 4)
+    const unitEntry = options.units === 'auto'
+      ? (read.insunits ? INSUNITS[read.insunits] : inchUnits ? INSUNITS[1] : undefined)
+      : { key: options.units, metres: UNITS[options.units]?.metres ?? 1 }
+    if (options.units === 'auto' && inchUnits) notes.push({ level: 'info', text: `The drawing uses ${read.lunits === 4 ? 'architectural' : 'engineering'} units and sets no $INSUNITS, which AutoCAD reads as inches — so inches were assumed. Pick the drawing units if that's wrong.` })
     const facts: [string, string][] = [
       ['DXF', `${versionName(read.version)}${encoding !== 'UTF-8' ? `, ${encoding} text` : ''}`],
       ['Drawing extents', `${fmtNumber(b.minX, 3)}, ${fmtNumber(b.minY, 3)} → ${fmtNumber(b.maxX, 3)}, ${fmtNumber(b.maxY, 3)}`],
@@ -324,7 +351,7 @@ export async function dxfToKml(name: string, bytes: Uint8Array, options: DxfToKm
       suggestion,
       counts: read.counts,
       hasZ: read.hasZ,
-      insunits: read.insunits,
+      insunits: read.insunits || (inchUnits ? 1 : undefined),
       preview: buildPreview(drawn),
     }
     if (!options.crs) {

@@ -674,7 +674,12 @@ the precache list built by `scripts/sw-manifest.ts`.
   POLYLINE/VERTEX/SEQEND, POINT, TEXT; nearest ACI from `dxf/aci.ts`, which
   generates the palette; R12 layer names, cleaned and made unique, renames
   noted) with `999` comments naming the CRS — `dxf/read.ts` reads that back
-  as the suggested CRS. DXF in (`dxf/read.ts`) walks the text with a cursor
+  as the suggested CRS. The header always sets `$LUNITS` 2 (decimal),
+  `$INSUNITS` and `$MEASUREMENT`: without them AutoCAD opens the file in
+  imperial architectural units, where one unit is an inch (a 9,000 m² plot
+  reported as 62 ft²). Output can be rescaled to m/ft/US ft/mm; a rescaled
+  file omits the `CRS:` comment, since its coordinates are no longer the
+  grid's. Reading, `$LUNITS` 3/4 without `$INSUNITS` means inches. DXF in (`dxf/read.ts`) walks the text with a cursor
   (no line array): R12–2018, $DWGCODEPAGE before 2007, LAYER table
   (off/frozen skipped unless asked), BLOCKS with nested and MINSERT
   inserts (layer 0 and BYBLOCK inherited, depth and cycle bounded), OCS via
@@ -706,6 +711,16 @@ the precache list built by `scripts/sw-manifest.ts`.
   two-circle intersection on the sketch's side, takes the shoelace area
   (concave plots work), reports what is missing, and checks every
   measurement against the result (`TOLERANCE`, 0.2°) and the outline for
-  self-crossing. Its area is a double, kept to 1e-8 m². Fragment:
+  self-crossing. Its area is a double, kept to 1e-8 m². "From Google
+  Earth" (`earth/`): `xml.ts` is a copy of tools/kml's reader; `kml.ts`
+  keeps closed shapes (Polygon with holes, closed LineString, LinearRing)
+  and names open paths as skipped; `load.ts` takes KML or KMZ (jszip, lazy;
+  file and inner-KML sizes capped before inflating). `geodesy.ts` measures
+  area with the ellipsoidal Lambert azimuthal equal-area projection centred
+  on the outline (shoelace in that plane) and sides with Vincenty's
+  inverse; `reference.json` is pyproj's Karney polygon area and inverse
+  distances (`geodesy.test.ts`: 1e-7 relative at plot scale, 1 mm on
+  sides). `sketch.ts` turns an outline into a plot with sides and fan
+  diagonals from A. The dropped file never enters the fragment. Fragment:
   `#m=<mode>&v=<a_b_c>&u=<unit>`, or for a plot `p`/`c`/`s`/`d`/`g`/`u`
   (`share.ts`).

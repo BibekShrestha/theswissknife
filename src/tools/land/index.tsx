@@ -3,6 +3,11 @@ import { ToolHeader } from '../../shell/ToolHeader'
 import { Toast } from '../../shell/Toast'
 import { useCopy } from '../../shell/useCopy'
 import { useToast } from '../../shell/useToast'
+import { EarthPanel, type EarthData } from './earth/EarthPanel'
+import { ellipsoidArea } from './earth/geodesy'
+import { readShapes } from './earth/kml'
+import { kmlFromFile } from './earth/load'
+import { toPlot } from './earth/sketch'
 import { PlotEditor } from './plot/PlotEditor'
 import { solvePlot, type Solved, type Unsolved } from './plot/solve'
 import { readFragment, SIZE, START_PLOT, writeFragment, type Mode, type State } from './share'
@@ -14,6 +19,7 @@ const MODES: { id: Mode; label: string }[] = [
   { id: 'terai', label: 'Bigha' },
   { id: 'unit', label: 'One unit' },
   { id: 'plot', label: 'Sketch a plot' },
+  { id: 'earth', label: 'From Google Earth' },
 ]
 
 const FOOT = UNIT.ft2.m2
@@ -24,13 +30,20 @@ const NEPALI_UNITS = new Set<UnitId>([...SYSTEMS.hill.parts, ...SYSTEMS.terai.pa
  * is a double; kept to 1e-8 m² (well under a square millimetre).
  */
 function plotArea(solved: Solved, unit: State['lengthUnit']): Q {
-  const scaled = q(BigInt(Math.round(solved.area * 1e8)), 100000000n)
+  const scaled = metres(solved.area)
   return unit === 'ft' ? mul(scaled, FOOT) : scaled
 }
 
+/** A double area as a fraction, to 1e-8 of a unit. */
+const metres = (value: number) => q(BigInt(Math.round(value * 1e8)), 100000000n)
+
 /** The area the inputs describe, or which fields don't read as numbers. */
-function areaOf(state: State, solved: Solved | Unsolved | null): { area: Q | null; bad: boolean[] } {
+function areaOf(state: State, solved: Solved | Unsolved | null, earth: EarthData | null): { area: Q | null; bad: boolean[] } {
   if (state.mode === 'plot') return { area: solved?.ok ? plotArea(solved, state.lengthUnit) : null, bad: [] }
+  if (state.mode === 'earth') {
+    const shape = earth?.read.shapes[earth.selected]
+    return { area: shape ? metres(ellipsoidArea(shape.rings)) : null, bad: [] }
+  }
   const parsed = state.values.map((v) => parseDecimal(v))
   const bad = parsed.map((p) => p === null)
   if (bad.some(Boolean)) return { area: null, bad }
@@ -81,7 +94,27 @@ export default function LandTool() {
   }, [fragment])
 
   const solved = useMemo(() => (state.mode === 'plot' ? solvePlot(state.plot, state.lengthUnit) : null), [state.mode, state.plot, state.lengthUnit])
-  const { area, bad } = useMemo(() => areaOf(state, solved), [state, solved])
+  const [earth, setEarth] = useState<EarthData | null>(null)
+  const [earthError, setEarthError] = useState('')
+  const [earthLoading, setEarthLoading] = useState(false)
+  const { area, bad } = useMemo(() => areaOf(state, solved, earth), [state, solved, earth])
+
+  const openEarthFile = async (file: File) => {
+    setEarthLoading(true)
+    setEarthError('')
+    try {
+      const text = await kmlFromFile(file.name, new Uint8Array(await file.arrayBuffer()))
+      const read = readShapes(text)
+      // Start on the largest shape: in a file with several, that is usually the plot.
+      const areas = read.shapes.map((s) => ellipsoidArea(s.rings))
+      setEarth({ fileName: file.name, read, selected: areas.length ? areas.indexOf(Math.max(...areas)) : 0 })
+    } catch (error) {
+      setEarth(null)
+      setEarthError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setEarthLoading(false)
+    }
+  }
 
   const setMode = (mode: Mode) => {
     if (mode === state.mode) return
@@ -116,6 +149,7 @@ export default function LandTool() {
       case 'unit':
         return [{ label: 'Area', nepali: undefined }]
       case 'plot':
+      case 'earth':
         return []
     }
   })()
@@ -131,11 +165,11 @@ export default function LandTool() {
         <button onClick={() => void copy(window.location.href, 'Link')} aria-label="Copy a link to this area" title="Copy link"><span className="material-symbols-outlined" aria-hidden>link</span></button>
       </ToolHeader>
 
-      <main id="main-content" className={`land-main${state.mode === 'plot' ? ' is-plot' : ''}`}>
+      <main id="main-content" className={`land-main${state.mode === 'plot' || state.mode === 'earth' ? ' is-plot' : ''}`}>
         <section className="land-pane" aria-labelledby="land-input-title">
           <header><span className="land-step">01</span><h2 id="land-input-title">Area</h2></header>
           <div className="land-body">
-            <div className="land-seg" role="group" aria-label="Enter the area as">
+            <div className="land-modes" role="group" aria-label="Enter the area as">
               {MODES.map((m) => (
                 <button key={m.id} className={state.mode === m.id ? 'on' : ''} aria-pressed={state.mode === m.id} onClick={() => setMode(m.id)}>{m.label}</button>
               ))}
@@ -151,7 +185,21 @@ export default function LandTool() {
               />
             )}
 
-            {state.mode !== 'plot' && <div className={`land-fields land-fields-${state.mode}`}>
+            {state.mode === 'earth' && (
+              <EarthPanel
+                data={earth}
+                error={earthError}
+                loading={earthLoading}
+                onFile={(file) => void openEarthFile(file)}
+                onSelect={(selected) => setEarth((e) => (e ? { ...e, selected } : e))}
+                onSketch={(shape) => {
+                  const plot = toPlot(shape.rings[0], state.lengthUnit)
+                  if (plot) setState((s) => ({ ...s, mode: 'plot', values: [], plot }))
+                }}
+              />
+            )}
+
+            {state.mode !== 'plot' && state.mode !== 'earth' && <div className={`land-fields land-fields-${state.mode}`}>
               {fields.map((f, i) => (
                 <label key={f.label} className="land-field">
                   <span>{f.label} {f.nepali && <span lang="ne">{f.nepali}</span>}</span>
@@ -177,7 +225,7 @@ export default function LandTool() {
               )}
             </div>}
 
-            {state.mode === 'plot' ? null : bad.some(Boolean)
+            {state.mode === 'plot' || state.mode === 'earth' ? null : bad.some(Boolean)
               ? <p className="land-error" role="alert">Use plain numbers — digits and one decimal point (Nepali digits are fine).</p>
               : <p className="land-hint">
                   {state.mode === 'hill' || state.mode === 'terai'
@@ -216,7 +264,7 @@ export default function LandTool() {
                 </table>
               </>
             ) : (
-              <p className="land-placeholder">{state.mode === 'plot' ? 'Finish measuring the sketch to see its area in every unit.' : area ? 'Enter an area to see it in every unit.' : 'Fix the highlighted field.'}</p>
+              <p className="land-placeholder">{state.mode === 'earth' ? 'Drop a KML or KMZ with the plot drawn as a polygon.' : state.mode === 'plot' ? 'Finish measuring the sketch to see its area in every unit.' : area ? 'Enter an area to see it in every unit.' : 'Fix the highlighted field.'}</p>
             )}
           </div>
         </section>

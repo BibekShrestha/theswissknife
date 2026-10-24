@@ -21,6 +21,13 @@ export interface DxfWriteOptions {
   use3d: boolean
   /** Height of TEXT entities, in drawing units. */
   textHeight: number
+  /**
+   * The drawing unit as an $INSUNITS code (0 = unitless, e.g. degrees) and
+   * whether it is metric. Without these AutoCAD falls back to imperial
+   * architectural units, which take one drawing unit to be an inch.
+   */
+  insunits: number
+  metric: boolean
 }
 
 const MAX_LAYER = 31
@@ -129,6 +136,13 @@ export function writeDxf(features: Feature[], layerOrder: string[], options: Dxf
   pair(0, 'SECTION'); pair(2, 'HEADER')
   pair(9, '$ACADVER'); pair(1, 'AC1009')
   pair(9, '$DWGCODEPAGE'); pair(3, 'ANSI_1252')
+  // Decimal linear units: architectural/engineering would make AutoCAD read
+  // every coordinate as inches. $INSUNITS and $MEASUREMENT came with R2000;
+  // AutoCAD reads them by name from older files too, and R12-only readers skip them.
+  pair(9, '$LUNITS'); pair(70, 2)
+  pair(9, '$LUPREC'); pair(70, options.precision > 6 ? 8 : 4)
+  pair(9, '$INSUNITS'); pair(70, options.insunits)
+  pair(9, '$MEASUREMENT'); pair(70, options.metric ? 1 : 0)
   pair(9, '$INSBASE'); xyz(10, [0, 0, 0], 0)
   pair(9, '$EXTMIN'); xyz(10, [minX, minY, minZ], 0, true)
   pair(9, '$EXTMAX'); xyz(10, [maxX, maxY, maxZ], 0, true)

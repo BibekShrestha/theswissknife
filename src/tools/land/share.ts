@@ -2,7 +2,8 @@
  * The URL fragment: `#m=<mode>&v=<values>`, readable and short, like the
  * CIDR tool's. A sketched plot adds its corners (`p`), sides (`s`),
  * diagonals (`d`), angles (`g`) and length unit (`u`). Areas are not
- * secrets, but the fragment never reaches a server anyway. Everything read
+ * secrets, but the fragment never reaches a server anyway; a dropped KML
+ * file is never put in it. Everything read
  * back is clipped and checked; anything odd falls back to the defaults.
  */
 
@@ -10,7 +11,7 @@ import { adjacent, EMPTY_PLOT, MAX_CORNERS, SKETCH_H, SKETCH_W, template, type P
 import type { LengthUnit } from './plot/solve'
 import { asciiDigits, UNIT, type UnitId } from './units'
 
-export type Mode = 'hill' | 'terai' | 'unit' | 'plot'
+export type Mode = 'hill' | 'terai' | 'unit' | 'plot' | 'earth'
 
 export interface State {
   mode: Mode
@@ -26,8 +27,8 @@ export const DEFAULTS: State = { mode: 'hill', values: ['0', '4', '2', '1'], uni
 /** The plot a fresh "Sketch a plot" starts with: a rectangle with square corners. */
 export const START_PLOT = template(4)
 
-const MODES: Mode[] = ['hill', 'terai', 'unit', 'plot']
-export const SIZE: Record<Mode, number> = { hill: 4, terai: 3, unit: 1, plot: 0 }
+const MODES: Mode[] = ['hill', 'terai', 'unit', 'plot', 'earth']
+export const SIZE: Record<Mode, number> = { hill: 4, terai: 3, unit: 1, plot: 0, earth: 0 }
 const VALUE = /^[0-9.,]{0,20}$/
 /** A typed length or angle: digits, a decimal point, feet-and-inches marks. */
 const MEASURE = /^[0-9.,'" a-z]{0,20}$/i
@@ -64,6 +65,8 @@ export function readFragment(hash: string): State {
   try { params = new URLSearchParams(hash.slice(1)) } catch { return DEFAULTS }
   const mode = params.get('m') as Mode
   if (!MODES.includes(mode)) return DEFAULTS
+  // A dropped file is the user's own data: it never goes into the link.
+  if (mode === 'earth') return { ...DEFAULTS, mode, values: [] }
   if (mode === 'plot') {
     const plot = params.has('p') ? readPlot(params) : EMPTY_PLOT
     if (!plot) return DEFAULTS
@@ -78,6 +81,7 @@ export function readFragment(hash: string): State {
 
 export function writeFragment(state: State): string {
   const params = new URLSearchParams({ m: state.mode })
+  if (state.mode === 'earth') return `#${params.toString()}`
   if (state.mode === 'plot') {
     const { plot } = state
     if (plot.points.length) {

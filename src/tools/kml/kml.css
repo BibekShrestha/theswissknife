@@ -80,6 +80,7 @@
 .kml-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
 
 .kml-checks label { align-items: center; display: flex; font-size: var(--fs-md); gap: var(--sp-2); }
+.kml-checks label.kml-field { align-items: stretch; flex-direction: column; gap: 4px; }
 
 .kml-crs { font-size: var(--fs-md); margin: 0; }
 .kml-crs > span { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); margin-right: 6px; text-transform: uppercase; }

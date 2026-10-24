@@ -14,6 +14,9 @@
   gap: var(--sp-3);
   grid-template-areas: 'input results' 'defs results';
   grid-template-columns: minmax(300px, 440px) minmax(0, 1fr);
+  /* The results column spans both rows; its extra height goes to the
+     second row, so Definitions sits right under the input. */
+  grid-template-rows: auto 1fr;
 }
 
 .land-main > :nth-child(1) { grid-area: input; }
@@ -36,10 +39,36 @@
 .land-step { color: var(--accent); font: 700 var(--fs-2xs) var(--font-mono); }
 .land-body { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); }
 
-.land-seg { align-self: flex-start; border: 1px solid var(--control-border); border-radius: var(--radius-sm); display: inline-flex; flex-wrap: wrap; overflow: hidden; }
+/* Short two- or three-way toggles: they never wrap. */
+.land-seg { align-self: flex-start; border: 1px solid var(--control-border); border-radius: var(--radius-sm); display: inline-flex; overflow: hidden; }
 .land-seg button { background: transparent; border: 0; border-left: 1px solid var(--control-border); border-radius: 0; color: var(--muted); font-size: var(--fs-md); padding: 6px 12px; }
 .land-seg button:first-child { border-left: 0; }
 .land-seg button.on { background: var(--chip-on-bg); color: var(--text); font-weight: 600; }
+
+/* The five input modes: three over two, each row filling the width and
+   neighbours sharing a border (the -1px margins); one row of five once the
+   panel is wide enough (the sketch modes span the page). */
+.land-body { container-type: inline-size; }
+.land-modes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 1px 0 0 1px; }
+.land-modes button {
+  background: transparent;
+  border: 1px solid var(--control-border);
+  border-radius: 0;
+  color: var(--muted);
+  font-size: var(--fs-md);
+  grid-column: span 2;
+  margin: -1px 0 0 -1px;
+  overflow: hidden;
+  padding: 6px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.land-modes button:nth-child(n + 4) { grid-column: span 3; }
+.land-modes button.on { background: var(--chip-on-bg); border-color: var(--chip-on-border); color: var(--text); font-weight: 600; position: relative; z-index: 1; }
+@container (min-width: 640px) {
+  .land-modes { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .land-modes button, .land-modes button:nth-child(n + 4) { grid-column: auto; }
+}
 
 .land-fields { align-items: flex-end; display: grid; gap: var(--sp-2); grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .land-fields-terai { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -137,6 +166,31 @@
 .land-measured polygon { fill: var(--accent-dim); stroke: var(--accent); stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .land-measured text { fill: var(--text); font: 600 11px var(--font-mono); text-anchor: middle; }
 .land-measured figcaption { color: var(--muted); font-size: var(--fs-xs); padding-top: 4px; text-align: center; }
+
+/* From Google Earth */
+.land-earth { display: flex; flex-direction: column; gap: var(--sp-3); }
+.land-earth-drop { align-items: center; border: 1px dashed var(--control-border); display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3); }
+.land-earth-drop.dragging { background: var(--accent-dim); border-color: var(--accent); }
+.land-earth-drop > .material-symbols-outlined { color: var(--muted); font-size: 28px; }
+.land-earth-drop p { flex: 1; margin: 0; min-width: 200px; }
+.land-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.land-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.land-earth-steps { color: var(--muted); display: flex; flex-direction: column; font-size: var(--fs-md); gap: 6px; margin: 0; padding-left: 20px; }
+.land-earth-steps b { color: var(--text); }
+.land-earth-list { border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; margin: 0; padding: var(--sp-2) 10px; }
+.land-earth-list legend { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); padding: 0 4px; text-transform: uppercase; }
+.land-earth-list label { align-items: center; display: flex; font-size: var(--fs-md); gap: var(--sp-2); }
+.land-earth-list small { color: var(--muted); }
+.land-earth-area { font-family: var(--font-mono); margin-left: auto; }
+.land-earth-outline path { fill: var(--accent-dim); stroke: var(--accent); stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.land-earth-sides { border-collapse: collapse; font-size: var(--fs-md); max-width: 360px; }
+.land-earth-sides th, .land-earth-sides td { border-top: 1px solid var(--border); padding: 3px 10px 3px 0; text-align: left; }
+.land-earth-sides td { font-family: var(--font-mono); text-align: right; }
+.land-earth-sides thead th { color: var(--muted); font: var(--label); letter-spacing: var(--label-track); text-transform: uppercase; }
+.land-earth-sides thead th:not(:first-child) { text-align: right; }
+.land-earth-sides .total th, .land-earth-sides .total td { font-weight: 600; }
+.land-earth-actions { align-items: center; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.land-earth-actions .land-hint { flex: 1; min-width: 200px; }
 
 @media (max-width: 860px) {
   .land-main.is-plot { grid-template-areas: 'input' 'results' 'defs'; grid-template-columns: minmax(0, 1fr); }
