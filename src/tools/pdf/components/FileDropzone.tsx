@@ -49,13 +49,13 @@ export function FileDropzone({
 
   return (
     <>
-    <div className="pdf-dropzone" {...getRootProps()} data-active={isDragActive ? '' : undefined}>
+    <div className={`pdf-dropzone${files.length > 0 ? ' is-compact' : ''}`} {...getRootProps()} data-active={isDragActive ? '' : undefined}>
       <input {...getInputProps()} />
       <div className="pdf-dropzone-icon">
         <span className="material-symbols-outlined" aria-hidden="true">upload_file</span>
       </div>
       <p className="pdf-dropzone-label">
-        {files.length > 0 ? 'Add more files' : label}
+        {files.length === 0 ? label : multiple ? 'Add more files' : 'Drop another file to replace this one'}
       </p>
       {files.length === 0 && <p className="pdf-dropzone-desc">{description}</p>}
       <p className="pdf-dropzone-hint">

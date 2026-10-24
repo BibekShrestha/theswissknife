@@ -83,14 +83,21 @@ export async function splitPdf(bytes: Uint8Array, mode: SplitMode): Promise<Name
 
 export type Rotation = 90 | 180 | 270
 
-/** Turns every page clockwise by `rotation` on top of its existing /Rotate. */
-export async function rotatePdf(bytes: Uint8Array, rotation: Rotation): Promise<Uint8Array> {
+/**
+ * Turns pages clockwise on top of their existing /Rotate: one angle for
+ * every page, or one per page in page order (0 leaves a page as it is).
+ */
+export async function rotatePdf(bytes: Uint8Array, rotation: Rotation | readonly number[]): Promise<Uint8Array> {
   const doc = await loadPdf(bytes)
-  requirePages(doc)
-  for (const page of doc.getPages()) {
+  const total = requirePages(doc)
+  const turns = typeof rotation === 'number' ? Array<number>(total).fill(rotation) : rotation
+  if (turns.length !== total) throw new PdfInputError(`This PDF has ${total} page${total === 1 ? '' : 's'}, but ${turns.length} rotation${turns.length === 1 ? ' was' : 's were'} given — reload the file and try again.`)
+  if (turns.some((t) => !Number.isInteger(t) || t % 90 !== 0)) throw new PdfInputError('Pages can only be turned in steps of 90°.')
+  doc.getPages().forEach((page, i) => {
+    if (turns[i] % 360 === 0) return
     const current = Math.round(page.getRotation().angle / 90) * 90
-    page.setRotation(degrees((((current + rotation) % 360) + 360) % 360))
-  }
+    page.setRotation(degrees((((current + turns[i]) % 360) + 360) % 360))
+  })
   return doc.save()
 }
 

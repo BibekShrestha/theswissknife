@@ -12,7 +12,7 @@ import type { FillSignOptions, FillSignResult, FormReport } from './ops/form'
 export interface PdfJobs {
   merge: { args: { inputs: NamedBytes[] }; result: MergeResult }
   split: { args: { bytes: Uint8Array; mode: SplitMode }; result: NamedBytes[] }
-  rotate: { args: { bytes: Uint8Array; rotation: Rotation }; result: Uint8Array }
+  rotate: { args: { bytes: Uint8Array; rotation: Rotation | number[] }; result: Uint8Array }
   'remove-pages': { args: { bytes: Uint8Array; spec: string }; result: Uint8Array }
   reorder: { args: { bytes: Uint8Array; spec: string }; result: Uint8Array }
   compress: { args: { bytes: Uint8Array }; result: Uint8Array }

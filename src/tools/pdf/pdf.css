@@ -150,7 +150,7 @@
 }
 
 .pdf-dropzone:hover,
-.pdf-dropzone.active {
+.pdf-dropzone[data-active] {
   border-color: var(--pdf-accent);
   background: color-mix(in srgb, var(--pdf-accent) 5%, transparent);
 }
@@ -182,6 +182,34 @@
   font-size: 11px;
   color: var(--pdf-muted);
   margin: 6px 0 0;
+}
+
+/* once a file is chosen the drop target shrinks to one line, so the pages come into view */
+.pdf-dropzone.is-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+}
+
+.pdf-dropzone.is-compact .pdf-dropzone-icon {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+}
+
+.pdf-dropzone.is-compact .pdf-dropzone-icon .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.pdf-dropzone.is-compact .pdf-dropzone-label {
+  margin: 0;
+  font-size: var(--fs-md);
+}
+
+.pdf-dropzone.is-compact .pdf-dropzone-hint {
+  margin: 0;
 }
 
 /* ----- file list ----- */
@@ -882,4 +910,381 @@ button.pdf-tool-card {
 
 .pdf-meta-kept {
   color: var(--pdf-muted);
+}
+
+/* ----- page thumbnails (Remove, Reorder, Rotate, Split, PDF to Image) ----- */
+.pdf-pages-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--pdf-muted);
+}
+
+.pdf-page-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-1);
+}
+
+.pdf-page-bar-count {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.pdf-page-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdf-page-bar-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+}
+
+.pdf-page-bar-actions .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.pdf-page-bar-every {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+}
+
+.pdf-page-bar-every .pdf-number-input {
+  width: 64px;
+  padding: 4px 8px;
+}
+
+.pdf-pages {
+  list-style: none;
+  margin: var(--sp-3) 0 var(--sp-4);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 22px 18px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pdf-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pdf-page-thumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  width: 100%;
+  min-height: 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--pdf-border);
+  border-radius: var(--radius-sm);
+  background: var(--pdf-panel-2);
+  color: var(--pdf-text);
+  overflow: hidden;
+}
+
+button.pdf-page-thumb:hover:not(:disabled) {
+  border-color: var(--pdf-muted);
+  background: var(--pdf-panel-2);
+}
+
+.pdf-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.pdf-thumb canvas {
+  display: block;
+  background: #fff;
+  box-shadow: var(--elev-1), 0 0 0 1px rgb(0 0 0 / .08);
+  transition: transform 180ms ease, opacity 120ms;
+}
+
+.pdf-thumb:not(.is-done) canvas {
+  display: none;
+}
+
+/* a blank sheet while the page waits its turn to be drawn */
+.pdf-thumb:not(.is-done)::before {
+  content: '';
+  width: 62%;
+  aspect-ratio: 1 / 1.3;
+  background: var(--pdf-panel);
+  border: 1px dashed var(--pdf-border);
+}
+
+.pdf-thumb-failed {
+  position: absolute;
+  color: var(--pdf-muted);
+}
+
+.pdf-page-mark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  border-radius: 50%;
+  background: var(--pdf-accent);
+  color: var(--on-accent);
+}
+
+.pdf-page.is-pick .pdf-page-thumb {
+  border-color: var(--pdf-accent);
+  box-shadow: inset 0 0 0 1px var(--pdf-accent);
+  background: color-mix(in srgb, var(--pdf-accent) 8%, var(--pdf-panel-2));
+}
+
+.pdf-page.is-remove .pdf-page-thumb {
+  border-color: var(--err);
+  box-shadow: inset 0 0 0 1px var(--err);
+  background: var(--err-bg);
+}
+
+.pdf-page.is-remove .pdf-page-mark {
+  background: var(--err);
+  color: #fff;
+}
+
+.pdf-page.is-remove canvas {
+  opacity: .35;
+}
+
+.pdf-page.is-remove .pdf-page-num {
+  text-decoration: line-through;
+  color: var(--err);
+}
+
+.pdf-page.is-turned .pdf-page-thumb {
+  border-color: var(--pdf-accent);
+}
+
+.pdf-page-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 1px 6px;
+  font: var(--label);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  background: var(--pdf-accent);
+  color: var(--on-accent);
+}
+
+.pdf-page-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  margin-top: 4px;
+  font-size: var(--fs-sm);
+  color: var(--pdf-muted);
+}
+
+.pdf-page-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-page-moved {
+  font-size: var(--fs-xs);
+  color: var(--pdf-accent);
+}
+
+.pdf-page-tools {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.pdf-page-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border-color: transparent;
+  color: var(--pdf-muted);
+}
+
+.pdf-page-tools button:hover:not(:disabled) {
+  color: var(--pdf-text);
+}
+
+.pdf-page-tools .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* Split: alternate files get a different frame, and scissors sit in the gap after each page */
+.pdf-page.is-alt .pdf-page-thumb {
+  background: color-mix(in srgb, var(--pdf-accent) 7%, var(--pdf-panel-2));
+}
+
+.pdf-page-cut {
+  position: absolute;
+  z-index: 1;
+  top: calc(50% - 30px);
+  right: -21px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border-color: var(--pdf-border);
+  background: var(--pdf-panel);
+  color: var(--pdf-muted);
+}
+
+.pdf-page-cut .material-symbols-outlined {
+  font-size: 15px;
+  transform: rotate(90deg);
+}
+
+.pdf-page-cut:hover:not(:disabled) {
+  color: var(--pdf-accent);
+  border-color: var(--pdf-accent);
+  background: var(--pdf-panel);
+}
+
+.pdf-page-cut.on,
+.pdf-page-cut.on:hover:not(:disabled) {
+  background: var(--pdf-accent);
+  border-color: var(--pdf-accent);
+  color: var(--on-accent);
+}
+
+/* room for the scissors after the last page of each row */
+.pdf-pages-cuttable {
+  padding-right: 18px;
+}
+
+/* the cut line runs the height of the thumbnail, behind the button */
+.pdf-page:has(> .pdf-page-cut.on)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -10px;
+  height: calc(100% - 34px);
+  border-right: 2px dashed var(--pdf-accent);
+}
+
+/* Reorder: the whole thumbnail is the drag handle */
+.pdf-page-sortable .pdf-page-thumb {
+  cursor: grab;
+  touch-action: manipulation;
+}
+
+.pdf-page-sortable.is-dragging {
+  z-index: 2;
+}
+
+.pdf-page-sortable.is-dragging .pdf-page-thumb {
+  cursor: grabbing;
+  border-color: var(--pdf-accent);
+  box-shadow: var(--elev-2);
+}
+
+/* ----- sortable file list (Merge, Image to PDF) ----- */
+ol.pdf-file-list-inner {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.pdf-file-row-sortable {
+  position: relative;
+  cursor: grab;
+}
+
+.pdf-file-row-sortable.is-dragging {
+  z-index: 2;
+  cursor: grabbing;
+  border-color: var(--pdf-accent);
+  box-shadow: var(--elev-2);
+}
+
+.pdf-file-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--pdf-muted);
+  cursor: grab;
+}
+
+.pdf-file-handle .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.pdf-file-order {
+  min-width: 1.5em;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--pdf-muted);
+  text-align: right;
+}
+
+.pdf-file-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pdf-file-icon:has(img) {
+  overflow: hidden;
+  background: var(--pdf-panel-2);
+}
+
+@media (max-width: 520px) {
+  .pdf-dropzone.is-compact .pdf-dropzone-hint {
+    display: none;
+  }
+
+  .pdf-pages {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 18px 16px;
+  }
+
+  .pdf-page-cut {
+    right: -20px;
+  }
+
+  .pdf-page:has(> .pdf-page-cut.on)::after {
+    right: -9px;
+  }
 }

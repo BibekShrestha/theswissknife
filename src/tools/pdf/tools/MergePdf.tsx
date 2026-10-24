@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FileDropzone, FileList } from '../components/FileDropzone'
+import { FileDropzone } from '../components/FileDropzone'
+import { SortableFileList } from '../components/SortableFileList'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError } from '../lib/errors'
@@ -35,12 +36,18 @@ export function MergePdf() {
     }
   }
 
+  // a new set or order of files makes the last result stale
+  function changeFiles(next: File[]) {
+    setFiles(next)
+    setResult(null)
+  }
+
   return (
     <div>
-      <SubtoolHeader icon="merge" color="#dc2626" title="Merge PDF" description="Combine multiple PDFs into one document, in the order listed" />
+      <SubtoolHeader icon="merge" color="#dc2626" title="Merge PDF" description="Combine PDFs into one document — drag the files into the order you want" />
 
-      <FileDropzone files={files} onFilesChange={setFiles} />
-      <FileList files={files} onFilesChange={setFiles} />
+      <FileDropzone files={files} onFilesChange={changeFiles} />
+      <SortableFileList files={files} onFilesChange={changeFiles} />
       <p className="pdf-form-hint">
         Links, bookmarks, form fields, page labels, attachments and accessibility tags of every file are kept. Title, author, XMP metadata and viewer
         settings come from the first file; those of the others are not carried over.
