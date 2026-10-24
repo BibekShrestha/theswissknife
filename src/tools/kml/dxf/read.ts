@@ -56,6 +56,8 @@ export interface DxfRead {
   version: string
   /** $INSUNITS, when the header has it. */
   insunits?: number
+  /** $LUNITS: 3 (engineering) and 4 (architectural) mean one unit is an inch. */
+  lunits?: number
   /** A PROJ string from a "CRS:" comment, as this tool writes. */
   crsComment?: string
   hasZ: boolean
@@ -347,6 +349,7 @@ export function readDxf(text: string, options: DxfReadOptions): DxfRead {
   let truncated = false
   let version = ''
   let insunits: number | undefined
+  let lunits: number | undefined
   let hasZ = false
   let sawSection = false
   let sawEntities = false
@@ -371,6 +374,7 @@ export function readDxf(text: string, options: DxfReadOptions): DxfRead {
       if (cur.code === 9) { variable = cur.value.trim(); continue }
       if (variable === '$ACADVER' && cur.code === 1) version = cur.value.trim()
       else if (variable === '$INSUNITS' && cur.code === 70) insunits = num(cur.value)
+      else if (variable === '$LUNITS' && cur.code === 70) lunits = num(cur.value)
     }
   }
 
@@ -703,6 +707,7 @@ export function readDxf(text: string, options: DxfReadOptions): DxfRead {
     layers: layerOrder,
     version,
     insunits,
+    lunits,
     crsComment,
     hasZ,
     counts: converted.entries(),

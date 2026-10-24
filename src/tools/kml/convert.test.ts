@@ -6,7 +6,7 @@ import { SAMPLE_KML } from './sample'
 import fixtureText from './fixtures/entities.dxf?raw'
 
 const enc = (s: string) => new TextEncoder().encode(s)
-const toDxf: KmlToDxfOptions = { crs: 'utm-auto', altitude: false, labels: true, folders: true }
+const toDxf: KmlToDxfOptions = { crs: 'utm-auto', units: 'crs', altitude: false, labels: true, folders: true }
 const toKml: DxfToKmlOptions = { crs: '', units: 'auto', altitude: false, polygons: true, texts: true, includeHidden: false, kmz: false }
 
 async function sampleDxf(options = toDxf) {
@@ -61,6 +61,46 @@ describe('KML → DXF → KML', () => {
     const ref = (await import('./proj/reference.json')).default.find((r) => r.proj === proj)!.points[0]
     const text = result.summary.output!.data as string
     expect(text).toContain(`\r\n10\r\n${ref[2].toFixed(4).replace(/0+$/, '')}`)
+  })
+
+  it('declares its units, so AutoCAD does not read metres as inches', async () => {
+    const text = (await sampleDxf()).output!.data as string
+    // Decimal linear units, metres, metric.
+    expect(text).toMatch(/\$LUNITS\r\n70\r\n2\r\n/)
+    expect(text).toMatch(/\$INSUNITS\r\n70\r\n6\r\n/)
+    expect(text).toMatch(/\$MEASUREMENT\r\n70\r\n1\r\n/)
+  })
+
+  it('writes feet when asked, and the feet drawing reads back to the same places', async () => {
+    const metres = await sampleDxf()
+    const feet = await sampleDxf({ ...toDxf, units: 'ft' })
+    const text = feet.output!.data as string
+    expect(text).toMatch(/\$INSUNITS\r\n70\r\n2\r\n/)
+    expect(text).toMatch(/\$MEASUREMENT\r\n70\r\n0\r\n/)
+    // The CRS comment would claim metres; a rescaled file doesn't carry it.
+    expect(text).not.toMatch(/\r\nCRS: /)
+    expect(feet.facts.find(([k]) => k === 'Drawing units')?.[1]).toBe('feet, decimal ($INSUNITS 2)')
+    // Every coordinate is the metre value / 0.3048.
+    const first = (t: string) => Number(/\nVERTEX\r\n8\r\n[^\r]*\r\n10\r\n([^\r]+)/.exec(t)![1])
+    expect(first(text)).toBeCloseTo(first(metres.output!.data as string) / 0.3048, 3)
+
+    const back = await dxfToKml('bern.dxf', enc(text), { ...toKml, crs: metres.crs!.proj })
+    if (!back.ok) throw new Error(back.error)
+    const route = (r: ReturnType<typeof readKml>) => r.features.find((f) => f.geometry.type === 'line')!.geometry
+    const a = route(readKml(SAMPLE_KML)), b = route(readKml(back.summary.output!.data as string))
+    if (a.type !== 'line' || b.type !== 'line') throw new Error('no route')
+    for (let i = 0; i < a.coords.length; i += 3) expect(Math.abs(a.coords[i] - b.coords[i])).toBeLessThan(1e-8)
+  })
+
+  it('reads an architectural-units drawing without $INSUNITS as inches', async () => {
+    const dxf = '0\nSECTION\n2\nHEADER\n9\n$LUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nPOINT\n8\n0\n10\n19685039.37\n20\n204724409.45\n0\nENDSEC\n0\nEOF\n'
+    const result = await dxfToKml('in.dxf', enc(dxf), { ...toKml, crs: '+proj=utm +zone=32 +datum=WGS84' })
+    if (!result.ok) throw new Error(result.error)
+    expect(result.summary.insunits).toBe(1)
+    expect(result.summary.notes.map((n) => n.text).join()).toMatch(/architectural units.*inches/)
+    const g = readKml(result.summary.output!.data as string).features[0].geometry
+    // 19,685,039.37 in = 500,000 m: the zone's central meridian.
+    expect(g.type === 'point' && g.at[0]).toBeCloseTo(9, 6)
   })
 
   it('reads and writes KMZ', async () => {

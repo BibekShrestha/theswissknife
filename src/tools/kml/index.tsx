@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type DragEvent 
 import { ToolHeader } from '../../shell/ToolHeader'
 import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
-import { INSUNITS, sniff, type Direction, type Summary } from './convert'
+import { INSUNITS, sniff, type Direction, type DxfUnit, type Summary } from './convert'
 import { CrsError, LONLAT, parseProj, UNITS, utmProj, WEB_MERCATOR } from './proj/crs'
 import { createConvertRunner, type Job, type RunOutcome } from './runner'
 import { SAMPLE_KML, SAMPLE_NAME } from './sample'
@@ -79,6 +79,7 @@ export default function KmlTool() {
   const [south, setSouth] = useState(false)
   const [custom, setCustom] = useState('')
   const [units, setUnits] = useState('auto')
+  const [dxfUnits, setDxfUnits] = useState<DxfUnit>('crs')
   const [altitude, setAltitude] = useState(false)
   const [labels, setLabels] = useState(true)
   const [folders, setFolders] = useState(true)
@@ -100,11 +101,12 @@ export default function KmlTool() {
   const deferredCustom = useDeferredValue(custom)
   const crs = crsString(mode, zone, south, mode === 'custom' ? deferredCustom : custom)
   const crsCheck = useMemo(() => {
-    if (!crs || crs === 'utm-auto') return { error: '', label: '' }
+    if (!crs || crs === 'utm-auto') return { error: '', label: '', unitLabel: crs ? 'metres' : '' }
     try {
-      return { error: '', label: parseProj(crs).label }
+      const parsed = parseProj(crs)
+      return { error: '', label: parsed.label, unitLabel: parsed.unitLabel }
     } catch (error) {
-      return { error: error instanceof CrsError ? error.message : String(error), label: '' }
+      return { error: error instanceof CrsError ? error.message : String(error), label: '', unitLabel: '' }
     }
   }, [crs])
 
@@ -113,9 +115,9 @@ export default function KmlTool() {
   const job: Job | null = useMemo(() => {
     if (!file || crsCheck.error || (waitingForProj && file.direction === 'kml-to-dxf')) return null
     return file.direction === 'kml-to-dxf'
-      ? { direction: 'kml-to-dxf', options: { crs, altitude, labels, folders } }
+      ? { direction: 'kml-to-dxf', options: { crs, units: dxfUnits, altitude, labels, folders } }
       : { direction: 'dxf-to-kml', options: { crs, units, altitude, polygons, texts, includeHidden, kmz } }
-  }, [file, crs, crsCheck.error, waitingForProj, altitude, labels, folders, units, polygons, texts, includeHidden, kmz])
+  }, [file, crs, crsCheck.error, waitingForProj, altitude, labels, folders, units, dxfUnits, polygons, texts, includeHidden, kmz])
   const jobKey = file && job ? `${file.id}|${JSON.stringify(job)}` : ''
 
   useEffect(() => {
@@ -282,6 +284,19 @@ export default function KmlTool() {
             <div className="kml-body kml-checks">
               {direction === 'kml-to-dxf' ? (
                 <>
+                  {crsCheck.unitLabel !== 'degrees' && (
+                    <label className="kml-field">
+                      <span>DXF units</span>
+                      <select value={dxfUnits} onChange={(event) => setDxfUnits(event.target.value as DxfUnit)} aria-label="DXF units">
+                        <option value="crs">{`Same as the coordinate system${crsCheck.unitLabel ? ` (${crsCheck.unitLabel})` : ''}`}</option>
+                        <option value="m">Metres</option>
+                        <option value="ft">Feet</option>
+                        <option value="us-ft">US survey feet</option>
+                        <option value="mm">Millimetres</option>
+                      </select>
+                      <small>Written into the file ($INSUNITS, decimal units), so AutoCAD measures in this unit. Pick your drawing’s unit to use the file as is.</small>
+                    </label>
+                  )}
                   <label><input type="checkbox" checked={folders} onChange={(event) => setFolders(event.target.checked)} /> One layer per folder</label>
                   <label><input type="checkbox" checked={labels} onChange={(event) => setLabels(event.target.checked)} /> Point names as text</label>
                   <label><input type="checkbox" checked={altitude} onChange={(event) => setAltitude(event.target.checked)} /> Altitude as Z (3D polylines)</label>

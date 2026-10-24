@@ -31,7 +31,7 @@ class FakeWorker implements WorkerLike {
 }
 
 const bytes = new TextEncoder().encode(SAMPLE_KML)
-const job: Job = { direction: 'kml-to-dxf', options: { crs: 'utm-auto', altitude: false, labels: true, folders: true } }
+const job: Job = { direction: 'kml-to-dxf', options: { crs: 'utm-auto', units: 'crs', altitude: false, labels: true, folders: true } }
 
 afterEach(() => {
   FakeWorker.spawned = []

@@ -110,7 +110,7 @@ describe('writeDxf → readDxf', () => {
       { geometry: { type: 'text', at: [1, 1, 0], text: 'Zürich', height: 2, rotation: 0 }, name: '', layer: '', color: null, source: 'test' },
       { geometry: { type: 'polygon', rings: [[0, 0, 0, 4, 0, 0, 4, 4, 0], [1, 1, 0, 2, 1, 0, 2, 2, 0]] }, name: '', layer: 'Parcels', color: null, source: 'test' },
     ]
-    const written = writeDxf(features, ['Roads / Primary', 'Parcels'], { comments: ['CRS: +proj=utm +zone=32 +datum=WGS84'], precision: 4, use3d: false, textHeight: 1 })
+    const written = writeDxf(features, ['Roads / Primary', 'Parcels'], { comments: ['CRS: +proj=utm +zone=32 +datum=WGS84'], precision: 4, use3d: false, textHeight: 1, insunits: 6, metric: true })
     const read = readDxf(written.text, { includeHidden: false })
     expect(read.crsComment).toBe('+proj=utm +zone=32 +datum=WGS84')
     expect(read.version).toBe('AC1009')
@@ -125,7 +125,7 @@ describe('writeDxf → readDxf', () => {
 
   it('keeps layer names unique after cleaning', () => {
     const f = (layer: string): Feature => ({ geometry: { type: 'point', at: [0, 0, 0] }, name: '', layer, color: null, source: 't' })
-    const written = writeDxf([f('a/b'), f('a b'), f('x'.repeat(40))], [], { comments: [], precision: 4, use3d: false, textHeight: 1 })
+    const written = writeDxf([f('a/b'), f('a b'), f('x'.repeat(40))], [], { comments: [], precision: 4, use3d: false, textHeight: 1, insunits: 6, metric: true })
     expect([...written.layerNames.values()]).toEqual(['a_b', 'a_b~2', 'x'.repeat(31)])
   })
 })
