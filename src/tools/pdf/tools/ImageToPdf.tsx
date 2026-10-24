@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FileDropzone, FileList } from '../components/FileDropzone'
+import { FileDropzone } from '../components/FileDropzone'
+import { SortableFileList } from '../components/SortableFileList'
 import { ProcessedPdfActions } from '../components/ProcessedPdfActions'
 import { ErrorText } from '../components/ErrorText'
 import { describeError, PdfInputError } from '../lib/errors'
@@ -60,12 +61,18 @@ export function ImageToPdf() {
     }
   }
 
+  // a new set or order of files makes the last result stale
+  function changeFiles(next: File[]) {
+    setFiles(next)
+    setResult(null)
+  }
+
   return (
     <div>
-      <SubtoolHeader icon="photo_library" color="#059669" title="Image to PDF" description="Convert images to a PDF document, one page per image" />
+      <SubtoolHeader icon="photo_library" color="#059669" title="Image to PDF" description="One page per image, in the order listed — drag to rearrange" />
 
-      <FileDropzone files={files} onFilesChange={setFiles} accept={IMAGE_ACCEPT} label="Drop images here" description="PNG, JPG, or WebP" />
-      <FileList files={files} onFilesChange={setFiles} />
+      <FileDropzone files={files} onFilesChange={changeFiles} accept={IMAGE_ACCEPT} label="Drop images here" description="PNG, JPG, or WebP" />
+      <SortableFileList files={files} onFilesChange={changeFiles} />
 
       <button className="pdf-action-btn" disabled={files.length === 0 || processing} onClick={handleConvert}>
         <span className="material-symbols-outlined pdf-spinner" aria-hidden="true" style={{ display: processing ? 'inline-flex' : 'none' }}>progress_activity</span>

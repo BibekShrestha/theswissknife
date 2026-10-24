@@ -367,6 +367,17 @@ the precache list built by `scripts/sw-manifest.ts`.
   optionally attachments/JavaScript, garbage-collects, then re-parses its
   output for the "found → remain" counts and byte-compares page content;
   JPEG EXIF inside images is listed, not removed.
+  Page tools never ask for typed page numbers: `components/usePdfDocument.ts`
+  opens the chosen file with pdf.js, `components/PageThumb.tsx` draws each
+  page small when it nears the screen (one render at a time per document),
+  and `components/PageGrid.tsx` lays them out — click to pick (Shift-click
+  for a run) in Remove, Split's Extract and PDF to Image, per-page turns in
+  Rotate (`rotatePdf` takes one angle per page), scissors between pages for
+  Split. Reorder and the Merge / Image to PDF file lists sort by drag
+  (`components/Sortable.tsx` on @dnd-kit: mouse, press-and-hold touch,
+  keyboard, announced moves). The screens turn the picks into the same page
+  specs the jobs always took, and a result is shown only for the file and
+  picks it was made from.
   Everything loads through `lib/load.ts` → `lib/parse.ts`, pdf-lib's parser
   with a fix: pdf-lib ignores the xref and lets any object stream override
   earlier objects, and Preview-saved files carry a stale one — so object

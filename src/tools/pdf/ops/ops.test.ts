@@ -160,6 +160,13 @@ describe('Rotate PDF', () => {
     expect((await pageInfo(out))[3]).toEqual({ width: 500, height: 200, rotate: 180 })
     expect(await pageTexts(out)).toEqual(['Page 1', 'Page 2', 'Page 3', 'Page 4'])
   })
+
+  it('turns each page by its own angle, leaving 0 alone', async () => {
+    const input = await makePdf([{ rotate: 0 }, { rotate: 90 }, { rotate: 270 }, {}])
+    expect((await pageInfo(await rotatePdf(input, [0, -90, 180, 450]))).map((p) => p.rotate)).toEqual([0, 0, 90, 90])
+    await expect(rotatePdf(input, [90, 90])).rejects.toThrow(/has 4 pages, but 2 rotations were given/)
+    await expect(rotatePdf(input, [45, 0, 0, 0])).rejects.toThrow(/steps of 90°/)
+  })
 })
 
 describe('Remove Pages', () => {
