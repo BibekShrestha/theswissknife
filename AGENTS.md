@@ -326,23 +326,24 @@ the precache list built by `scripts/sw-manifest.ts`.
   zone via `Intl.DateTimeFormat`; spring-forward gap times are skipped,
   fall-back repeats run once at the first occurrence; a 400-year search bound
   turns `0 0 30 2 *` into "never runs").
-- `tools/dates/` — meeting planner and date math, no library. `zone.ts` does
-  wall-clock ⇄ instant in IANA zones with `Intl.DateTimeFormat` only
+- `tools/dates/` — time zone converter and date math, no library. `zone.ts`
+  does wall-clock ⇄ instant in IANA zones with `Intl.DateTimeFormat` only
   (`resolveWall`: Temporal-style 'compatible' — gap times move forward,
-  repeated times take the earlier occurrence). `timeline.ts`: the planner
-  covers the reference (first) zone's calendar day in 15-minute slots
-  (every modern offset is a multiple of 15 min), so a 23/25-hour DST day
-  has 92/100 slots and other zones' rows line up on the same instants; a
-  day the zone skipped (Apia 2011-12-30) is `missing`, and local-mean-time
-  rows are flagged `offGrid`. `catalog.ts` adds city aliases,
-  current names for renamed ids (engines may list `Asia/Calcutta`) and
-  abbreviations, each with all its meanings (IST, CST, BST… are flagged
+  repeated times take the earlier occurrence; the converter says so and
+  offers the later one). `convert.ts`: one instant (whole minutes) read in
+  every listed zone — day shift and offset difference from the first
+  (reference) zone, letter abbreviation where the engine has one, and
+  `nextTransition` (daily steps then bisection to the minute, 30-day window).
+  Typing a date or time in any row resolves it in that row's zone; with no
+  `at` in the link the converter follows the clock. `catalog.ts` adds city
+  aliases, current names for renamed ids (engines may list `Asia/Calcutta`)
+  and abbreviations, each with all its meanings (IST, CST, BST… are flagged
   ambiguous). `duration.ts`: ISO 8601 parse/format, add (years/months with
   month-end clamping, then days on the wall clock, then exact time) with an
   exact (D = 24 h) alternative, calendar difference in the start zone,
-  business days (Mon–Fri, start date excluded). `ics.ts` writes RFC 5545 by
-  hand (UTC times, 75-octet folding). Fragment: `#zones=…` / `#d=…`; the
-  event title is never put in it.
+  business days (Mon–Fri, start date excluded). Fragment: `#zones=…[&at=…Z]`
+  / `#d=…`; old meeting-planner links (`#zones=…&date=…`) open at 09:00 on
+  that date in their first zone.
 - `tools/pdf/` — PDF Buddy: `pdf-lib` writes, `pdfjs-dist` reads/renders
   (`lib/pdfjs.ts` loads it lazily and points it at its runtime-cached worker).
   15 sub-tools under `tools/`, each a lazy chunk; their pipelines are plain
