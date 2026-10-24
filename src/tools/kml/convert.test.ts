@@ -103,6 +103,26 @@ describe('KML → DXF → KML', () => {
     expect(g.type === 'point' && g.at[0]).toBeCloseTo(9, 6)
   })
 
+  it('reports the UTM grid scale and offers a local grid that measures like the ground', async () => {
+    // pyproj: the courtyard ring is 50,358.117 m² on WGS84; UTM 32N scales areas by 0.999542 at the data.
+    const utm = await sampleDxf()
+    expect(utm.facts.find(([k]) => k === 'Grid scale (areas)')?.[1]).toMatch(/^0\.99954\d — 0\.046% smaller/)
+    expect(utm.notes.map((n) => n.text).join()).toMatch(/distances 0\.023% shorter and areas 0\.046% smaller.*Local grid/)
+
+    const local = await sampleDxf({ ...toDxf, crs: 'local-tm' })
+    expect(local.crs?.label).toBe('Local grid centred on the data (true ground distances)')
+    expect(local.facts.find(([k]) => k === 'Grid scale (areas)')?.[1]).toMatch(/same as on the ground/)
+    // The outer ring of the courtyard as written: its shoelace area is the ground area.
+    const text = local.output!.data as string
+    const firstPolyline = text.split('\r\n0\r\nPOLYLINE\r\n')[1].split('\r\n0\r\nSEQEND')[0]
+    const xy = [...firstPolyline.matchAll(/\r\n10\r\n([^\r]+)\r\n20\r\n([^\r]+)/g)].slice(1).map((m) => [Number(m[1]), Number(m[2])])
+    const area = Math.abs(xy.reduce((sum, p, i) => { const q = xy[(i + 1) % xy.length]; return sum + p[0] * q[1] - q[0] * p[1] }, 0)) / 2
+    expect(Math.abs(area - 50358.117) / 50358.117).toBeLessThan(2e-6)
+    // And it reads back through its CRS comment like any other grid.
+    const back = await dxfToKml('bern.dxf', enc(text), toKml)
+    expect(back.ok && back.summary.suggestion?.proj).toMatch(/^\+proj=tmerc \+lat_0=46\.947450 \+lon_0=7\.449785 \+k=1/)
+  })
+
   it('reads and writes KMZ', async () => {
     const zip = new JSZip()
     zip.file('doc.kml', SAMPLE_KML)

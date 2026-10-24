@@ -144,12 +144,39 @@ function featureCounts(features: Feature[]): [string, number][] {
   return [...counts.entries()]
 }
 
+/**
+ * A Transverse Mercator grid centred on the data with scale 1: its
+ * distortion grows with the square of the distance from the centre
+ * (about 1e-8 at 1 km), so CAD measures true ground distances and areas.
+ */
+export function localGridProj(lon: number, lat: number) {
+  return `+proj=tmerc +lat_0=${lat.toFixed(6)} +lon_0=${lon.toFixed(6)} +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs`
+}
+
 function resolveCrs(spec: string, features: Feature[]): Crs {
-  if (spec !== 'utm-auto') return parseProj(spec)
+  if (spec !== 'utm-auto' && spec !== 'local-tm') return parseProj(spec)
   const b = bounds(features)
   const lon = (b.minX + b.maxX) / 2, lat = (b.minY + b.maxY) / 2
+  if (spec === 'local-tm') return parseProj(localGridProj(lon, lat), 'Local grid centred on the data (true ground distances)')
   const zone = utmZoneFor(lon, lat)
   return parseProj(utmProj(zone, lat < 0))
+}
+
+/**
+ * How a projected grid scales areas at a point, against the WGS84
+ * ellipsoid: east and north scale by central differences, multiplied (the
+ * images of meridians and parallels are perpendicular in every projection
+ * offered). 1 means grid areas are ground areas.
+ */
+export function areaScale(crs: Crs, lon: number, lat: number): number {
+  const a = 6378137, e2 = (1 / 298.257223563) * (2 - 1 / 298.257223563)
+  const phi = (lat * Math.PI) / 180, w = 1 - e2 * Math.sin(phi) ** 2
+  const N = a / Math.sqrt(w), M = (a * (1 - e2)) / w ** 1.5
+  const d = 1e-5 // degrees
+  const span = (p: [number, number], q: [number, number]) => Math.hypot(q[0] - p[0], q[1] - p[1]) * crs.unitMetres
+  const east = span(crs.forward(lon - d, lat), crs.forward(lon + d, lat)) / (N * Math.cos(phi) * ((2 * d * Math.PI) / 180))
+  const north = span(crs.forward(lon, lat - d), crs.forward(lon, lat + d)) / (M * ((2 * d * Math.PI) / 180))
+  return east * north
 }
 
 async function kmlText(bytes: Uint8Array): Promise<{ text: string; inner?: string; notes: Note[] }> {
@@ -226,6 +253,14 @@ export async function kmlToDxf(name: string, bytes: Uint8Array, options: KmlToDx
     if (!features.length) return { ok: false, error: `Nothing could be projected into ${crs.label}.` }
     if (stretch > 0.0025) notes.push({ level: 'warn', text: `The data reaches far from the projection's central meridian (${crs.centralMeridian}°), where Transverse Mercator stretches distances by up to ${(stretch * 100).toFixed(1)}%. A zone nearer the data, or a coordinate system made for the whole area, draws truer.` })
 
+    // Grid vs ground: a projected drawing measures areas scaled by this.
+    const gb = bounds(read.features)
+    const scaleHere = crs.kind === 'projected' ? areaScale(crs, (gb.minX + gb.maxX) / 2, (gb.minY + gb.maxY) / 2) : 1
+    if (crs.kind === 'projected' && Math.abs(scaleHere - 1) >= 1e-4 && options.crs !== 'local-tm') {
+      const linear = (Math.sqrt(scaleHere) - 1) * 100, areal = (scaleHere - 1) * 100
+      notes.push({ level: 'info', text: `${crs.label} is a map grid, not the ground: here a drawing in it measures distances ${Math.abs(linear).toFixed(3)}% ${linear < 0 ? 'shorter' : 'longer'} and areas ${Math.abs(areal).toFixed(3)}% ${areal < 0 ? 'smaller' : 'larger'} than on the ground. For true ground distances in CAD, pick Projection → Local grid.` })
+    }
+
     const height = labelHeight(features)
     if (options.labels) {
       for (const f of [...features]) {
@@ -269,6 +304,7 @@ export async function kmlToDxf(name: string, bytes: Uint8Array, options: KmlToDx
           ['Coordinate system', crs.label],
           ['Area (lat, lon)', lonLatBox(read.features)],
           ['Drawing extents', `${fmtNumber(b.maxX - b.minX, 2)} × ${fmtNumber(b.maxY - b.minY, 2)}${units}`],
+          ...(crs.kind === 'projected' ? [['Grid scale (areas)', `${scaleHere.toFixed(6)} — ${Math.abs(scaleHere - 1) < 5e-7 ? 'same as on the ground' : `${Math.abs((scaleHere - 1) * 100).toFixed(3)}% ${scaleHere < 1 ? 'smaller' : 'larger'} than on the ground`}`] as [string, string]] : []),
           ['Drawing units', crs.kind === 'geographic' ? 'degrees (unitless in CAD)' : `${outLabel}, decimal${insunits ? ` ($INSUNITS ${insunits})` : ''}`],
           ['Layers', String(new Set(features.map((f) => written.layerNames.get(f.layer) ?? f.layer)).size)],
           ...(options.labels && features.some((f) => f.source === 'label') ? [['Label height', `${fmtNumber(height, 4)}${units}`] as [string, string]] : []),
