@@ -224,4 +224,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/land'),
   },
+  {
+    slug: 'nepal-coords',
+    name: 'Nepal coordinates (MUTM ⇄ WGS84)',
+    mark: 'MUTM',
+    category: 'data',
+    load: () => import('../tools/nepal-coords'),
+  },
 ]

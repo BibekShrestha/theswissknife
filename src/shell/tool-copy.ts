@@ -36,4 +36,5 @@ export const taglines: Record<string, string> = {
   kml: 'Convert Google Earth KML or KMZ to AutoCAD DXF and back — through UTM or a Transverse Mercator, Lambert or Mercator grid, with folders as layers',
   land: 'Convert land area between Ropani-Aana-Paisa-Dam, Bigha-Kattha-Dhur, square feet, square metres, hectares and acres — sketch a plot from its measured sides, diagonals and angles, or drop a polygon drawn in Google Earth',
   'json-types': 'Paste JSON samples or JSON Lines and get TypeScript, Zod, JSON Schema, Go or Python types — optional keys, nullables and unions merged from every sample',
+  'nepal-coords': 'Convert points between Nepal’s MUTM grid (zones 81°, 84°, 87° E) and GPS latitude/longitude through EPSG:6208 — decimal or DMS, one point or a pasted list exported as CSV',
 }
