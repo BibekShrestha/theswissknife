@@ -111,7 +111,7 @@ missing from any of them, including the README table.
   spacing/elevation from `--sp-*` / `--elev-*`. Text is the platform UI font;
   `--font-display` (self-hosted Inter Tight subset) is for the hero and brands.
   Prefix tool class names with the slug (`.jwt-…`) to avoid collisions —
-  tool CSS is global once loaded. `html-table` uses `htable-`, `json-types` uses `jtypes-`. jq predates the
+  tool CSS is global once loaded. `html-table` uses `htable-`, `json-types` uses `jtypes-`, `nepali-date` uses `ndate-`. jq predates the
   rule and still has unprefixed classes; don't copy that, and don't add new
   bare class names that another tool might also define.
 
@@ -740,3 +740,22 @@ the precache list built by `scripts/sw-manifest.ts`.
   diagonals from A. The dropped file never enters the fragment. Fragment:
   `#m=<mode>&v=<a_b_c>&u=<unit>`, or for a plot `p`/`c`/`s`/`d`/`g`/`u`
   (`share.ts`).
+- `tools/nepali-date/` — Bikram Sambat ⇄ AD, no library. BS months have
+  no rule a program can follow (each runs sankranti to sankranti and the
+  Nepal Panchanga Nirnayak Bikas Samiti fixes the year), so `calendar.ts`
+  is a month-length table walked from 1 Baisakh 2000 = 1943-04-14, covering
+  2000–2083 BS only. Converters disagree: the `bikram-sambat` and
+  `nepali-datetime` Python packages match this table; three npm converters
+  and the `nepali` Python package have Baisakh 2062 = 30, and
+  `ad-bs-converter` differs in 2081–2083; Hamro
+  Patro's month pages side with the table every time (`calendar.test.ts`
+  holds those month starts). From 2084 the sources split and no approved
+  calendar was found, so a later year is added only once it is published —
+  never guessed. Everything counts day numbers since 1970, so adding days
+  works past the table (the result is then AD only); BS months/years need
+  both ends in it (`math.ts`, clamped to a shorter month's end). `parse.ts`
+  reads year-first numbers and month names in any order (English spellings
+  and Devanagari, Nepali digits) and refuses day-first numbers as
+  ambiguous. Fiscal year = 1 Shrawan to end of Asar. Saturdays are counted
+  and marked; public holidays are not known. Fragment: `#d=<BS>` or
+  `#t=math&a=&b=&s=&o=&n=&u=` (`share.ts`). Classes use `ndate-`.

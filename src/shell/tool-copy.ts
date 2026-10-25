@@ -35,5 +35,6 @@ export const taglines: Record<string, string> = {
   curl: 'Turn a browser’s Copy as cURL into fetch, Python, Go or raw HTTP — secrets flagged and swapped for placeholders, nothing sent',
   kml: 'Convert Google Earth KML or KMZ to AutoCAD DXF and back — through UTM or a Transverse Mercator, Lambert or Mercator grid, with folders as layers',
   land: 'Convert land area between Ropani-Aana-Paisa-Dam, Bigha-Kattha-Dhur, square feet, square metres, hectares and acres — sketch a plot from its measured sides, diagonals and angles, or drop a polygon drawn in Google Earth',
+  'nepali-date': 'Convert Bikram Sambat (BS) dates to AD and back for 2000–2083 BS, with a month calendar, the fiscal year and Nepali digits — count the days between two dates or add days, weeks, months and years',
   'json-types': 'Paste JSON samples or JSON Lines and get TypeScript, Zod, JSON Schema, Go or Python types — optional keys, nullables and unions merged from every sample',
 }

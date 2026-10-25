@@ -224,4 +224,11 @@ export const tools: ToolMeta[] = [
     category: 'data',
     load: () => import('../tools/land'),
   },
+  {
+    slug: 'nepali-date',
+    name: 'Nepali date converter (BS ⇄ AD)',
+    mark: 'BS',
+    category: 'time',
+    load: () => import('../tools/nepali-date'),
+  },
 ]
