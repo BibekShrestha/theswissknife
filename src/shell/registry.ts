@@ -225,6 +225,13 @@ export const tools: ToolMeta[] = [
     load: () => import('../tools/land'),
   },
   {
+    slug: 'nepal-coords',
+    name: 'Nepal coordinates (MUTM ⇄ WGS84)',
+    mark: 'MUTM',
+    category: 'data',
+    load: () => import('../tools/nepal-coords'),
+  },
+  {
     slug: 'nepali-date',
     name: 'Nepali date converter (BS ⇄ AD)',
     mark: 'BS',

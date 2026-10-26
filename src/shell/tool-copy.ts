@@ -37,4 +37,5 @@ export const taglines: Record<string, string> = {
   land: 'Convert land area between Ropani-Aana-Paisa-Dam, Bigha-Kattha-Dhur, square feet, square metres, hectares and acres — sketch a plot from its measured sides, diagonals and angles, or drop a polygon drawn in Google Earth',
   'nepali-date': 'Convert Bikram Sambat (BS) dates to AD and back for 2000–2083 BS, with a month calendar, the fiscal year and Nepali digits — count the days between two dates or add days, weeks, months and years',
   'json-types': 'Paste JSON samples or JSON Lines and get TypeScript, Zod, JSON Schema, Go or Python types — optional keys, nullables and unions merged from every sample',
+  'nepal-coords': 'Convert points between Nepal’s MUTM grid (zones 81°, 84°, 87° E) and GPS latitude/longitude through EPSG:6208 — decimal or DMS, one point or a pasted list exported as CSV',
 }

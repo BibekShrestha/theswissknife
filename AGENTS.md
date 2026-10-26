@@ -740,6 +740,35 @@ the precache list built by `scripts/sw-manifest.ts`.
   diagonals from A. The dropped file never enters the fragment. Fragment:
   `#m=<mode>&v=<a_b_c>&u=<unit>`, or for a plot `p`/`c`/`s`/`d`/`g`/`u`
   (`share.ts`).
+- `tools/nepal-coords/` — Nepal's MUTM grid ⇄ latitude/longitude, no
+  libraries. `proj.ts` is a copy of tools/kml's Krüger Transverse Mercator
+  and ECEF/translation code (its header says so). `mutm.ts`: Everest 1830
+  (a = 6377276.345, 1/f = 300.8017), k0 0.9999, false easting 500 000,
+  zones 81/84/87° E; `nearestZone` rounds to the nearest meridian (ties go
+  east). `SHIFTS` holds only shifts with a single published value and a
+  named source: EPSG:6208 "Nepal 1981 to WGS 84 (1)" (translations 293.17,
+  726.18, 245.36 m; EPSG accuracy 0.3 m, 0.26 m 1-sigma from 11 points;
+  information source Nepalese Journal on Geoinformatics, June 2011) and
+  "none", labelled as Nepal 1981 latitude/longitude, not GPS (the UI says
+  how far EPSG:6208 would move the point). ESRI's 108015/108016 have no
+  named source and Manandhar (2015) gives three sets, so neither is
+  offered; add a shift only on the same terms. MUTM is not in EPSG:
+  `reference.py` builds each zone on EPSG:6207 with pyproj, refuses to
+  write unless PROJ picks EPSG:6208, and writes `reference.json` (eight
+  towns in every zone within 4° of them, round grid values, both shifts,
+  both directions); `mutm.test.ts` holds every case to 1 mm / 1e-9°. A 2D
+  shift takes height 0 on the side it starts from (as PROJ does), so a
+  round trip drifts ~2 mm. `angle.ts` reads decimal or DMS (° ' " ′ ″,
+  colons, d/m/s, N/S/E/W or a sign, Devanagari digits) and writes DMS with
+  rounding carried. `batch.ts` splits a line on tabs, else commas/semicolons
+  (quote-aware), else spaces; a leading point id is recognised by which
+  pair is plausible in Nepal, a first line of words is a header, columns
+  after the coordinates go to the CSV untouched; 'auto' order takes the
+  larger number as northing/longitude (true across Nepal); bad lines get a
+  line number and a reason that clips any quoted text; at most `MAX_LINES`.
+  Fragment: the single point only, `#i=grid|geo&z=…&e=…&n=…` or
+  `&lat=…&lon=…`, then `&s=<shift>` (`share.ts`); batch text never enters
+  the URL.
 - `tools/nepali-date/` — Bikram Sambat ⇄ AD, no library. BS months have
   no rule a program can follow (each runs sankranti to sankranti and the
   Nepal Panchanga Nirnayak Bikas Samiti fixes the year), so `calendar.ts`
