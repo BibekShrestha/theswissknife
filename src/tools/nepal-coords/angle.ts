@@ -39,8 +39,8 @@ export function parseAngle(input: string, kind?: AngleKind): AngleResult {
   let sign = 1
   let hemisphere: string | null = null
   const lead = /^[NSEW]/i.exec(text)
-  // "27d42m36.5s": a lowercase s after the minutes is the seconds mark, not south.
-  const secondsMark = /m\s*[\d.]+\s*s$/.test(text)
+  // "27d42m36.5s" or 27°42'36.5s: a lowercase s after the minutes is the seconds mark, not south.
+  const secondsMark = /[m'′’]\s*[\d.]+\s*s$/.test(text)
   const trail = secondsMark ? null : /[NSEW]$/i.exec(text)
   if (lead && trail && text.length > 1) return { ok: false, error: 'Give the hemisphere letter once' }
   if (lead || trail) {
@@ -126,5 +126,8 @@ export function parsePair(input: string): { lat: number; lon: number } | null {
   const a = parseAngle(halves[0]), b = parseAngle(halves[1])
   if (!a.ok || !b.ok) return null
   if (a.kind === 'lon' || b.kind === 'lat') return { lat: b.value, lon: a.value }
-  return { lat: a.value, lon: b.value }
+  if (a.kind || b.kind) return { lat: a.value, lon: b.value }
+  // No letters: batch's 'auto' rule — across Nepal the longitude is the larger
+  // number, so a KML/GeoJSON-order "85.324, 27.7172" still lands right.
+  return Math.abs(a.value) > Math.abs(b.value) ? { lat: b.value, lon: a.value } : { lat: a.value, lon: b.value }
 }

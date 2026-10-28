@@ -23,7 +23,7 @@ describe('parseAngle', () => {
   })
 
   it('reads DMS in the usual spellings', () => {
-    for (const text of [`27°42'36.5"N`, '27 42 36.5', '27:42:36.5', '27d42m36.5s', '27º 42′ 36.5″ N', 'N 27°42’36.5”', '27°42\'36.5" n', '27d42m36.5sN']) {
+    for (const text of [`27°42'36.5"N`, '27 42 36.5', '27:42:36.5', '27d42m36.5s', '27º 42′ 36.5″ N', 'N 27°42’36.5”', '27°42\'36.5" n', '27d42m36.5sN', `27°42'36.5s`, '27°42′36.5s']) {
       expect(value(text), text).toBeCloseTo(dms, 12)
     }
     expect(value(`27°42.5'`)).toBeCloseTo(27 + 42.5 / 60, 12)
@@ -91,6 +91,11 @@ describe('parsePair', () => {
     expect(parsePair('27.7172 85.3240')).toEqual({ lat: 27.7172, lon: 85.324 })
     expect(parsePair(`85°19'E, 27°43'N`)).toEqual({ lat: 27 + 43 / 60, lon: 85 + 19 / 60 })
     expect(parsePair(`27°43'N 85°19'E`)).toEqual({ lat: 27 + 43 / 60, lon: 85 + 19 / 60 })
+  })
+  it('takes the larger number as longitude when there are no letters, like batch auto', () => {
+    expect(parsePair('85.3240,27.7172')).toEqual({ lat: 27.7172, lon: 85.324 })
+    expect(parsePair('85.3240 27.7172')).toEqual({ lat: 27.7172, lon: 85.324 })
+    expect(parsePair(`27°43'N, 85.3240`)).toEqual({ lat: 27 + 43 / 60, lon: 85.324 })
   })
   it('returns null for anything else', () => {
     expect(parsePair('27.7172')).toBeNull()
