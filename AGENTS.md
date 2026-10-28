@@ -503,6 +503,14 @@ the precache list built by `scripts/sw-manifest.ts`.
   frame pins `<base href="about:srcdoc">` or `#anchors` navigate it away.
   Remote images are blocked in preview/PDF by the site CSP; the exported file
   carries its own script-free CSP that allows them.
+  Local images (`![](img/plot.png)`) resolve to attached files
+  (`doc/files.ts`): dropped or picked files other than the first .md are
+  held in memory as blob: URLs (never storage or the URL) and matched by
+  path, then unique path suffix, then unique file name; the preview's `<img>`
+  and `<a>` point at the blob, the export inlines images as data: URLs and
+  leaves other links relative, Copy HTML keeps references as written.
+  Unmatched relative images are listed. An image dropped into the editor
+  that the document doesn't mention gets a reference at the drop point.
 - `tools/csv/` — hand-written RFC 4180 parser that reports ragged rows and
   unterminated quotes rather than dropping them; `decode.ts` guesses UTF-8 /
   UTF-16 / Windows-1252 and shows the guess; `virtual.ts` windows the grid in

@@ -5,6 +5,7 @@ import { Toast } from '../../shell/Toast'
 import { useToast } from '../../shell/useToast'
 import { buildHtml, fileBase } from './doc/buildHtml'
 import { buildCss, MARGINS, PAPERS, THEMES, type DocSettings } from './doc/docTheme'
+import { dataUrl, formatSize, isMarkdown, localizeHtml, markdownRef, MAX_ATTACHMENT, type LocalFile } from './doc/files'
 import { absolutizeUrls, FRAME_SANDBOX, frameIsLive, frameScroller, frameSkeleton, scrollFraction, writeFrame } from './doc/frame'
 import { disarmHtml } from './doc/links'
 import type { MarkdownEditorHandle } from './editor/MarkdownEditor'
@@ -62,11 +63,16 @@ export default function MarkdownTool() {
   // A new key rebuilds the frame; frameGen counts loads of our own document.
   const [frameKey, setFrameKey] = useState(0)
   const [frameGen, setFrameGen] = useState(0)
+  // Images and other files the document refers to: memory only (doc/files.ts).
+  const [files, setFiles] = useState<LocalFile[]>([])
 
   const frameRef = useRef<HTMLIFrameElement>(null)
   const editorRef = useRef<MarkdownEditorHandle>(null)
   const workRef = useRef<HTMLElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const attachRef = useRef<HTMLInputElement>(null)
+  const filesRef = useRef(files)
+  filesRef.current = files
   const scrollLock = useRef<'editor' | 'frame' | null>(null)
   const runnerRef = useRef<ReturnType<typeof createRenderRunner> | null>(null)
   const seqRef = useRef(0)
@@ -150,7 +156,7 @@ export default function MarkdownTool() {
   }, [result, showToast])
 
   const toc = settings.toc ? buildToc(result.headings, settings.tocDepth) : ''
-  const body = useMemo(() => {
+  const fullBody = useMemo(() => {
     let html = result.html
     if (katex) html = renderMath(html, katex)
     if (result.hasMermaid) html = applyDiagrams(html)
@@ -158,7 +164,9 @@ export default function MarkdownTool() {
     // diagramTick: the mermaid cache filled; re-apply it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, katex, toc, diagramTick])
-  const css = useMemo(() => buildCss(settings), [settings])
+  // The preview points attached files at their blob: URLs.
+  const { html: body, missing } = useMemo(() => localizeHtml(fullBody, files, (f) => f.url), [fullBody, files])
+  const css =useMemo(() => buildCss(settings), [settings])
   const extraCss = useMemo(() => result.hasMath ? absolutizeUrls(katexCss, location.origin) : '', [result.hasMath, katexCss])
   const title = result.title
 
@@ -229,13 +237,56 @@ export default function MarkdownTool() {
   }, [dragging])
 
   // ---- files ------------------------------------------------------------------
-  const openFile = async (file: File | undefined) => {
-    if (!file) return
-    if (file.size > MAX_FILE) { showToast('That file is over 5 MB — too large to preview comfortably'); return }
+  const openFile = async (file: File | undefined): Promise<boolean> => {
+    if (!file) return false
+    if (file.size > MAX_FILE) { showToast('That file is over 5 MB — too large to preview comfortably'); return false }
     const text = await file.text()
-    if (text.includes('\u0000')) { showToast(`${file.name} does not look like a text file`); return }
+    if (text.includes('\u0000')) { showToast(`${file.name} does not look like a text file`); return false }
     setDoc(text)
-    showToast(`Opened ${file.name}`)
+    return true
+  }
+
+  useEffect(() => () => { for (const f of filesRef.current) URL.revokeObjectURL(f.url) }, [])
+
+  /** With `open`, the first Markdown file opens; everything else is attached. */
+  const takeFiles = async (list: File[], at: number | null, open = true) => {
+    const main = open ? list.find(isMarkdown) : undefined
+    if (main && !await openFile(main)) return
+    const said = main ? [`Opened ${main.name}`] : []
+    const added: LocalFile[] = []
+    const tooBig: string[] = []
+    for (const file of list) {
+      if (file === main) continue
+      if (file.size > MAX_ATTACHMENT) { tooBig.push(file.name); continue }
+      const path = file.webkitRelativePath || file.name
+      if (added.some((f) => f.path === path)) continue
+      added.push({ path, name: file.name, type: file.type, size: file.size, file, url: URL.createObjectURL(file) })
+    }
+    if (added.length) {
+      const kept = files.filter((f) => !added.some((a) => a.path === f.path))
+      for (const f of files) if (!kept.includes(f)) URL.revokeObjectURL(f.url)
+      setFiles([...kept, ...added])
+      said.push(`${main ? 'attached' : 'Attached'} ${added.length === 1 ? added[0].name : `${added.length} files`}`)
+      // Files the document doesn't mention yet get a reference where they were dropped.
+      const refs = main ? [] : added.filter((f) => !doc.includes(f.name) && !doc.includes(encodeURIComponent(f.name))).map(markdownRef)
+      if (refs.length) editorRef.current?.insert(refs.join('\n'), at ?? undefined)
+    }
+    if (tooBig.length) said.push(`${tooBig.join(', ')} ${tooBig.length === 1 ? 'is' : 'are'} over ${MAX_ATTACHMENT / 1024 / 1024} MB — not attached`)
+    if (said.length) showToast(said.join(' · '))
+  }
+
+  const removeFile = (file: LocalFile) => {
+    URL.revokeObjectURL(file.url)
+    setFiles((list) => list.filter((f) => f !== file))
+  }
+
+  /** Attached images become data: URLs so the export stays one file; other references stay as written. */
+  const inlineImages = async (html: string): Promise<string> => {
+    const used = new Set<LocalFile>()
+    localizeHtml(html, files, (f, kind) => { if (kind === 'img') used.add(f); return null })
+    if (!used.size) return html
+    const urls = new Map(await Promise.all([...used].map(async (f) => [f, await dataUrl(f.file)] as const)))
+    return localizeHtml(html, files, (f, kind) => kind === 'img' ? urls.get(f) ?? null : null).html
   }
 
   /** Everything rendered — math and diagrams included — before it leaves the tool. */
@@ -255,7 +306,7 @@ export default function MarkdownTool() {
       // The export is a document, not a sheet on a desk: no page guide.
       let docCss = buildCss({ ...settings, pageGuide: false })
       if (result.hasMath) docCss += '\n' + await inlineKatexFonts(katexCss || await loadKatexCss())
-      const html = buildHtml({ title, body: await finalBody(), css: docCss })
+      const html = buildHtml({ title, body: await inlineImages(await finalBody()), css: docCss })
       download(new Blob([html], { type: 'text/html;charset=utf-8' }), `${fileBase(title)}.html`)
     } catch (e) {
       showToast((e as Error).message || 'Export failed')
@@ -300,7 +351,8 @@ export default function MarkdownTool() {
         <button onClick={() => void exportHtml()} disabled={busy !== '' || !rendered} title="Download one self-contained .html file"><span className="material-symbols-outlined" aria-hidden>{busy === 'html' ? 'hourglass_top' : 'download'}</span><span className="md-btn-label">Export HTML</span></button>
         <button className="md-primary" onClick={() => void print()} disabled={busy !== '' || !rendered} title="Print, or Save as PDF from the dialog"><span className="material-symbols-outlined" aria-hidden>picture_as_pdf</span><span className="md-btn-label">Print / PDF</span></button>
       </ToolHeader>
-      <input ref={fileRef} type="file" accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain" hidden onChange={(e) => { void openFile(e.target.files?.[0]); e.target.value = '' }} />
+      <input ref={fileRef} type="file" accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain" hidden onChange={(e) => { const f = e.target.files?.[0]; void openFile(f).then((ok) => ok && showToast(`Opened ${f!.name}`)); e.target.value = '' }} />
+      <input ref={attachRef} type="file" multiple hidden onChange={(e) => { void takeFiles([...e.target.files ?? []], null, false); e.target.value = '' }} />
 
       {setupOpen && (
         <section className="md-setup" aria-label="Page setup">
@@ -344,6 +396,7 @@ export default function MarkdownTool() {
           <ul className="md-notes">
             <li><strong>PDF comes from your browser's print dialog.</strong> Pick “Save as PDF” there. Its own header/footer and “background graphics” switches win over ours, and page numbers come from that dialog — browsers don't support CSS page-number boxes yet.</li>
             <li>The page guide marks every {paper.name} page height ({settings.landscape ? 'landscape' : 'portrait'}). It's approximate: a table that won't split pushes everything after it down.</li>
+            {files.length > 0 && <li>Attached images are embedded in the exported HTML. Links to other attached files keep their relative path — save the .html next to those files.</li>}
             {result.hasMath && <li>This document has math, so the exported HTML embeds about 300 KB of KaTeX fonts to stay self-contained.</li>}
           </ul>
         </section>
@@ -364,15 +417,33 @@ export default function MarkdownTool() {
         <section className="md-pane md-edit-pane" aria-label="Markdown source">
           <header className="md-pane-head">
             <span className="md-step">01</span><strong>Markdown</strong>
-            <span className="md-hint">drop a .md file anywhere here</span>
+            <span className="md-hint">drop a .md file and its images here</span>
             <span className="md-pane-actions">
               <button className="md-pane-btn" onClick={() => fileRef.current?.click()} title="Open a .md file" aria-label="Open a .md file"><span className="material-symbols-outlined" aria-hidden>folder_open</span></button>
+              <button className="md-pane-btn" onClick={() => attachRef.current?.click()} title="Attach images or other files the document refers to" aria-label="Attach images or files"><span className="material-symbols-outlined" aria-hidden>add_photo_alternate</span></button>
               <button className="md-pane-btn" onClick={saveMd} title="Save the Markdown source (.md)" aria-label="Save the Markdown source"><span className="material-symbols-outlined" aria-hidden>save</span></button>
             </span>
           </header>
+          {(files.length > 0 || missing.length > 0) && (
+            <div className="md-files" role="group" aria-label="Attached files">
+              {files.map((f) => (
+                <span className="md-file" key={f.path}>
+                  <button className="md-file-name" onClick={() => editorRef.current?.insert(markdownRef(f))} title={`Insert a reference to ${f.path}`}>{f.path}</button>
+                  <span className="md-file-size">{formatSize(f.size)}</span>
+                  <button className="md-file-x" onClick={() => removeFile(f)} title="Remove" aria-label={`Remove ${f.path}`}><span className="material-symbols-outlined" aria-hidden>close</span></button>
+                </span>
+              ))}
+              {missing.length > 0 && (
+                <button className="md-link md-file-missing" onClick={() => attachRef.current?.click()} title={missing.join('\n')}>
+                  {missing.length} image{missing.length > 1 ? 's' : ''} not attached — attach…
+                </button>
+              )}
+              <span className="md-file-note">{files.length > 0 ? 'kept in this tab only' : 'relative paths need the files attached'}</span>
+            </div>
+          )}
           <div className="md-editor">
             <Suspense fallback={<div className="md-loading">Loading editor…</div>}>
-              <MarkdownEditor ref={editorRef} value={doc} onChange={setDoc} onScroll={() => syncFrom('editor')} onDropFile={(f) => void openFile(f)} />
+              <MarkdownEditor ref={editorRef} value={doc} onChange={setDoc} onScroll={() => syncFrom('editor')} onDropFiles={(list, at) => void takeFiles(list, at)} />
             </Suspense>
           </div>
         </section>
@@ -434,6 +505,7 @@ export default function MarkdownTool() {
         {result.hasMath && <span>{katex ? 'math ✓' : 'loading math…'}</span>}
         {result.hasMermaid && <span>{diagramsBusy ? 'diagrams…' : 'diagrams ✓'}</span>}
         {result.missingFootnotes.length > 0 && <span className="md-warn">footnote{result.missingFootnotes.length > 1 ? 's' : ''} without a definition: {result.missingFootnotes.join(', ')}</span>}
+        {missing.length > 0 && <span className="md-warn" title={missing.join('\n')}>{missing.length} local image{missing.length > 1 ? 's' : ''} not attached</span>}
         {remoteImages && <span className="md-warn" title="This site's security policy blocks third-party requests, so remote images show only in the exported HTML">remote images: export only</span>}
         <span className="md-spacer" />
         <span className="md-muted">saved in this browser only</span>
