@@ -760,7 +760,8 @@ the precache list built by `scripts/sw-manifest.ts`.
   shift takes height 0 on the side it starts from (as PROJ does), so a
   round trip drifts ~2 mm. `angle.ts` reads decimal or DMS (° ' " ′ ″,
   colons, d/m/s, N/S/E/W or a sign, Devanagari digits) and writes DMS with
-  rounding carried. `batch.ts` splits a line on tabs, else commas/semicolons
+  rounding carried; a pasted pair without letters takes the larger number
+  as longitude, like batch's 'auto'. `batch.ts` splits a line on tabs, else commas/semicolons
   (quote-aware), else spaces; a leading point id is recognised by which
   pair is plausible in Nepal, a first line of words is a header, columns
   after the coordinates go to the CSV untouched; 'auto' order takes the
