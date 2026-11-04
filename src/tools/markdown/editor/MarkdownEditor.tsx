@@ -9,13 +9,16 @@ import { tags as t } from '@lezer/highlight'
 export interface MarkdownEditorHandle {
   scroller(): HTMLElement | null
   focus(): void
+  /** Inserts at `at`, or replaces the selection; the cursor ends after it. */
+  insert(text: string, at?: number): void
 }
 
 interface Props {
   value: string
   onChange: (value: string) => void
   onScroll: () => void
-  onDropFile: (file: File) => void
+  /** `at`: the document position under the drop, when there is one. */
+  onDropFiles: (files: File[], at: number | null) => void
   ref?: Ref<MarkdownEditorHandle>
 }
 
@@ -44,15 +47,22 @@ const chrome = EditorView.theme({
   '.cm-placeholder': { color: 'var(--muted)' },
 })
 
-export default function MarkdownEditor({ value, onChange, onScroll, onDropFile, ref }: Props) {
+export default function MarkdownEditor({ value, onChange, onScroll, onDropFiles, ref }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
-  const handlers = useRef({ onChange, onScroll, onDropFile })
-  handlers.current = { onChange, onScroll, onDropFile }
+  const handlers = useRef({ onChange, onScroll, onDropFiles })
+  handlers.current = { onChange, onScroll, onDropFiles }
 
   useImperativeHandle(ref, () => ({
     scroller: () => viewRef.current?.scrollDOM ?? null,
     focus: () => viewRef.current?.focus(),
+    insert: (text, at) => {
+      const view = viewRef.current
+      if (!view) return
+      const { from, to } = at === undefined ? view.state.selection.main : { from: at, to: at }
+      view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length }, scrollIntoView: true })
+      view.focus()
+    },
   }), [])
 
   useEffect(() => {
@@ -65,7 +75,7 @@ export default function MarkdownEditor({ value, onChange, onScroll, onDropFile, 
           syntaxHighlighting(mdHighlight),
           history(),
           EditorView.lineWrapping,
-          cmPlaceholder('# Write or paste Markdown here, or drop a .md file'),
+          cmPlaceholder('# Write or paste Markdown here, or drop a .md file and its images'),
           keymap.of([...historyKeymap, ...defaultKeymap, indentWithTab]),
           chrome,
           EditorView.updateListener.of((update) => {
@@ -73,11 +83,11 @@ export default function MarkdownEditor({ value, onChange, onScroll, onDropFile, 
           }),
           EditorView.domEventHandlers({
             scroll: () => handlers.current.onScroll(),
-            drop: (event) => {
-              const file = event.dataTransfer?.files?.[0]
-              if (!file) return false
+            drop: (event, view) => {
+              const files = [...event.dataTransfer?.files ?? []]
+              if (!files.length) return false
               event.preventDefault()
-              handlers.current.onDropFile(file)
+              handlers.current.onDropFiles(files, view.posAtCoords({ x: event.clientX, y: event.clientY }))
               return true
             },
           }),
