@@ -1,15 +1,16 @@
 /**
- * The four screens. Each one is the same pipeline with a different set of
+ * The five screens. Each one is the same pipeline with a different set of
  * panels and a different starting point — issue #8 asked for conversion,
  * resizing and compression, and "all in one" is there because in practice
- * people want two of the three in a single pass.
+ * people want two of the three in a single pass. Crop places a box on each
+ * image, so it stays a screen of its own rather than a dial in "all in one".
  */
 
 import { DEFAULT_RESIZE } from './dimensions'
 import type { PipelineOptions } from '../useImagePipeline'
 
-export type ScreenId = 'all' | 'convert' | 'resize' | 'compress'
-export type PanelId = 'format' | 'resize' | 'target'
+export type ScreenId = 'all' | 'convert' | 'resize' | 'crop' | 'compress'
+export type PanelId = 'crop' | 'format' | 'resize' | 'target'
 
 export interface ScreenMeta {
   id: ScreenId
@@ -42,6 +43,16 @@ export const SCREENS: ScreenMeta[] = [
     color: '#2563eb',
     panels: ['resize', 'format'],
     defaults: { resize: { ...DEFAULT_RESIZE, mode: 'percent', percent: 50 } },
+  },
+  {
+    id: 'crop',
+    name: 'Crop',
+    tagline: 'Free or a fixed aspect ratio',
+    description: 'Drag a crop box on each image or type it in pixels; one crop can apply to the whole batch.',
+    icon: 'crop',
+    color: '#db2777',
+    panels: ['crop', 'format', 'resize'],
+    defaults: {},
   },
   {
     id: 'compress',

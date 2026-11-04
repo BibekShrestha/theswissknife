@@ -1,11 +1,12 @@
 /**
- * One image, start to finish: resize, encode, and hit a size target if asked.
+ * One image, start to finish: crop, resize, encode, and hit a size target if asked.
  *
  * Lives apart from the worker so the same routine serves both the worker and
  * the main-thread fallback, and so the request/response types can be imported
  * without pulling the worker module into the page.
  */
 
+import { isFull, resolveCrop, type CropSpec, type Rect } from './crop'
 import { computeSize, scaleSize, type ResizeSpec } from './dimensions'
 import { encodeCanvas, renderToCanvas, type GifSettings } from './encode'
 import { formatInfo, type OutFormat } from './formats'
@@ -13,6 +14,8 @@ import { searchForTarget } from './target'
 
 export interface JobOptions {
   format: OutFormat
+  /** Applied before `resize`, which then sizes the cropped area. */
+  crop: CropSpec
   resize: ResizeSpec
   /** 0–1, used by JPEG and WebP. */
   quality: number
@@ -29,6 +32,8 @@ export interface JobOutput {
   height: number
   sourceWidth: number
   sourceHeight: number
+  /** The area kept, in source pixels; null when the whole image was used. */
+  crop: Rect | null
   format: OutFormat
   quality: number
   /** Encode passes used — more than one means a size target was hunted down. */
@@ -40,7 +45,10 @@ export interface JobOutput {
 }
 
 export async function runJob(bitmap: ImageBitmap, options: JobOptions): Promise<JobOutput> {
-  const source = { width: bitmap.width, height: bitmap.height }
+  const full = { width: bitmap.width, height: bitmap.height }
+  const rect = resolveCrop(full, options.crop)
+  const crop = isFull(rect, full) ? null : rect
+  const source = { width: rect.width, height: rect.height }
   const wanted = computeSize(source, options.resize)
   const info = formatInfo(options.format)
 
@@ -54,14 +62,15 @@ export async function runJob(bitmap: ImageBitmap, options: JobOptions): Promise<
 
   const encodeAt = async ({ quality, scale }: { quality: number; scale: number }): Promise<Attempt> => {
     const target = scale === 1 ? wanted : scaleSize(wanted, scale)
-    const canvas = renderToCanvas(bitmap, target, options.matte)
+    const canvas = renderToCanvas(bitmap, target, options.matte, crop)
     const blob = await encodeCanvas(canvas, options.format, quality, options.gif)
     return { size: blob.size, blob, width: target.width, height: target.height }
   }
 
   const common = {
-    sourceWidth: source.width,
-    sourceHeight: source.height,
+    sourceWidth: full.width,
+    sourceHeight: full.height,
+    crop,
     format: options.format,
     upscaled: wanted.upscaled,
     clamped: wanted.clamped,

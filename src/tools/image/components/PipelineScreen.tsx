@@ -6,7 +6,7 @@ import { Panels } from './Panels'
 
 /**
  * Every screen is this component with a different `screen` — the panels and the
- * starting options are all that change between Convert, Resize, Compress and
+ * starting options are all that change between Convert, Resize, Crop, Compress and
  * All in one.
  */
 export function PipelineScreen({ screen }: { screen: ScreenMeta }) {

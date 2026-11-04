@@ -1,11 +1,12 @@
 /**
- * Canvas plumbing: resize, then hand the pixels to an encoder.
+ * Canvas plumbing: crop and resize, then hand the pixels to an encoder.
  *
  * Written against both canvas flavours so the worker (OffscreenCanvas) and the
  * main-thread fallback (a DOM canvas, for browsers without
  * OffscreenCanvas.convertToBlob) run exactly the same code.
  */
 
+import type { Rect } from './crop'
 import { downscaleSteps, type Size } from './dimensions'
 import { formatInfo, type OutFormat } from './formats'
 
@@ -32,23 +33,33 @@ export function createCanvas(width: number, height: number): AnyCanvas {
 }
 
 /**
- * Draws the bitmap at the requested size, halving first when the reduction is
- * large: browsers only average a few neighbouring pixels per step, so one
- * giant downscale aliases where a few halvings stay smooth.
+ * Draws the bitmap (or just `crop` of it) at the requested size, halving first
+ * when the reduction is large: browsers only average a few neighbouring pixels
+ * per step, so one giant downscale aliases where a few halvings stay smooth.
+ * The crop is cut by the first draw, so later steps only see what is kept.
  */
 export function renderToCanvas(
   source: ImageBitmap,
   target: Size,
   matte: string | null,
+  crop: Rect | null = null,
 ): AnyCanvas {
   let current: ImageBitmap | AnyCanvas = source
-  for (const step of downscaleSteps({ width: source.width, height: source.height }, target)) {
-    current = paint(current, step, null)
+  let from: Rect | null = crop
+  const start = crop ? { width: crop.width, height: crop.height } : { width: source.width, height: source.height }
+  for (const step of downscaleSteps(start, target)) {
+    current = paint(current, step, null, from)
+    from = null
   }
-  return paint(current, target, matte)
+  return paint(current, target, matte, from)
 }
 
-function paint(source: ImageBitmap | AnyCanvas, size: Size, matte: string | null): AnyCanvas {
+function paint(
+  source: ImageBitmap | AnyCanvas,
+  size: Size,
+  matte: string | null,
+  from: Rect | null,
+): AnyCanvas {
   const canvas = createCanvas(size.width, size.height)
   const ctx = context(canvas)
   ctx.imageSmoothingEnabled = true
@@ -57,7 +68,21 @@ function paint(source: ImageBitmap | AnyCanvas, size: Size, matte: string | null
     ctx.fillStyle = matte
     ctx.fillRect(0, 0, size.width, size.height)
   }
-  ctx.drawImage(source as CanvasImageSource, 0, 0, size.width, size.height)
+  if (from) {
+    ctx.drawImage(
+      source as CanvasImageSource,
+      from.x,
+      from.y,
+      from.width,
+      from.height,
+      0,
+      0,
+      size.width,
+      size.height,
+    )
+  } else {
+    ctx.drawImage(source as CanvasImageSource, 0, 0, size.width, size.height)
+  }
   return canvas
 }
 

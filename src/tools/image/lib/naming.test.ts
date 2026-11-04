@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { baseName, formatBytes, outputName, uniqueNames } from './naming'
+import { baseName, formatBytes, outputName, sizeLabel, uniqueNames } from './naming'
 
 describe('baseName', () => {
   it('drops the extension and any directory prefix', () => {
@@ -72,5 +72,19 @@ describe('formatBytes', () => {
   it('does not print nonsense for missing sizes', () => {
     expect(formatBytes(Number.NaN)).toBe('—')
     expect(formatBytes(-1)).toBe('—')
+  })
+})
+
+describe('sizeLabel', () => {
+  const base = { sourceWidth: 4000, sourceHeight: 3000, crop: null, width: 4000, height: 3000 }
+
+  it('names only the steps that changed something', () => {
+    expect(sizeLabel(base)).toBe('4000 × 3000 px')
+    expect(sizeLabel({ ...base, width: 2000, height: 1500 })).toBe('4000 × 3000 → 2000 × 1500 px')
+    const crop = { width: 1200, height: 1200 }
+    expect(sizeLabel({ ...base, crop, width: 1200, height: 1200 })).toBe('4000 × 3000 → crop 1200 × 1200 px')
+    expect(sizeLabel({ ...base, crop, width: 600, height: 600 })).toBe(
+      '4000 × 3000 → crop 1200 × 1200 → 600 × 600 px',
+    )
   })
 })
