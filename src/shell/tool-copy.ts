@@ -21,7 +21,7 @@ export const taglines: Record<string, string> = {
   cron: 'Read a cron expression in plain English and see its next run times in any time zone',
   dates: 'Convert a date and time between time zones, DST-aware, and do date differences and ISO 8601 duration math',
   pdf: 'Merge, split, convert, compress, watermark, fill and sign, protect, unlock, and strip metadata from PDFs — all client-side',
-  image: 'Convert, resize and compress JPEG, PNG, WebP and GIF — batch, with a size target',
+  image: 'Convert, resize, crop and compress JPEG, PNG, WebP and GIF — batch, with a size target',
   qr: 'Make QR codes for links, Wi-Fi, contacts and events, or read one from an image or paste — all offline',
   exif: 'See the EXIF, GPS, XMP and IPTC hidden in your photos, then strip them without re-encoding — checked by re-reading the output',
   csv: 'Paste or drop a CSV and read it as a real table — sort, search, filter, group, edit and export offline',

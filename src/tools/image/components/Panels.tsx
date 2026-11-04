@@ -1,4 +1,5 @@
 import { formatInfo, OUT_FORMATS, type FormatChoice } from '../lib/formats'
+import { CropPanel } from './CropPanel'
 import type { PanelId } from '../lib/screens'
 import type { Pipeline } from '../useImagePipeline'
 
@@ -6,7 +7,9 @@ export function Panels({ panels, pipeline }: { panels: PanelId[]; pipeline: Pipe
   return (
     <div className="image-panels">
       {panels.map((panel) =>
-        panel === 'format' ? (
+        panel === 'crop' ? (
+          <CropPanel key={panel} pipeline={pipeline} />
+        ) : panel === 'format' ? (
           <FormatPanel key={panel} pipeline={pipeline} />
         ) : panel === 'resize' ? (
           <ResizePanel key={panel} pipeline={pipeline} />

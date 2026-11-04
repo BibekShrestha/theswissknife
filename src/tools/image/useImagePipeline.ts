@@ -1,7 +1,7 @@
 /**
  * The engine every screen shares.
  *
- * Convert, Resize, Compress and All-in-one are the same pipeline with
+ * Convert, Resize, Crop, Compress and All-in-one are the same pipeline with
  * different panels showing, so the queue, the worker plumbing, the warnings
  * and the downloads live here once. A screen supplies its default options and
  * decides which panels to render — nothing else.
@@ -11,7 +11,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { decodeRaster, measureSvg, rasterizeSvg } from './lib/decode'
-import { computeSize, DEFAULT_RESIZE, type ResizeSpec } from './lib/dimensions'
+import {
+  DEFAULT_CROP,
+  refitEntries,
+  resolveCrop,
+  type AspectId,
+  type CropEntry,
+  type CropOptions,
+  type Rect,
+} from './lib/crop'
+import { computeSize, DEFAULT_RESIZE, MAX_PIXELS, scaleSize, type ResizeSpec } from './lib/dimensions'
 import { sniff, SNIFF_BYTES, unsupported, type Frames } from './lib/detect'
 import { canUseOffscreen, probeEncoders } from './lib/encode'
 import {
@@ -30,6 +39,8 @@ export const MAX_FILE_BYTES = 30 * 1024 * 1024
 
 export interface PipelineOptions {
   format: FormatChoice
+  /** Only the Crop screen changes this; the default keeps every image whole. */
+  crop: CropOptions
   resize: ResizeSpec
   /** 0–1 for JPEG and WebP. */
   quality: number
@@ -43,6 +54,7 @@ export interface PipelineOptions {
 
 export const DEFAULT_OPTIONS: PipelineOptions = {
   format: 'keep',
+  crop: DEFAULT_CROP,
   resize: DEFAULT_RESIZE,
   quality: 0.82,
   useTarget: false,
@@ -62,6 +74,8 @@ export interface ItemResult {
   /** Decoded size of the input, for the before/after comparison. */
   sourceWidth: number
   sourceHeight: number
+  /** The area kept, in source pixels; null when nothing was cut away. */
+  crop: Rect | null
   format: OutFormat
   quality: number
   attempts: number
@@ -194,6 +208,41 @@ export function useImagePipeline(defaults?: Partial<PipelineOptions>) {
     [clearResults],
   )
 
+  const setCropAspect = useCallback(
+    (aspect: AspectId) => {
+      setOptions((prev) => ({ ...prev, crop: { aspect, rects: refitEntries(prev.crop.rects, aspect) } }))
+      clearResults()
+    },
+    [clearResults],
+  )
+
+  /** One file's crop; null puts it back on the centred default. */
+  const setCropRect = useCallback(
+    (id: string, entry: CropEntry | null) => {
+      setOptions((prev) => {
+        const rects = { ...prev.crop.rects }
+        if (entry) rects[id] = entry
+        else delete rects[id]
+        return { ...prev, crop: { ...prev.crop, rects } }
+      })
+      clearResults()
+    },
+    [clearResults],
+  )
+
+  /** The same crop for every file; sizes that differ get it scaled to fit. */
+  const applyCropToAll = useCallback(
+    (entry: CropEntry) => {
+      setOptions((prev) => {
+        const rects: Record<string, CropEntry> = {}
+        for (const item of itemsRef.current) if (item.status !== 'rejected') rects[item.id] = entry
+        return { ...prev, crop: { ...prev.crop, rects } }
+      })
+      clearResults()
+    },
+    [clearResults],
+  )
+
   const addFiles = useCallback(async (incoming: File[]) => {
     // Take what fits and say what did not, rather than truncating in silence.
     const room = Math.max(0, MAX_FILES - itemsRef.current.length)
@@ -274,8 +323,10 @@ export function useImagePipeline(defaults?: Partial<PipelineOptions>) {
         warnings.push(`Any transparency was flattened onto ${options.matte}`)
       }
 
+      const crop = { aspect: options.crop.aspect, entry: options.crop.rects[item.id] ?? null }
       const jobOptions: JobOptions = {
         format,
+        crop,
         resize: options.resize,
         quality: options.quality,
         targetBytes: options.useTarget ? Math.max(1, Math.round(options.targetKB * 1024)) : null,
@@ -285,15 +336,36 @@ export function useImagePipeline(defaults?: Partial<PipelineOptions>) {
 
       let output: JobOutput
       if (item.source === 'svg') {
-        // Vectors are rasterised once, at the final size, on this thread.
+        // Vectors are rasterised once, on this thread, at the scale that makes
+        // the kept area come out at the final size.
         const measured = await measureSvg(item.file)
         if (measured.assumed && measured.note) warnings.push(measured.note)
-        const size = computeSize(measured.intrinsic, options.resize)
-        const bitmap = await rasterizeSvg(measured.text, size)
-        const svgJob: JobOptions = { ...jobOptions, resize: { ...DEFAULT_RESIZE, mode: 'none' } }
+        const intrinsic = {
+          width: Math.max(1, Math.round(measured.intrinsic.width)),
+          height: Math.max(1, Math.round(measured.intrinsic.height)),
+        }
+        const area = resolveCrop(intrinsic, crop)
+        const size = computeSize({ width: area.width, height: area.height }, options.resize)
+        const kx = size.width / area.width
+        const ky = size.height / area.height
+        let raster = { width: Math.max(1, Math.round(intrinsic.width * kx)), height: Math.max(1, Math.round(intrinsic.height * ky)) }
+        let clamped = size.clamped
+        if (raster.width * raster.height > MAX_PIXELS) {
+          // a small crop of a large drawing: the whole raster has to fit too
+          raster = scaleSize(raster, Math.sqrt(MAX_PIXELS / (raster.width * raster.height)) * 0.999)
+          clamped = true
+        }
+        const bitmap = await rasterizeSvg(measured.text, raster)
+        const svgJob: JobOptions = {
+          ...jobOptions,
+          crop: { aspect: 'free', entry: { rect: area, ref: intrinsic } },
+          resize: { ...DEFAULT_RESIZE, mode: 'none' },
+        }
         output = canUseOffscreen()
           ? await ask({ id: item.id, bitmap, options: svgJob }, [bitmap])
           : await runLocally(bitmap, svgJob)
+        // a vector is never enlarged from pixels, so only the clamp is news
+        output = { ...output, clamped: output.clamped || clamped }
       } else {
         output = canUseOffscreen()
           ? await ask({ id: item.id, blob: item.file, options: jobOptions }, [])
@@ -317,6 +389,7 @@ export function useImagePipeline(defaults?: Partial<PipelineOptions>) {
         height: output.height,
         sourceWidth: output.sourceWidth,
         sourceHeight: output.sourceHeight,
+        crop: output.crop,
         format,
         quality: output.quality,
         attempts: output.attempts,
@@ -408,6 +481,9 @@ export function useImagePipeline(defaults?: Partial<PipelineOptions>) {
     options,
     setOption,
     setResize,
+    setCropAspect,
+    setCropRect,
+    applyCropToAll,
     items,
     results,
     totals,
