@@ -267,6 +267,8 @@
 .image-panel h3 .material-symbols-outlined {
   color: var(--accent);
   font-size: 17px;
+  /* ligatures are lower-case: inherited uppercase prints the icon's name */
+  text-transform: none;
 }
 
 .image-chips {
@@ -900,4 +902,136 @@
     bottom: auto;
     top: 10px;
   }
+}
+
+/* ---- crop ---- */
+.image-crop {
+  /* the picture needs the whole row */
+  grid-column: 1 / -1;
+}
+
+.image-crop-nav {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.image-crop-name {
+  flex: 1;
+  font-size: 13px;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-crop-wrap {
+  background:
+    repeating-conic-gradient(var(--panel-2) 0% 25%, var(--panel) 0% 50%) 0 0 / 16px 16px;
+  border: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+}
+
+.image-crop-stage {
+  cursor: crosshair;
+  max-width: 100%;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+
+.image-crop-stage img {
+  display: block;
+  height: 100%;
+  pointer-events: none;
+  width: 100%;
+}
+
+/* the shadow dims everything outside the box; this layer clips it to the picture */
+.image-crop-shade {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+}
+
+.image-crop-shade > div {
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
+  position: absolute;
+}
+
+.image-crop-box {
+  cursor: move;
+  outline: 1px solid rgba(255, 255, 255, 0.95);
+  position: absolute;
+}
+
+/* rule-of-thirds guides */
+.image-crop-box::before,
+.image-crop-box::after {
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.image-crop-box::before {
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+  border-right: 1px solid rgba(255, 255, 255, 0.4);
+  left: 33.333%;
+  right: 33.333%;
+}
+
+.image-crop-box::after {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  bottom: 33.333%;
+  top: 33.333%;
+}
+
+.image-crop-handle {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  position: absolute;
+  width: 12px;
+  z-index: 1;
+}
+
+/* a bigger invisible target for fingers */
+.image-crop-handle::after {
+  content: '';
+  inset: -10px;
+  position: absolute;
+}
+
+.image-crop-nw { cursor: nwse-resize; left: 0; top: 0; }
+.image-crop-n { cursor: ns-resize; left: 50%; top: 0; }
+.image-crop-ne { cursor: nesw-resize; left: 100%; top: 0; }
+.image-crop-e { cursor: ew-resize; left: 100%; top: 50%; }
+.image-crop-se { cursor: nwse-resize; left: 100%; top: 100%; }
+.image-crop-s { cursor: ns-resize; left: 50%; top: 100%; }
+.image-crop-sw { cursor: nesw-resize; left: 0; top: 100%; }
+.image-crop-w { cursor: ew-resize; left: 0; top: 50%; }
+
+.image-crop-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.image-crop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.image-compare-frame.cropped {
+  overflow: hidden;
 }

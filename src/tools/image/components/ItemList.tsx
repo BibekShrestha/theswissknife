@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CompareViewer } from './CompareViewer'
-import { formatBytes } from '../lib/naming'
+import { formatBytes, sizeLabel } from '../lib/naming'
 import type { Pipeline } from '../useImagePipeline'
 
 export function ItemList({ pipeline }: { pipeline: Pipeline }) {
@@ -78,12 +78,7 @@ export function ItemList({ pipeline }: { pipeline: Pipeline }) {
                       arrow_right_alt
                     </span>
                     <span className="image-tag">{item.result.format.toUpperCase()}</span>
-                    <span>
-                      {item.result.sourceWidth !== item.result.width ||
-                      item.result.sourceHeight !== item.result.height
-                        ? `${item.result.sourceWidth} × ${item.result.sourceHeight} → ${item.result.width} × ${item.result.height} px`
-                        : `${item.result.width} × ${item.result.height} px`}
-                    </span>
+                    <span>{sizeLabel(item.result)}</span>
                     <span>
                       {formatBytes(item.file.size)} → <strong>{formatBytes(item.result.bytes)}</strong>
                       {savedLabel(item.file.size, item.result.bytes)}
@@ -175,3 +170,4 @@ function savedLabel(before: number, after: number) {
     <em className="image-warn"> +{Math.round(-change * 100)}%</em>
   )
 }
+

@@ -430,9 +430,17 @@ the precache list built by `scripts/sw-manifest.ts`.
   exported as trimmed transparent PNG, and kept in React state only — no
   storage, no URL. Placed items move by drag or arrow keys (Shift = 10 pt),
   resize by handle or +/−, and Delete removes them.
-- `tools/image/` — batch convert/resize/compress. One engine
-  (`useImagePipeline`) behind four screens; canvas work runs in
-  `image.worker.ts`. `gif/` is a hand-written GIF89a encoder (median cut,
+- `tools/image/` — batch convert/resize/crop/compress. One engine
+  (`useImagePipeline`) behind five screens; canvas work runs in
+  `image.worker.ts`. Crop (`lib/crop.ts`, pure geometry; `CropPanel.tsx`)
+  keeps one rect per file in decoded, EXIF-rotated pixels together with the
+  size it was drawn on, so "use for all" maps onto other sizes and the
+  worker's `resolveCrop` is what the box displays; files never touched get
+  the centred largest box of the chosen ratio. The crop is cut by the first
+  canvas draw, then resize applies to the kept area; SVG is rasterised at
+  the scale that makes the kept area come out at the output size. The
+  picture is an aria-hidden pointer shortcut — the X/Y/W/H fields are the
+  control. `gif/` is a hand-written GIF89a encoder (median cut,
   Floyd–Steinberg, LZW) because browsers cannot encode GIF — it is
   dynamically imported so it only loads when GIF output is picked, and its
   tests decode what it writes. SVG is input-only and rasterises on the main

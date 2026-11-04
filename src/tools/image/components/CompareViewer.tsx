@@ -8,7 +8,7 @@ import {
   zoomToward,
   type Point,
 } from '../lib/compare'
-import { formatBytes } from '../lib/naming'
+import { formatBytes, sizeLabel } from '../lib/naming'
 import type { ItemResult, QueueItem } from '../useImagePipeline'
 
 export type CompareItem = QueueItem & { result: ItemResult }
@@ -63,9 +63,25 @@ export function CompareViewer({
     return () => URL.revokeObjectURL(url)
   }, [item.file])
 
-  // The frame is the input's decoded size, which the worker already reported —
-  // no waiting on an img load event that can fire before React is listening.
-  const natural = { width: item.result.sourceWidth, height: item.result.sourceHeight }
+  // The frame is the input's decoded size (or the part a crop kept), which the
+  // worker already reported — no waiting on an img load event that can fire
+  // before React is listening.
+  const kept = item.result.crop
+  const natural = kept
+    ? { width: kept.width, height: kept.height }
+    : { width: item.result.sourceWidth, height: item.result.sourceHeight }
+  // a cropped result is compared with the same area of the original, so the
+  // original is drawn oversized and shifted inside the clipping frame
+  const sourceStyle: React.CSSProperties | undefined = kept
+    ? {
+        height: `${(item.result.sourceHeight / kept.height) * 100}%`,
+        left: `${(-kept.x / kept.width) * 100}%`,
+        maxWidth: 'none',
+        position: 'absolute',
+        top: `${(-kept.y / kept.height) * 100}%`,
+        width: `${(item.result.sourceWidth / kept.width) * 100}%`,
+      }
+    : undefined
   const fit = fitScale(natural, stage)
   const scale = zoom ?? fit
   const atFit = zoom === null
@@ -188,7 +204,7 @@ export function CompareViewer({
     height: `${Math.max(1, natural.height * scale)}px`,
     transform: `translate(${offset.x}px, ${offset.y}px)`,
   }
-  const resized = result.sourceWidth !== result.width || result.sourceHeight !== result.height
+  const resized = natural.width !== result.width || natural.height !== result.height
 
   // In side-by-side the converted image lives in its own pane, so it is clipped
   // away entirely here; flip mode clips it while the original is held down.
@@ -293,8 +309,8 @@ export function CompareViewer({
           >
             {/* the original sits underneath; the converted one is wiped over it */}
             <div className="image-compare-layer">
-              <div className="image-compare-frame" style={frame}>
-                {sourceUrl && <img src={sourceUrl} alt="" draggable={false} />}
+              <div className={`image-compare-frame${kept ? ' cropped' : ''}`} style={frame}>
+                {sourceUrl && <img src={sourceUrl} alt="" draggable={false} style={sourceStyle} />}
               </div>
             </div>
 
@@ -405,11 +421,7 @@ export function CompareViewer({
           </div>
 
           <p className="image-compare-facts">
-            {resized && (
-              <span>
-                {result.sourceWidth} × {result.sourceHeight} → {result.width} × {result.height}
-              </span>
-            )}
+            {(resized || kept) && <span>{sizeLabel(result)}</span>}
             {result.attempts > 1 && <span>{result.attempts} encode passes</span>}
             <span>quality {Math.round(result.quality * 100)}%</span>
             {result.warnings.length > 0 && <span className="image-warn">{result.warnings[0]}</span>}

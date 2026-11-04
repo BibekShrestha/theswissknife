@@ -42,3 +42,23 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
+
+/** "4000 × 3000 → crop 1200 × 1200 → 600 × 600 px", leaving out steps that changed nothing. */
+export function sizeLabel(result: {
+  sourceWidth: number
+  sourceHeight: number
+  crop: { width: number; height: number } | null
+  width: number
+  height: number
+}): string {
+  const steps = [`${result.sourceWidth} × ${result.sourceHeight}`]
+  let last = { width: result.sourceWidth, height: result.sourceHeight }
+  if (result.crop) {
+    steps.push(`crop ${result.crop.width} × ${result.crop.height}`)
+    last = result.crop
+  }
+  if (last.width !== result.width || last.height !== result.height) {
+    steps.push(`${result.width} × ${result.height}`)
+  }
+  return `${steps.join(' → ')} px`
+}
